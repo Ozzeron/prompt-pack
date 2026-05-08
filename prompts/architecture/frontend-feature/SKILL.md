@@ -62,21 +62,44 @@ Out of scope:
 ## Process
 
 1. **Confirm the feature.** What does the user accomplish? What are the screens, the actions, the data?
-   If unclear, ask one focused question — do not assume.
-2. **Locate the API contract.** Endpoints, request/response shapes, errors. If they don't
-   exist, stop and request `architecture/backend-api` work first.
+   If unclear, ask one focused question — do not assume. Also confirm the **mode**:
+   production (real users will hit this) or prototype (mock data, exploratory).
+2. **Locate the API contract.** Endpoints, request/response shapes, errors.
+   - **Production mode:** if the contract doesn't exist, stop and request
+     `architecture/backend-api` work first.
+   - **Prototype mode (explicitly requested by the user):** use typed mock data, define
+     the contract you'd expect, mark it `// TODO: backend pending` in code, and call it
+     out in the handoff.
 3. **Map to layers.** Route → data hook → page component → feature components → form schema → types.
-4. **Sample sibling features.** Read 1–2 existing features in the same archetype. Note
-   the project's conventions for: data fetching library, state location, form lib,
+4. **Sample sibling features.** Read 1–2 *active* existing features in the same archetype.
+   Active matters: an old abandoned feature might be the dead style, not the current one.
+   Note the project's conventions for: data fetching library, state location, form lib,
    validator, error handling, optimistic updates, navigation.
-5. **Sketch the file plan.** Where each piece lives. Reuse over create. Justify any new
-   files in one line each.
+5. **Sketch the file plan.** Where each piece lives. Apply Feature Safety Rules below.
 6. **Build in layered order:** types → data layer → state → forms/validation → UI → states
    (loading/empty/error) → tests.
 7. **Visual consistency check.** Delegate to `ui-designer` rules: spacing, radius, density,
    button hierarchy, form layout, empty state.
 8. **Run lint, typecheck, tests.** Don't hand off broken work.
 9. **Hand off.** Use `delivery/handoff`.
+
+## Feature Safety Rules
+
+Before implementing, internalise these. They are not aspirational; they are the floor.
+
+1. Find 1–2 **active** sibling features with similar behaviour. Read them.
+2. Identify the existing router, data-fetching library, form library, validation library,
+   state strategy, and design primitives. Write them down.
+3. **Do not introduce a second tool** for any of those categories. Match what exists.
+4. **Do not create new shared abstractions inside a feature folder.** Shared things live
+   in shared places.
+5. **Do not duplicate** API types, validation schemas, query keys, or formatting helpers.
+   Search before creating.
+6. **Any new file requires a one-line justification** in the handoff. Files not justified
+   should be reused or extended versions of existing ones.
+7. **Any new dependency requires explicit user approval** before installation.
+8. **New feature folders** are allowed only when the feature is truly self-contained
+   (own routes, own data, own UI). Otherwise, fit it into an existing folder.
 
 ## Layer-by-layer rules
 
@@ -104,6 +127,11 @@ Default order:
 5. **Global store** — only for cross-cutting (auth user, theme); not for "I don't want to drill"
 
 Derived state is computed in render, not stored.
+
+**For list / table / dashboard pages**, prefer URL state for: filters, search, sort,
+pagination cursor or page number, selected tab, and selected entity id (when a detail
+panel or modal is in play). The test: if the user refreshes or shares the URL, do they
+get the same view? They should.
 
 ### Forms and validation
 - Use the project's form library. Don't write a parallel one.
@@ -136,12 +164,38 @@ Delegate to [`interface/ui-designer`](../../interface/ui-designer/SKILL.md). The
 - Never swallow with `try { ... } catch {}`. Either handle or propagate
 - Show retry actions where retrying is meaningful
 
+### Auth and permissions
+
+When a feature's visibility, actions, or data depend on user role, tenant, ownership, or permissions:
+
+1. **Reuse existing auth/session/permission helpers.** Don't introduce a parallel auth layer.
+2. **Handle all auth states explicitly:** logged-out, expired session, 401, 403, missing
+   permission, role mismatch. Each gets a clear UI path — not a blank page.
+3. **Hidden UI is never security.** Hiding a button does not protect the action. The
+   server must enforce. Frontend permission checks are UX, not authorization.
+4. **Don't render sensitive data until permission state is known.** Show a loading state
+   while resolving, not optimistic content that flickers and exposes.
+5. **Don't log or expose sensitive data on the client:** tokens, session payloads, raw
+   API errors with internals, PII in console or analytics.
+
 ### Tests
 - Test behaviour, not implementation. "When user clicks Save, the API is called with X
   and the toast appears" — not "the `handleSave` function is called."
-- One happy path, at least one failure path, at least one validation case.
 - Use the project's testing library (Vitest, Jest, Playwright). Don't introduce a parallel one.
 - Mock the data layer at its boundary (handler / fetcher), not at random places.
+
+**Minimum coverage for an interactive feature:**
+- One happy path (mutation succeeds, UI reflects it)
+- At least one validation case (form rejects bad input)
+- At least one failure case (API error → user-visible message)
+- Loading state renders
+- Empty state renders
+- Permission / forbidden state renders (when the feature is gated)
+- URL state persists across reload (when filters / pagination / tabs are URL-bound)
+- Duplicate submit is prevented (rapid double-click on Save)
+- Cache invalidation after mutation works (list updates after item is created/edited/deleted)
+
+Not every feature needs all nine — cover the ones that apply to *this* feature.
 
 ## File plan template
 
@@ -166,6 +220,13 @@ features/<feature>/
 
 Match the project's actual conventions — this is just a shape, not a prescription.
 
+**Every file in the plan must be classified** as one of:
+- **Reused** — the existing artifact is imported and used as-is
+- **Extended** — an existing artifact gains a prop, option, or generic; document what was added
+- **New** — nothing existing fit; one-line justification why
+
+If the plan has more than 1–2 "new" entries, stop and look harder for reuse opportunities.
+
 ## Output format
 
 When proposing the feature plan before implementation:
@@ -174,15 +235,18 @@ When proposing the feature plan before implementation:
 ## Feature
 <One sentence: what the user can do after this lands>
 
+## Mode
+Production / Prototype — <if prototype, what's mocked>
+
 ## Scope
 - In: <bullets>
 - Out: <bullets, with reason>
 
 ## API contract
-- <Endpoints / hooks / RPCs needed; if missing, stop and request backend work>
+- <Endpoints / hooks / RPCs needed; if missing in production mode, stop and request backend work>
 
 ## File plan
-- <path> — <what>, reused/extended/new (with justification for new)
+- <path> — <what>, **reused** / **extended** / **new** (one-line justification when new)
 
 ## Layers
 - Routing: <approach>
@@ -191,8 +255,12 @@ When proposing the feature plan before implementation:
 - Forms: <library, schema location>
 - Types: <source of truth>
 
+## Auth / permissions
+- <Required role/permission, helpers reused, states handled — or N/A>
+
 ## States covered
 - Default / Loading / Empty / Error / Submitting / Success / Failure
+- Forbidden / Unauthenticated (if gated)
 
 ## Open questions
 - <Things blocking finalization>
