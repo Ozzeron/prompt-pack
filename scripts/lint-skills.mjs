@@ -11,6 +11,8 @@
  *   (When to use → Scope → Inherits → Token discipline → Process → Output format → Anti-patterns)
  * - All internal markdown links to ../...SKILL.md resolve
  * - No project-specific leakage (Ozzeron, project-a, project-b-fit, med-project-c, acme-data, etc.)
+ * - All profiles in install.ps1 / install.sh reference existing skills
+ * - All references in task-router active table point to existing skills
  *
  * Exit code: 0 if clean, 1 if any failures.
  */
@@ -184,8 +186,88 @@ function lintSkill(skill) {
   return failures;
 }
 
+function checkInstallerProfiles(skillIds) {
+  const failures = [];
+  const skillSet = new Set(skillIds);
+
+  // install.ps1 — extract profile -> skill list mapping
+  const ps1Path = join(REPO_ROOT, 'install.ps1');
+  if (existsSync(ps1Path)) {
+    const content = readFileSync(ps1Path, 'utf8');
+    // Match `'<profile>' = @(` then capture every quoted skill path until `)`
+    const blockRe = /'([a-z]+)'\s*=\s*@\(([\s\S]*?)\)/g;
+    let match;
+    while ((match = blockRe.exec(content)) !== null) {
+      const profile = match[1];
+      if (profile === 'all') continue; // built at runtime
+      const skillRe = /'([a-z-]+\/[a-z-]+)'/g;
+      let m2;
+      while ((m2 = skillRe.exec(match[2])) !== null) {
+        if (!skillSet.has(m2[1])) {
+          failures.push(`install.ps1 profile "${profile}" references missing skill: ${m2[1]}`);
+        }
+      }
+    }
+  }
+
+  // install.sh — heredoc style
+  const shPath = join(REPO_ROOT, 'install.sh');
+  if (existsSync(shPath)) {
+    const content = readFileSync(shPath, 'utf8');
+    // Match `<profile>)\n      cat <<EOF\n...\nEOF`
+    const blockRe = /^\s*([a-z]+)\)\s*\n\s*cat <<EOF\s*\n([\s\S]*?)\nEOF/gm;
+    let match;
+    while ((match = blockRe.exec(content)) !== null) {
+      const profile = match[1];
+      if (profile === 'all') continue;
+      for (const line of match[2].split(/\r?\n/)) {
+        const skill = line.trim();
+        if (!skill) continue;
+        // Profile blocks contain bare skill paths. Anything else is noise.
+        if (!/^[a-z-]+\/[a-z-]+$/.test(skill)) continue;
+        if (!skillSet.has(skill)) {
+          failures.push(`install.sh profile "${profile}" references missing skill: ${skill}`);
+        }
+      }
+    }
+  }
+
+  return failures;
+}
+
+function checkRouterReferences(skillIds) {
+  const failures = [];
+  const skillSet = new Set(skillIds);
+
+  const routerPath = join(REPO_ROOT, 'prompts/meta/task-router/SKILL.md');
+  if (!existsSync(routerPath)) {
+    return [`task-router skill missing: ${routerPath}`];
+  }
+
+  const content = readFileSync(routerPath, 'utf8');
+  // The router has two sections: an active routing table and a Planned section.
+  // Only the active table should reference real skills. Split at the Planned heading.
+  const activeSection = content.split(/^##\s*Planned/m)[0] || '';
+
+  // Match `\`<category>/<name>\`` patterns in the active section.
+  const refRe = /`([a-z-]+\/[a-z-]+)`/g;
+  const seen = new Set();
+  let match;
+  while ((match = refRe.exec(activeSection)) !== null) {
+    const ref = match[1];
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    if (!skillSet.has(ref)) {
+      failures.push(`task-router active table references missing skill: ${ref}`);
+    }
+  }
+
+  return failures;
+}
+
 function main() {
   const skills = findSkillFiles();
+  const skillIds = skills.map((s) => `${s.category}/${s.name}`);
   let totalFailures = 0;
 
   console.log(`Linting ${skills.length} skills...\n`);
@@ -204,12 +286,34 @@ function main() {
     }
   }
 
+  // Cross-checks beyond per-skill linting.
+  console.log();
+  console.log('Cross-checks:');
+
+  const installerFailures = checkInstallerProfiles(skillIds);
+  if (installerFailures.length === 0) {
+    console.log('  PASS  installer profiles reference existing skills');
+  } else {
+    console.log('  FAIL  installer profiles');
+    for (const f of installerFailures) console.log(`        - ${f}`);
+    totalFailures += installerFailures.length;
+  }
+
+  const routerFailures = checkRouterReferences(skillIds);
+  if (routerFailures.length === 0) {
+    console.log('  PASS  task-router active table references existing skills');
+  } else {
+    console.log('  FAIL  task-router');
+    for (const f of routerFailures) console.log(`        - ${f}`);
+    totalFailures += routerFailures.length;
+  }
+
   console.log();
   if (totalFailures === 0) {
-    console.log(`All ${skills.length} skills pass.`);
+    console.log(`All ${skills.length} skills + cross-checks pass.`);
     process.exit(0);
   } else {
-    console.log(`${totalFailures} failure(s) across ${skills.length} skills.`);
+    console.log(`${totalFailures} failure(s) across ${skills.length} skills + cross-checks.`);
     process.exit(1);
   }
 }
