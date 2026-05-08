@@ -38,7 +38,12 @@ Out of scope:
 - Visual design language / brand decisions (use `interface/ui-designer`)
 - Full rewrites — propose incremental fixes only
 
-## Token discipline
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — the rubric for what counts as a finding (DRY, file size, type safety, modern standards).
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample the codebase, never read it exhaustively.
+
+## Token discipline (specific)
 
 Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additionally:
 

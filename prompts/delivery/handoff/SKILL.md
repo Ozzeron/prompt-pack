@@ -36,7 +36,12 @@ Out of scope:
 - Restating the entire diff line by line
 - Scope expansion: suggestions stay in the suggestions section, not as silent changes
 
-## Token discipline
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — used implicitly: if the work violates these, the handoff must call it out under Risks or Suggestions.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — build the handoff from working memory, not by re-reading files.
+
+## Token discipline (specific)
 
 Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additionally:
 

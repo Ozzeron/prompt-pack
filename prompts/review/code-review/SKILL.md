@@ -38,7 +38,12 @@ Out of scope:
 - Personal preferences without a concrete reason
 - Architectural rewrites — flag the smell, propose a follow-up, don't demand it in this review
 
-## Token discipline
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — use as the rubric for finding DRY violations, oversized files, unsafe types, naming issues.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the diff first, surrounding files only when needed.
+
+## Token discipline (specific)
 
 Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additionally:
 

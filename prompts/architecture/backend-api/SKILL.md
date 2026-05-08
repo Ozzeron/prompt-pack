@@ -39,7 +39,12 @@ Out of scope:
 - Infrastructure (deployment, scaling, CDNs)
 - Framework swaps — work with what exists
 
-## Token discipline
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — DRY, file size, type safety, naming, modern standards. Non-negotiable.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — what to read and what not to.
+
+## Token discipline (specific)
 
 Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additionally:
 
