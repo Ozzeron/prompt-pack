@@ -26,7 +26,8 @@ audits (use `review/frontend-audit`).
 
 ## Inherits
 
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — DRY (reuse design system primitives), file size, naming, modern standards.
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — file size, naming, modern standards.
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — reuse design system primitives before building new ones; the rule applies to UI work especially strictly.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample the design system once, don't re-read on every component.
 
 ## Scope
@@ -112,14 +113,15 @@ A feature earns its place when:
 
 ## 3. Reuse the design system FIRST
 
-Before creating any new component:
+The full reuse rule (and its decision flow) lives in [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md).
+For UI specifically, the search targets are:
 
-1. **Check the project's primitives.** Is there already a `Button`, `Input`, `Card`,
-   `Dialog`, `Sheet`, `Table`, `Form`, `EmptyState`, `Skeleton`?
-2. **Check the project's compositions.** Has someone already built a "page header with
-   actions", a "data table with filters", a "form section with title + description"?
-3. **Extend before creating.** If a primitive needs one new variant, add it to the primitive,
-   don't fork.
+1. **Primitives** — `Button`, `Input`, `Card`, `Dialog`, `Sheet`, `Table`, `Form`,
+   `EmptyState`, `Skeleton`, etc. Check `components/ui/`, design-system folder.
+2. **Compositions** — "page header with actions", "data table with filters", "form
+   section". Check `components/`, sibling pages.
+3. **Extend before creating.** If a primitive needs one new variant, add it to the
+   primitive, don't fork.
 4. **Match composition patterns.** If existing pages use `<PageHeader>`, `<Section>`,
    `<Card>` — your page uses them too.
 

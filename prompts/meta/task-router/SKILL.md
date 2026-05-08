@@ -41,10 +41,12 @@ table grows. Don't route to a skill that isn't in `prompts/`.
 | Code review on a diff or PR | `review/code-review` | Optional | Subagent if diff is large |
 | Security review on a diff or module | `review/security-review` | **Yes** | Always isolate; complements code-review |
 | Review schema, query, or migration | `review/database-review` | Optional | Subagent if multiple tables involved |
+| Find code duplication / DRY audit | `review/duplication-audit` | Optional | Grep-first; pairs with `architecture/refactor-planner` for execution |
 | Debug a failing test or bug | `review/debugger` | **Yes (fork)** | Hypothesis-first; bring context, isolate steps |
 | Plan a refactor / migration | `architecture/refactor-planner` | **Yes** | Plans need uninterrupted thinking; outputs plan, not diff |
 | Write tests for existing code | `delivery/test-writer` | Optional | Behaviour over implementation; AAA structure |
 | Write or update docs (README, ADR, doc comments, API docs) | `delivery/doc-writer` | Optional | Grounded in actual code, never auto-publishes |
+| Write AGENTS.md / CLAUDE.md / .cursorrules / agent instructions | `delivery/ai-agent-docs` | Optional | Specialised version of doc-writer for AI-readable docs |
 | Wrap up / hand off completed work | `delivery/handoff` | No | Inline at end of any coding task |
 
 ## Planned (not yet implemented)

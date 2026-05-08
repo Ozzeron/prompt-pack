@@ -28,7 +28,8 @@ Do not invoke for:
 
 ## Inherits
 
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — DRY, file size, type safety, naming, modern standards.
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — file size, type safety, naming, modern standards.
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — the DRY decision flow; every "new" entry in your file plan must satisfy this skill's checks.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample, don't read everything.
 - [`interface/ui-designer`](../../interface/ui-designer/SKILL.md) — for the UI portion: creativity calibration, restraint, visual consistency.
 

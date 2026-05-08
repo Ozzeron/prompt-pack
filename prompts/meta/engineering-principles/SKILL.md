@@ -22,44 +22,14 @@ Always, whenever you write or modify production code. This is a cross-cutting co
 
 ## 1. DRY — reuse before creating
 
-**Before writing a new component, function, hook, util, type, or constant, search for
-something that already does the job.**
+Delegated to the dedicated meta skill: **[`meta/reuse-before-create`](../reuse-before-create/SKILL.md)**.
 
-The order of preference is strict:
+That skill is the single source of truth for the reuse-vs-create decision: the strict
+ordering (reuse → extend → compose → extract → create new), the mandatory one-line
+justification when creating, the per-artifact-type search strategies, and the
+"don't trust names alone" rule.
 
-1. **Reuse as-is** — if existing code fits, use it
-2. **Extend** — add a prop, an option, or a generic parameter to existing code
-3. **Compose** — combine existing pieces into a new shape without rewriting them
-4. **Extract** — pull a shared core out of two near-duplicates and have both use it
-5. **Create new** — only when none of the above apply
-
-When you do create something new, **a one-line justification is required** — not optional.
-It goes into the handoff or PR description, not buried as a comment. Example:
-*"Created `formatDateTz`: no existing util handles ISO date with timezone offset; the
-project's `formatDate` strips the zone."*
-
-This rule applies to every kind of new artifact: component, hook, util, type, constant,
-dependency. If you can't write a one-line justification, you haven't searched hard enough.
-
-### How to actually search
-
-- Grep for the type of thing you need: component name patterns, hook prefixes (`use*`),
-  utility verbs (`format*`, `parse*`, `validate*`)
-- Read the project's `components/`, `lib/`, `utils/`, `hooks/`, `shared/` directories' index
-- Check `types.ts`, `schema.ts`, `constants.ts` for existing definitions
-- For UI: check the design system / shadcn / library primitives before building from scratch
-- **Don't trust names alone.** Before reusing or extending an existing component or
-  function, grep for its imports / call sites to confirm what it actually does. Names lie;
-  usage doesn't. This is especially important in older or AI-touched codebases where
-  naming has drifted from behaviour.
-
-### DRY anti-patterns
-
-- ❌ "Quick" duplicate of an existing component with one minor visual tweak — pass a prop instead
-- ❌ Three near-identical formatter functions for dates, money, percentages — one with options
-- ❌ Copying a hook into a new feature folder — move it to `hooks/` and import
-- ❌ Re-declaring the same TypeScript shape inline in 5 places — define once, import
-- ❌ Wrapping a library primitive only to rename props — fight the urge
+Do not duplicate that logic in this skill or any other. Inherit it, follow it.
 
 ## 2. File and function size
 
