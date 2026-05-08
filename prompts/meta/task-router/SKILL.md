@@ -39,6 +39,10 @@ For one-off trivial requests (a single edit, a quick question), skip routing and
 | Plan a refactor / migration | `architecture/refactor-planner` | **Yes** | Plans need uninterrupted thinking |
 | Document a module or API | `delivery/doc-writer` | Optional | |
 | Debug a failing test or bug | `review/debugger` | **Yes (fork)** | Bring context, isolate steps |
+| Design new tables / data model | `architecture/database-schema` | Optional | Add `postgres-supabase` if relevant stack |
+| Write a DB migration | `architecture/database-migrations` | Optional | Always pair with `database-schema` for design changes |
+| Review schema, query, or migration | `review/database-review` | Optional | Subagent if multiple tables involved |
+| Supabase RLS / auth / migration workflow | `architecture/postgres-supabase` | Optional | Inherits `database-schema` and `database-migrations` |
 
 When more than one applies, pick the most specific one. If none clearly apply, ask one
 clarifying question instead of guessing.
