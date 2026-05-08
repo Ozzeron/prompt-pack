@@ -2,7 +2,7 @@
 name: doc-writer
 description: Write grounded, codebase-sourced docs — READMEs, ADRs, doc comments, API descriptions, release notes, AGENTS.md.
 category: delivery
-version: 0.1.0
+version: 0.2.0
 triggers: [write docs, update readme, create adr, document api, write changelog, write release notes, add docstring, write agents.md, write claude.md]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -64,7 +64,23 @@ Out of scope:
    - Release notes → read commit log and PR titles/bodies since the last tag; read issue labels
    - AGENTS.md / CLAUDE.md → read the repo conventions, existing agent config, and the code the agent will touch
 
-3. **Read the actual source** — use file reads, grep, or AST inspection. Cite specific `file:line` when you reference behavior. If you cannot read the source (missing file, redacted), stop and ask.
+3. **Read the actual source** — mandatory before writing a single line of doc. Use file
+   reads, grep, or AST inspection. Specifically:
+   - For a README quickstart: open `package.json` (or equivalent) and read the actual
+     `scripts` section. Read `.env.example` if it exists. Open the entry point file the
+     dev script targets. Do NOT invent commands or env variable names.
+   - For an API doc: open the actual route handler, the schema definition file, and the
+     auth middleware. Do NOT generate from a guess of how the framework works.
+   - For a doc comment: open the function being documented and at least one call site.
+     Do NOT paraphrase the function name.
+   - For an ADR: open the PR/commit that motivated it and the affected code paths.
+   - For release notes: run `git log` (or read the commit list provided). Do NOT guess
+     from "what probably changed".
+   - For AGENTS.md: open the project's directory tree at depth 2, the package manifest,
+     the test config, and existing convention docs (CLAUDE.md, README).
+
+   If you cannot read the source (missing file, redacted access), STOP and ask. Do not
+   write doc content from memory of similar projects.
 
 4. **Draft** — write in the established format for that doc type (see Output format). Use direct second person only in these SKILL.md instructions; actual docs use neutral technical prose.
 
@@ -72,7 +88,11 @@ Out of scope:
 
 6. **Flag uncertainties** — if behavior is ambiguous in the source, write `<!-- VERIFY: ... -->` inline rather than guessing. Surface these to the user.
 
-7. **Propose for review** — output the draft as a file write or code block. Explicitly state it is a draft. Do not commit, push, or publish. Summarize what was read and what was assumed.
+7. **Propose for review** — output the draft as a file write or code block. Explicitly
+   state it is a draft. Do not commit, push, or publish. Include a short "Sources
+   read" footer listing the specific files you grounded the doc in (e.g. `Sources read:
+   package.json scripts, .env.example, src/server.ts:1-30`). This makes the grounding
+   auditable.
 
 ## Output format
 

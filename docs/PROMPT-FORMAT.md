@@ -83,7 +83,7 @@ are conventional but optional. Other content headings can appear between them.
 
 1. Title heading + role paragraph
 2. **`## When to use`**
-3. **`## Scope`** (with In scope / Out of scope)
+3. **`## Scope`** (see Scope structure below)
 4. **`## Inherits`**
 5. **`## Token discipline (specific)`**
 6. `## Process` (optional — some skills replace a single Process with multiple topic
@@ -93,14 +93,46 @@ are conventional but optional. Other content headings can appear between them.
 8. **`## Anti-patterns`**
 9. `## Notes` (optional)
 
+### Scope structure
+
+`## Scope` is a single H2 heading. "In scope" and "Out of scope" are **subsections inside it**,
+rendered as labelled lists (NOT separate H2 headings):
+
+```markdown
+## Scope
+
+In scope:
+- <thing>
+- <thing>
+
+Out of scope:
+- <thing>
+- <thing>
+```
+
+Do not write `## In scope` or `## Out of scope` as separate H2 headings. The single
+`## Scope` heading owns the section; its body uses bold labels with bullet lists.
+
+External validators that look for a `## In scope` heading are using a different convention
+than this pack and will report false negatives. The linter in `scripts/lint-skills.mjs`
+uses the correct rules.
+
+### Meta skill exceptions
+
 Meta skills (`category: meta`) are the inheritance roots and may legitimately omit:
 
 - `## Inherits` — they are what others inherit
 - `## Output format` when the skill produces no direct output (e.g. cross-cutting rules
   the agent internalises rather than emits)
+- `## Token discipline (specific)` when the entire skill *is* the token discipline rules
 
-They still must include: role paragraph, When to use, Scope (or equivalent rule body),
-Anti-patterns. Diverging beyond this requires a one-line justification in `## Notes`.
+They still must include: role paragraph, `## When to use`, the rule body itself (in any
+appropriate heading structure), and `## Anti-patterns`. Diverging beyond this requires a
+one-line justification in `## Notes`.
+
+The four current meta skills (`engineering-principles`, `reuse-before-create`,
+`token-discipline`, `task-router`) are reference templates for how meta skills can deviate
+legitimately.
 
 ## Why structured
 

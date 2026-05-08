@@ -2,7 +2,7 @@
 name: security-review
 description: Security-focused audit of code, config, and auth flows for web applications — a dedicated pass after code-review.
 category: review
-version: 0.1.0
+version: 0.2.0
 triggers: [security review, audit, vuln check, security pass, sec review, pen test lite]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -71,10 +71,35 @@ Out of scope:
 
 ## Severity scale
 
-- **Blocker** — Exploitable as-is, data loss risk, or authentication/authorization bypass. Do not merge. Provide a specific fix.
+- **Blocker** — Exploitable as-is, data loss risk, authentication/authorization bypass,
+  **leaked secrets** (hardcoded keys, tokens, credentials in source or committed config),
+  exposed admin credentials, or anything that compromises the integrity of the system
+  if merged. Do not merge. Provide a specific fix.
 - **Major** — Real security weakness that a motivated attacker could exploit under realistic conditions. Fix in this PR.
 - **Minor** — Defense-in-depth gap. Not immediately exploitable but reduces security margin. Fix when cheap.
 - **Nit** — Informational. Best-practice gap with no clear exploit path. Maximum 3 nits in a single report.
+
+### Severity calibration for common findings
+
+An agent doing this review must classify these consistently:
+
+| Finding | Severity |
+|---|---|
+| Hardcoded API key, token, password, or private key in source or committed config | **Blocker** |
+| Secret in `NEXT_PUBLIC_*`, `VITE_*`, `REACT_APP_*` env var (ships to browser) | **Blocker** |
+| SQL/NoSQL injection via string concat with user input | **Blocker** |
+| `auth.users` table accessible without RLS / middleware on public route | **Blocker** |
+| Authn check present but no authz (object ownership) check | **Blocker** |
+| Missing CSRF on state-changing endpoint | **Major** |
+| `Access-Control-Allow-Origin: *` with `credentials: true` | **Major** |
+| `dangerouslySetInnerHTML` with user-supplied string, unsanitised | **Major** |
+| Missing rate limit on login / password reset | **Major** |
+| Logs include tokens or PII | **Major** |
+| Missing security header (CSP, HSTS) | **Minor** |
+| `varchar(255)` without justification | **Nit** (out of scope, mention once) |
+
+When unsure between two levels, **err toward the higher severity**. Under-classifying a
+leaked secret as Major has caused real incidents.
 
 ## Coverage areas
 
