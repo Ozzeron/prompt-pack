@@ -33,8 +33,13 @@ The order of preference is strict:
 4. **Extract** — pull a shared core out of two near-duplicates and have both use it
 5. **Create new** — only when none of the above apply
 
-When you do create something new, justify why in one sentence ("no existing utility handles
-ISO date with timezone offset; created `formatDateTz`").
+When you do create something new, **a one-line justification is required** — not optional.
+It goes into the handoff or PR description, not buried as a comment. Example:
+*"Created `formatDateTz`: no existing util handles ISO date with timezone offset; the
+project's `formatDate` strips the zone."*
+
+This rule applies to every kind of new artifact: component, hook, util, type, constant,
+dependency. If you can't write a one-line justification, you haven't searched hard enough.
 
 ### How to actually search
 
@@ -43,6 +48,10 @@ ISO date with timezone offset; created `formatDateTz`").
 - Read the project's `components/`, `lib/`, `utils/`, `hooks/`, `shared/` directories' index
 - Check `types.ts`, `schema.ts`, `constants.ts` for existing definitions
 - For UI: check the design system / shadcn / library primitives before building from scratch
+- **Don't trust names alone.** Before reusing or extending an existing component or
+  function, grep for its imports / call sites to confirm what it actually does. Names lie;
+  usage doesn't. This is especially important in older or AI-touched codebases where
+  naming has drifted from behaviour.
 
 ### DRY anti-patterns
 

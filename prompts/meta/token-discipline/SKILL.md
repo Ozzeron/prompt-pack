@@ -54,6 +54,21 @@ of reading raw.
 2. Check if a smaller artifact (README, package.json, schema file) already answers the question.
 3. Choose the smallest read that answers the question. Use `grep` to locate before opening.
 
+## When sampling isn't enough
+
+Sampling 1–2 representative files saves tokens but is risky in older or inconsistent
+codebases. If the samples disagree on conventions or patterns:
+
+- Do not pick the prettier sample and run with it.
+- Read **one additional canonical source**: a documented example, the design-system entry
+  point, the project's `AGENTS.md` / `CLAUDE.md` / `README`, or the most recent file in
+  the same archetype.
+- If the conflict is genuine (the project itself is inconsistent), surface it as a finding
+  rather than picking a side silently.
+
+Names are not enough either. Before reusing or extending a component, function, or type,
+grep for its imports / call sites to verify it does what its name suggests.
+
 ## Spawning subagents
 
 Subagents inherit a fresh context. That is an opportunity, not a free pass.

@@ -50,8 +50,11 @@ Out of scope:
 - Read the design system entry point once: `components/ui/`, `components.json`, theme/tokens
   file, `tailwind.config`. Then stop.
 - Sample 1–2 existing pages of the same archetype (form / table / dashboard / marketing) to
-  match conventions.
-- Do NOT read every existing component before starting — rely on naming and infer.
+  match conventions. **If the patterns conflict between samples**, read one additional
+  canonical page or the design-system documentation before implementing. Do not infer
+  from names alone when behaviour or visual conventions matter.
+- Before reusing or extending a component, **grep for its imports** to see how it is
+  actually used in the project. Names lie; usage doesn't.
 - Skip animation libraries' source — read the API surface only when needed.
 
 ## 1. Calibrate creativity FIRST
@@ -169,12 +172,19 @@ Skipping any of these is the most common UI shipping bug.
 These are non-negotiable:
 
 - **Semantic HTML** — `<button>` for actions, `<a>` for navigation, headings in order
+- **ARIA only when semantic HTML is insufficient** — not as default decoration. A `<button>`
+  doesn't need `role="button"`.
 - **Labels** on every form input (`<label htmlFor>`, not just placeholder)
+- **Form errors** associated to inputs via `aria-describedby`, not just visually placed nearby
 - **Focus states** visible on every interactive element
+- **Focus trap only in real modals/dialogs** — don't trap focus in popovers, tooltips, or
+  inline reveals; users get stuck
 - **Keyboard navigable** — every action reachable without a mouse
 - **Colour contrast** ≥ 4.5:1 for text, ≥ 3:1 for large text and UI elements
 - **Screen-reader text** for icon-only buttons (`<span class="sr-only">`)
 - **No reliance on colour alone** — pair colour with icon or text for status
+- **Respect `prefers-reduced-motion`** — disable non-essential animation when the user
+  has opted out at the OS level
 
 If shadcn/Radix primitives are used, most of this is free. Don't break it by wrapping or
 overriding.
@@ -191,14 +201,47 @@ overriding.
 
 1. **Read the request.** Identify surface type (dashboard / form / list / marketing / settings / etc.)
 2. **Calibrate creativity.** State the level (A/B/C) you're working at, ask if unclear.
-3. **Sample the design system.** Read existing primitives, 1–2 sibling pages.
+3. **Sample the design system.** Read existing primitives, 1–2 sibling pages. If they
+   conflict, inspect a canonical page before deciding.
 4. **Sketch hierarchy.** What's the primary action, what's the structure, what states exist.
 5. **Build with primitives.** Use existing components; extend rather than create.
 6. **Cover all states.** Default, loading, empty, error, mutation states.
 7. **Sanity-check restraint.** Are there modals/animations/patterns I added without
    evidence they're needed? Remove them.
 8. **Sanity-check accessibility and responsive.** Run through the floor checklist.
-9. **Hand off.** Use `delivery/handoff` to summarise what was built and what was deliberately *not* built.
+9. **Visual consistency check** (see below).
+10. **Run lint, typecheck, tests** if the project provides them. Don't hand off broken work.
+11. **Hand off.** Use `delivery/handoff` to summarise what was built and what was deliberately *not* built.
+
+## Implementation guardrails
+
+When implementing:
+
+- ❌ Do not add a new UI library when one already exists in the project
+- ❌ Do not add an animation dependency without explicit need (CSS transitions and
+  primitive animations cover most cases)
+- ❌ Do not introduce new spacing, color, font, radius, or shadow tokens unless the
+  project's token system supports them and there's a real gap
+- ❌ Do not create a parallel design system inside a feature folder
+- ❌ Do not silently upgrade the project's React / Tailwind / shadcn version mid-task
+- ✅ Run `lint`, `typecheck`, and tests when available before declaring done
+
+## Visual consistency check
+
+Before handoff, compare the new surface against the closest existing screens. The eye
+misses things; a checklist doesn't.
+
+- **Spacing scale** — are gaps and paddings using the same tokens as nearby screens?
+- **Border radius** — same scale across cards, buttons, inputs?
+- **Card density** — padding and content rhythm match adjacent surfaces?
+- **Button hierarchy** — primary/secondary/tertiary used the same way?
+- **Table / list style** — same row height, divider treatment, header style?
+- **Form layout** — label position, input width, error placement consistent?
+- **Empty state style** — illustration vs icon vs text, tone, action-or-not consistent?
+- **Typography** — same scale and weight choices for the same roles (page title, section header, body)?
+
+Flag mismatches in the handoff. Don't quietly normalise the new screen to a different
+convention than the rest of the app.
 
 ## Output format
 
@@ -218,11 +261,14 @@ A / B / C — <why this calibration>
 
 ## Components used
 - Reused from design system: <list>
-- Extended: <list with what was added>
-- Created new: <list with one-line justification each>
+- Extended: <list with what was added and why>
+- Created new: <list, each with a one-line justification of why nothing existing fit>
 
 ## States covered
 - ✅ Default / Loading / Empty / Error / Pending / Success / Failure
+
+## Visual consistency check
+- <Result of comparing to nearby screens; flag any deliberate divergences>
 
 ## Decisions
 - <Things I deliberately did NOT include and why>
