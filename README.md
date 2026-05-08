@@ -152,8 +152,11 @@ user request
 
 ## Status
 
-🚧 Early stage. The repository is being seeded with a small set of high-quality prompts.
-Expect breaking changes to format until v0.1.0.
+🟢 **v0.1.0** — first stable release. 21 skills, format-locked, lint-gated, tested across
+four external review rounds. Use it.
+
+Future breaking changes will go through deprecation in `## Notes` first, then a major
+bump (v1.0.0) when the format itself changes.
 
 ## Contributing
 
