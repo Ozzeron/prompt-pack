@@ -231,23 +231,33 @@ backup_file() {
 
 detect_collisions() {
   local target="$1"
+  # Each branch must always exit 0 so 'set -e' doesn't terminate the caller
+  # when the path simply doesn't exist (the common, expected case).
   case "$target" in
-    cursor)      [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/' ;;
-    claude-code) [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' ;;
-    codex)       [[ -e "$TARGET_PATH/AGENTS.md" ]]      && echo 'AGENTS.md' ;;
-    openclaw)    [[ -d "$TARGET_PATH/skills" ]]          && echo 'skills/' ;;
-    raw)         [[ -d "$TARGET_PATH/docs/ai-rules" ]]  && echo 'docs/ai-rules/' ;;
+    cursor)      [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
+    claude-code) [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' || true ;;
+    codex)       [[ -e "$TARGET_PATH/AGENTS.md" ]]      && echo 'AGENTS.md'        || true ;;
+    openclaw)    [[ -d "$TARGET_PATH/skills" ]]          && echo 'skills/'          || true ;;
+    raw)         [[ -d "$TARGET_PATH/docs/ai-rules" ]]  && echo 'docs/ai-rules/'  || true ;;
   esac
 }
 
 git_working_tree_state() {
   local dir="$1"
-  ( cd "$dir" && git rev-parse --is-inside-work-tree >/dev/null 2>&1 ) || { echo 'not-a-repo'; return; }
-  if [[ -z "$( cd "$dir" && git status --porcelain 2>/dev/null )" ]]; then
-    echo 'clean'
-  else
-    echo 'dirty'
-  fi
+  # Use a subshell that always exits 0 so 'set -e' in the caller doesn't kill
+  # the whole script when the directory isn't a git repo.
+  local state
+  state="$(
+    set +e
+    cd "$dir" 2>/dev/null || { echo 'not-a-repo'; exit 0; }
+    git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo 'not-a-repo'; exit 0; }
+    if [[ -z "$(git status --porcelain 2>/dev/null)" ]]; then
+      echo 'clean'
+    else
+      echo 'dirty'
+    fi
+  )"
+  echo "$state"
 }
 
 # ---------------------------------------------------------------------------
