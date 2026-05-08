@@ -48,8 +48,8 @@ jobs:
 
       - name: Dry-run install (cursor / minimal) into temp dir
         run: |
-          mkdir -p /tmp/test-target
-          cd /tmp/test-target
+          mkdir -p /tmp/test-cursor
+          cd /tmp/test-cursor
           git init -q
           $GITHUB_WORKSPACE/install.sh --target cursor --profile minimal --dry-run
 
@@ -59,3 +59,24 @@ jobs:
           cd /tmp/test-codex
           git init -q
           $GITHUB_WORKSPACE/install.sh --target codex --profile supabase --dry-run
+
+      - name: Dry-run install (claude-code / fullstack) into temp dir
+        run: |
+          mkdir -p /tmp/test-claude
+          cd /tmp/test-claude
+          git init -q
+          $GITHUB_WORKSPACE/install.sh --target claude-code --profile fullstack --dry-run
+
+      - name: Dry-run install (openclaw / all) into temp dir
+        run: |
+          mkdir -p /tmp/test-openclaw
+          cd /tmp/test-openclaw
+          git init -q
+          $GITHUB_WORKSPACE/install.sh --target openclaw --profile all --dry-run
+
+      - name: Dry-run install (raw / nextjs) into temp dir
+        run: |
+          mkdir -p /tmp/test-raw
+          cd /tmp/test-raw
+          git init -q
+          $GITHUB_WORKSPACE/install.sh --target raw --profile nextjs --dry-run

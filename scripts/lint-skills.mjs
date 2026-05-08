@@ -246,6 +246,107 @@ function checkInstallerProfiles(skillIds) {
   return failures;
 }
 
+function extractPs1Profiles() {
+  const ps1Path = join(REPO_ROOT, 'install.ps1');
+  if (!existsSync(ps1Path)) return {};
+  const content = readFileSync(ps1Path, 'utf8');
+  const profiles = {};
+  const blockRe = /'([a-z]+)'\s*=\s*@\(([\s\S]*?)\)/g;
+  let match;
+  while ((match = blockRe.exec(content)) !== null) {
+    const profile = match[1];
+    if (profile === 'all') continue;
+    const skillRe = /'([a-z-]+\/[a-z-]+)'/g;
+    const skills = [];
+    let m2;
+    while ((m2 = skillRe.exec(match[2])) !== null) skills.push(m2[1]);
+    profiles[profile] = skills;
+  }
+  return profiles;
+}
+
+function extractShProfiles() {
+  const shPath = join(REPO_ROOT, 'install.sh');
+  if (!existsSync(shPath)) return {};
+  const content = readFileSync(shPath, 'utf8');
+  const profiles = {};
+  const blockRe = /^\s*([a-z]+)\)\s*\n\s*cat <<EOF\s*\n([\s\S]*?)\nEOF/gm;
+  let match;
+  while ((match = blockRe.exec(content)) !== null) {
+    const profile = match[1];
+    if (profile === 'all') continue;
+    const skills = [];
+    for (const line of match[2].split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (/^[a-z-]+\/[a-z-]+$/.test(trimmed)) skills.push(trimmed);
+    }
+    profiles[profile] = skills;
+  }
+  return profiles;
+}
+
+function checkProfileParity() {
+  const failures = [];
+  const psProfiles = extractPs1Profiles();
+  const shProfiles = extractShProfiles();
+
+  const allProfiles = new Set([...Object.keys(psProfiles), ...Object.keys(shProfiles)]);
+  for (const profile of allProfiles) {
+    const ps = psProfiles[profile];
+    const sh = shProfiles[profile];
+    if (!ps) {
+      failures.push(`profile "${profile}" exists in install.sh but not install.ps1`);
+      continue;
+    }
+    if (!sh) {
+      failures.push(`profile "${profile}" exists in install.ps1 but not install.sh`);
+      continue;
+    }
+    const psSet = new Set(ps);
+    const shSet = new Set(sh);
+    const psOnly = [...psSet].filter((s) => !shSet.has(s));
+    const shOnly = [...shSet].filter((s) => !psSet.has(s));
+    if (psOnly.length > 0) {
+      failures.push(`profile "${profile}": install.ps1 has skills not in install.sh: ${psOnly.join(', ')}`);
+    }
+    if (shOnly.length > 0) {
+      failures.push(`profile "${profile}": install.sh has skills not in install.ps1: ${shOnly.join(', ')}`);
+    }
+  }
+  return { failures, profiles: psProfiles, shProfiles };
+}
+
+function checkReadmeProfileCounts() {
+  const failures = [];
+  const readmePath = join(REPO_ROOT, 'README.md');
+  if (!existsSync(readmePath)) return { failures: ['README.md missing'] };
+  const content = readFileSync(readmePath, 'utf8');
+
+  const psProfiles = extractPs1Profiles();
+  // Look for table rows like `| \`minimal\`   | 4 | ...`
+  const rowRe = /^\|\s*`([a-z]+)`\s*\|\s*(\d+)\s*\|/gm;
+  let match;
+  const seen = new Set();
+  while ((match = rowRe.exec(content)) !== null) {
+    const profile = match[1];
+    const claimed = parseInt(match[2], 10);
+    if (seen.has(profile)) continue;
+    seen.add(profile);
+    if (profile === 'all') {
+      const skills = findSkillFiles();
+      if (claimed !== skills.length) {
+        failures.push(`README "all" profile claims ${claimed} skills, actual count is ${skills.length}`);
+      }
+      continue;
+    }
+    if (!psProfiles[profile]) continue;
+    if (psProfiles[profile].length !== claimed) {
+      failures.push(`README profile "${profile}" claims ${claimed} skills, install.ps1 lists ${psProfiles[profile].length}`);
+    }
+  }
+  return { failures };
+}
+
 function checkRouterReferences(skillIds) {
   const failures = [];
   const skillSet = new Set(skillIds);
@@ -308,6 +409,24 @@ function main() {
     console.log('  FAIL  installer profiles');
     for (const f of installerFailures) console.log(`        - ${f}`);
     totalFailures += installerFailures.length;
+  }
+
+  const parityResult = checkProfileParity();
+  if (parityResult.failures.length === 0) {
+    console.log('  PASS  install.sh and install.ps1 profiles match');
+  } else {
+    console.log('  FAIL  profile parity');
+    for (const f of parityResult.failures) console.log(`        - ${f}`);
+    totalFailures += parityResult.failures.length;
+  }
+
+  const readmeResult = checkReadmeProfileCounts();
+  if (readmeResult.failures.length === 0) {
+    console.log('  PASS  README profile counts match installer');
+  } else {
+    console.log('  FAIL  README profile counts');
+    for (const f of readmeResult.failures) console.log(`        - ${f}`);
+    totalFailures += readmeResult.failures.length;
   }
 
   const routerFailures = checkRouterReferences(skillIds);
