@@ -1,6 +1,6 @@
 ---
 name: refactor-planner
-description: Plan a safe step-by-step refactor or migration. Expand-then-contract for code. Each step ships green; rollback at every point.
+description: Plan a safe step-by-step refactor. Expand-then-contract; every step ships green; rollback per step.
 category: architecture
 version: 0.1.0
 triggers: ["refactor", "migrate", "restructure", "split this file", "rewrite", "untangle"]
@@ -33,11 +33,6 @@ Do not invoke for:
 - Greenfield work (use `architecture/frontend-feature` / `architecture/backend-api`)
 - The actual code-writing — this skill produces the plan, the architecture skills execute
 
-## Inherits
-
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — DRY, file size, single responsibility shape *what* is being refactored toward.
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the target area, not the whole repo.
-
 ## Scope
 
 In scope:
@@ -55,6 +50,10 @@ Out of scope:
   user before planning the journey
 - Renames / cleanups outside the stated scope — propose as follow-ups, don't bundle
 
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — DRY, file size, single responsibility shape *what* is being refactored toward.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the target area, not the whole repo.
 ## Token discipline (specific)
 
 - Read the **specific area being refactored**, not the whole codebase.

@@ -100,12 +100,27 @@ Approve / Request changes / Comment
 
 If there are no findings of a level, omit that section entirely.
 
+## When the diff is clean
+
+If the four passes turn up no Blockers, no Majors, and no real Minors, **ship a clean
+approval**. Do not manufacture severity to look thorough. The Output format already
+allows omitting empty sections — use that. A two-line approval with a short "What's
+good" beats a fabricated finding every time.
+
+The ask "be thorough" is not a request to invent issues. It's a request to make sure you
+looked. If you looked and there's nothing there, the thorough answer is *Approve*.
+
+Nit-only reviews on a clean diff are an anti-pattern. If the only thing you can find is
+"could use optional chaining", omit it and approve.
+
 ## Anti-patterns
 
 - ❌ Restating what the diff does without judgement
 - ❌ "Consider X" without saying why or how
 - ❌ Demanding architectural rewrites in a small PR
 - ❌ More than 3 nits — you're reviewing the wrong things
+- ❌ Manufacturing Major or Minor findings on a clean diff because "reviews should find things"
+- ❌ Treating "be thorough" as a license to invent findings rather than confirm cleanliness
 - ❌ Approving without reading the failure paths
 - ❌ Forwarding linter output as findings
 

@@ -23,11 +23,6 @@ application** until the new code is fully rolled out.
 
 Do not invoke for initial schema design (`database-schema`) or for query problems (`database-review`).
 
-## Inherits
-
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the most recent migrations only, not the whole history.
-
 ## Scope
 
 In scope:
@@ -42,6 +37,10 @@ Out of scope:
 - Choosing migration tooling (Prisma, Knex, Alembic, sqlx, golang-migrate, raw SQL) —
   match what the project uses
 
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the most recent migrations only, not the whole history.
 ## Token discipline (specific)
 
 - Read the most recent **5–10 migration files** to learn naming, style, tooling.

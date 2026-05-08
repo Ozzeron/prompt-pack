@@ -64,10 +64,27 @@ should justify the conflict, not silently override.
    meta-layer change.
 4. **Run a self-review** against the rubric in `docs/PROMPT-FORMAT.md` before opening the PR.
 
+## Linter
+
+Run the linter locally before opening a PR:
+
+```bash
+npm run lint
+```
+
+It checks every skill against the format contract: required frontmatter fields,
+description length, required sections in order, internal link integrity, length bounds,
+and project-specific leakage. If `npm run lint` is green, your skill is structurally
+valid; the reviewer can focus on content.
+
+The linter is a single file with no dependencies (`scripts/lint-skills.mjs`), works on
+any Node 18+.
+
 ## PR checklist
 
 Before opening a PR:
 
+- [ ] `npm run lint` passes
 - [ ] Frontmatter has all required fields (name, description, category, version)
 - [ ] `name` matches the directory name (kebab-case)
 - [ ] `description` is one line, ≤120 chars

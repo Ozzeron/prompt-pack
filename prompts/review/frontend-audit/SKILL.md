@@ -1,6 +1,6 @@
 ---
 name: frontend-audit
-description: Critical, objective audit of an existing frontend codebase. Architecture, DRY, UI behaviour, performance, state, types, accessibility.
+description: Critical audit of an existing frontend. Architecture, DRY, UI behaviour, performance, state, types, a11y.
 category: review
 version: 0.1.0
 triggers: [audit, "review the frontend", "code quality", "architecture review"]

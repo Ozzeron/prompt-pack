@@ -70,11 +70,37 @@ Out of scope:
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `name` | string | yes | kebab-case, must match directory name |
-| `description` | string | yes | one-line summary; main agents see this |
+| `description` | string | yes | one-line summary, **≤ 120 characters**; main agents see this |
 | `category` | enum | yes | architecture / review / interface / delivery / meta |
 | `version` | semver | yes | bump on behaviour change |
 | `triggers` | string[] | no | hints for orchestrators |
 | `applies_to` | string[] | no | which surfaces this is verified on |
+
+## Section order
+
+Non-meta skills follow this exact section order. Required headings are bold; the others
+are conventional but optional. Other content headings can appear between them.
+
+1. Title heading + role paragraph
+2. **`## When to use`**
+3. **`## Scope`** (with In scope / Out of scope)
+4. **`## Inherits`**
+5. **`## Token discipline (specific)`**
+6. `## Process` (optional — some skills replace a single Process with multiple topic
+   sections like "Golden rules", "Patterns", "Workflow". When omitted, the Output format
+   defines the structured deliverable instead.)
+7. **`## Output format`**
+8. **`## Anti-patterns`**
+9. `## Notes` (optional)
+
+Meta skills (`category: meta`) are the inheritance roots and may legitimately omit:
+
+- `## Inherits` — they are what others inherit
+- `## Output format` when the skill produces no direct output (e.g. cross-cutting rules
+  the agent internalises rather than emits)
+
+They still must include: role paragraph, When to use, Scope (or equivalent rule body),
+Anti-patterns. Diverging beyond this requires a one-line justification in `## Notes`.
 
 ## Why structured
 

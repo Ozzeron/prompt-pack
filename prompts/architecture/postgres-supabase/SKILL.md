@@ -25,13 +25,6 @@ cover. Covers self-hosted Postgres too where it overlaps.
 Do not invoke for generic schema design (use `architecture/database-schema`) or for
 non-Postgres databases.
 
-## Inherits
-
-- [`architecture/database-schema`](../database-schema/SKILL.md) — base conventions.
-- [`architecture/database-migrations`](../database-migrations/SKILL.md) — base migration safety.
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md)
-
 ## Scope
 
 In scope:
@@ -47,6 +40,12 @@ Out of scope:
 - Pure SQL query tuning (use `review/database-review`)
 - Frontend Supabase client patterns
 
+## Inherits
+
+- [`architecture/database-schema`](../database-schema/SKILL.md) — base conventions.
+- [`architecture/database-migrations`](../database-migrations/SKILL.md) — base migration safety.
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md)
 ## Token discipline (specific)
 
 - Read the project's `supabase/migrations/` directory — last 3–5 files only.

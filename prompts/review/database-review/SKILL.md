@@ -1,6 +1,6 @@
 ---
 name: database-review
-description: Review schema, queries, indexes, and migrations. Find N+1, missing indexes, lock risks, race conditions, and unsafe migrations.
+description: Review schema, queries, indexes, migrations. Find N+1, missing indexes, lock and race risks.
 category: review
 version: 0.1.0
 triggers: ["review schema", "DB review", "slow query", "explain plan", "review migration"]
@@ -24,11 +24,6 @@ break in production.
 Do not invoke for greenfield schema design (use `architecture/database-schema`) or for
 writing new migrations (use `architecture/database-migrations`).
 
-## Inherits
-
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, single responsibility, modern standards as the rubric.
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the schema and queries in question, not the whole DB layer.
-
 ## Scope
 
 In scope:
@@ -42,6 +37,11 @@ In scope:
 Out of scope:
 - Whole-app architecture review
 - Index tuning without `EXPLAIN` data — ask for it instead of guessing
+
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, single responsibility, modern standards as the rubric.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the schema and queries in question, not the whole DB layer.
 
 ## Token discipline (specific)
 

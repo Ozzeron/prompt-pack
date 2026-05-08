@@ -1,0 +1,19 @@
+{
+  "name": "prompt-pack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Curated AI agent skills for coding work. Format-linted, profile-installed.",
+  "type": "module",
+  "scripts": {
+    "lint": "node scripts/lint-skills.mjs",
+    "lint:skills": "node scripts/lint-skills.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ozzeron/prompt-pack.git"
+  }
+}

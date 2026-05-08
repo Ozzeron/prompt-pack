@@ -1,6 +1,6 @@
 ---
 name: database-schema
-description: Design a database schema with sensible normalization, naming, indexes, and audit/soft-delete decisions. DB-agnostic core, with notes for relational and document stores.
+description: Design a database schema. Naming, types, indexes, soft-delete, multi-tenant. Relational core + document-store notes.
 category: architecture
 version: 0.1.0
 triggers: ["design schema", "new table", "data model", "ER diagram"]
@@ -22,11 +22,6 @@ You favour fewer surprises over theoretical purity.
 Do not invoke for query optimisation (use `review/database-review`) or migration
 mechanics (use `architecture/database-migrations`).
 
-## Inherits
-
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, single responsibility, modern standards apply to schemas too.
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read existing migrations and one or two adjacent schemas, not the whole history.
-
 ## Scope
 
 In scope:
@@ -42,6 +37,10 @@ Out of scope:
 - Query patterns and indexing for known queries — see `database-review`
 - Cache and eventual-consistency strategies — separate concern
 
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, single responsibility, modern standards apply to schemas too.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read existing migrations and one or two adjacent schemas, not the whole history.
 ## Token discipline (specific)
 
 - Read the project's existing migrations directory **only the most recent 5–10 files** to

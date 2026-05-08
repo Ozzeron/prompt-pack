@@ -1,6 +1,6 @@
 ---
 name: reuse-before-create
-description: The single source of truth for DRY discipline. Before creating anything, find what already exists. Every coding skill inherits this.
+description: DRY discipline core. Before creating anything new, find what already exists. Every coding skill inherits this.
 category: meta
 version: 0.1.0
 triggers: [always, "writing code", "adding component", "adding util", "adding type"]

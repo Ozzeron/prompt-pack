@@ -30,11 +30,6 @@ Do not invoke for:
 - Feature requests dressed as bugs ("this should also do X")
 - Code review (use `review/code-review`)
 
-## Inherits
-
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, no `any`, no silent try/except, modern standards as the rubric for the fix.
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the failure first, expand context only when evidence demands it.
-
 ## Scope
 
 In scope:
@@ -48,6 +43,11 @@ Out of scope:
 - Refactoring the surrounding area unless directly causal
 - Performance work beyond fixing the regression
 - Architectural changes — flag them as follow-ups, don't bundle
+
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, no `any`, no silent try/except, modern standards as the rubric for the fix.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the failure first, expand context only when evidence demands it.
 
 ## Token discipline (specific)
 

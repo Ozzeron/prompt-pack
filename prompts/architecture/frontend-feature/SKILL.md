@@ -1,6 +1,6 @@
 ---
 name: frontend-feature
-description: Build a complete frontend feature end-to-end. Routing, data, state, UI, types, validation, states, tests. Reuses existing patterns aggressively.
+description: Build a frontend feature end-to-end. Routing, data, state, forms, types, all UI states, tests. Reuse first.
 category: architecture
 version: 0.1.0
 triggers: ["build a feature", "new page", "implement screen", "add feature", "client-side feature"]
@@ -26,13 +26,6 @@ Do not invoke for:
 - Backend or DB work (use `architecture/backend-api`, `architecture/database-schema`)
 - Auditing existing code (use `review/frontend-audit`)
 
-## Inherits
-
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — file size, type safety, naming, modern standards.
-- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — the DRY decision flow; every "new" entry in your file plan must satisfy this skill's checks.
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample, don't read everything.
-- [`interface/ui-designer`](../../interface/ui-designer/SKILL.md) — for the UI portion: creativity calibration, restraint, visual consistency.
-
 ## Scope
 
 In scope:
@@ -50,6 +43,12 @@ Out of scope:
 - Database changes — call out the requirement, don't author the migration
 - Cross-cutting infrastructure (auth, theming, analytics) — use what exists, flag gaps
 
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — file size, type safety, naming, modern standards.
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — the DRY decision flow; every "new" entry in your file plan must satisfy this skill's checks.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample, don't read everything.
+- [`interface/ui-designer`](../../interface/ui-designer/SKILL.md) — for the UI portion: creativity calibration, restraint, visual consistency.
 ## Token discipline (specific)
 
 - Read 1–2 sibling features to learn the project's data + state + form patterns. **If they

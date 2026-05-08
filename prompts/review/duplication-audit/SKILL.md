@@ -1,6 +1,6 @@
 ---
 name: duplication-audit
-description: Find code duplication clusters in an existing codebase and produce a consolidated report with severity and consolidation proposals.
+description: Find code duplication clusters and propose consolidations. Report-only; refactor-planner executes.
 category: review
 version: 0.1.0
 triggers: [find duplicates, audit duplication, DRY audit, check duplication, find repeated code, duplication report]

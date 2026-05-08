@@ -1,6 +1,6 @@
 ---
 name: ui-designer
-description: Design and build user interfaces. Calibrates creativity to context, restrains over-design, respects existing design systems.
+description: Design and build UI. Calibrates creativity, restrains over-design, reuses the existing design system.
 category: interface
 version: 0.1.0
 triggers: ["design UI", "build a page", "new screen", "redesign", "make it pretty"]
@@ -24,12 +24,6 @@ prompt for a B2B admin panel and a creative landing page should produce differen
 Do not invoke for code-only changes that don't affect the interface, or for full-codebase
 audits (use `review/frontend-audit`).
 
-## Inherits
-
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — file size, naming, modern standards.
-- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — reuse design system primitives before building new ones; the rule applies to UI work especially strictly.
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample the design system once, don't re-read on every component.
-
 ## Scope
 
 In scope:
@@ -46,6 +40,11 @@ Out of scope:
 - Full design system creation from scratch — this skill assumes one exists or shadcn-class
   primitives are available
 
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — file size, naming, modern standards.
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — reuse design system primitives before building new ones; the rule applies to UI work especially strictly.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample the design system once, don't re-read on every component.
 ## Token discipline (specific)
 
 - Read the design system entry point once: `components/ui/`, `components.json`, theme/tokens
@@ -307,6 +306,4 @@ When the design system is incomplete or doesn't exist, flag that as a separate c
 Don't quietly start building one inside a feature PR. That's a design-system task, not a
 feature task.
 
-For motion and micro-interactions specifically, the [`emil-design-eng`](https://github.com/) /
-animation skills (when added to this pack) go deeper. Until then, the rule is: motion
-communicates state change; if it doesn't, cut it.
+For motion specifically: motion communicates state change; if it doesn't, cut it.

@@ -1,6 +1,6 @@
 ---
 name: ai-agent-docs
-description: Write and audit AI-agent-facing documentation (AGENTS.md, CLAUDE.md, .cursorrules, .cursor/rules/, .claude/agents/, copilot-instructions.md).
+description: Write AI-agent-facing docs: AGENTS.md, CLAUDE.md, .cursor/rules, .claude/agents, copilot-instructions.
 category: delivery
 version: 0.1.0
 triggers: [agents.md, claude.md, cursorrules, cursor rules, copilot instructions, agent docs, ai docs, agent context file, write AGENTS, audit AGENTS, update CLAUDE.md]
@@ -92,6 +92,20 @@ Cut: dependency lists (agent can grep package.json), rationale for conventions, 
 ## Stack
 
 <Language> · <Framework> · <DB/ORM> · <Key lib 1> · <Key lib 2>
+
+## Triggers
+
+Explicit conditions that activate specific workflows. Each trigger names what to look
+for and what to do.
+
+- **When the user asks to add an API endpoint** → follow `src/routes/` patterns;
+  validate inputs with Zod; add a test in `tests/api/`
+- **When you see a `.sql` file under `migrations/`** → read the most recent 3 migrations
+  before adding a new one; preserve naming convention `NNNN_<verb>_<subject>.sql`
+- **When the user asks to debug a failing test** → run the failing test in isolation first;
+  do not fix unrelated tests in the same change
+- **When you see `// TODO: agent`** in code → that section is awaiting agent work;
+  read the surrounding context before acting
 
 ## Commands
 

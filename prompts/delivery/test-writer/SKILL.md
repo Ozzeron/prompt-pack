@@ -27,11 +27,6 @@ Do not invoke for:
 - E2E test infrastructure setup — flag as separate work
 - Snapshot-only changes (regenerating snapshots without thinking is not testing)
 
-## Inherits
-
-- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, file size, single responsibility apply to tests too.
-- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the unit under test and 1–2 sibling tests for style; not the whole test suite.
-
 ## Scope
 
 In scope:
@@ -46,6 +41,10 @@ Out of scope:
 - Performance / load / chaos tests
 - Test framework selection — match what the project uses
 
+## Inherits
+
+- [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, file size, single responsibility apply to tests too.
+- [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the unit under test and 1–2 sibling tests for style; not the whole test suite.
 ## Token discipline (specific)
 
 - Read the **unit under test** and its direct dependencies. Don't recursively read the
