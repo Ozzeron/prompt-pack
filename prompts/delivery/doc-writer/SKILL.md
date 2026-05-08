@@ -193,7 +193,7 @@ Response 422:
 
 Notes:
   - Idempotent by default; repeat calls return 409 with original timestamp
-  - Triggers etl-tool workflow via internal queue (src/queue/etl-tool.ts:18)
+  - Enqueues a background job (src/queue/orders.ts:18) on success
 ```
 
 ---
@@ -219,12 +219,12 @@ Notes:
 ```markdown
 ## Order Processing
 
-**Trigger:** A new row appears in D1 table `orders` with `status = 'pending'`.
+**Trigger:** A new row appears in the `orders` table with `status = 'pending'`.
 
 **Entry point:** `src/jobs/process-order.ts` — `processOrder(orderId: string)`
 
 **Do not touch:**
-- `src/legacy/etl-tool-bridge.ts` — deprecated shim, removal tracked in #198
+- `src/legacy/old-bridge.ts` — deprecated shim, removal tracked in #198
 - Any file under `vendor/` — auto-generated, will be overwritten
 
 **Test command:** `pnpm test -- --filter=orders`
