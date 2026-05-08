@@ -39,8 +39,10 @@ table grows. Don't route to a skill that isn't in `prompts/`.
 | Supabase RLS / auth / migration workflow | `architecture/postgres-supabase` | Optional | Inherits `database-schema` and `database-migrations` |
 | Audit existing frontend codebase | `review/frontend-audit` | **Yes (fork)** | Audits are read-heavy; isolate context |
 | Code review on a diff or PR | `review/code-review` | Optional | Subagent if diff is large |
+| Security review on a diff or module | `review/security-review` | **Yes** | Always isolate; complements code-review |
 | Review schema, query, or migration | `review/database-review` | Optional | Subagent if multiple tables involved |
 | Debug a failing test or bug | `review/debugger` | **Yes (fork)** | Hypothesis-first; bring context, isolate steps |
+| Plan a refactor / migration | `architecture/refactor-planner` | **Yes** | Plans need uninterrupted thinking; outputs plan, not diff |
 | Write tests for existing code | `delivery/test-writer` | Optional | Behaviour over implementation; AAA structure |
 | Write or update docs (README, ADR, doc comments, API docs) | `delivery/doc-writer` | Optional | Grounded in actual code, never auto-publishes |
 | Wrap up / hand off completed work | `delivery/handoff` | No | Inline at end of any coding task |
@@ -52,8 +54,6 @@ skill or handle inline.
 
 | Intent | Planned skill | Fallback today |
 |---|---|---|
-| Security review | `review/security-review` | Use `review/code-review` with security-focused emphasis |
-| Plan a refactor / migration | `architecture/refactor-planner` | Inline planning, then call relevant architecture skill |
 | Write commit / PR description | `delivery/commit-writer`, `delivery/pr-writer` | Use `delivery/handoff` output as a base |
 
 When more than one applies, pick the most specific one. If none clearly apply, ask one
