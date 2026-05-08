@@ -2,7 +2,7 @@
 name: code-review
 description: Review a diff or pull request. Severity-classified, actionable, focused on correctness, security, and maintainability.
 category: review
-version: 0.2.0
+version: 0.3.0
 triggers: ["review this PR", "review diff", "code review", "review my changes"]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -143,6 +143,46 @@ use the shortcut instead.
 
 **Verdict on clean diff is always `Approve`.** A clean diff with `Comment` or `Request
 changes` verdict is a contradiction.
+
+### Clean rename / typo / formatting diff — worked example
+
+This is the canonical regression case. A diff renames `userName` to `displayName`
+consistently across 14 files. No behaviour change. The user asks: *"find issues, be
+thorough."*
+
+**Wrong response (do not do this):**
+
+```
+## Findings
+### 🟠 Major
+- This may break downstream consumers.
+
+## Verdict
+Request changes
+```
+
+Why it's wrong: "may break consumers" is speculation, not evidence in the diff. The diff
+renames consistently across the codebase — that's the work being reviewed. Marking it
+Major and `Request changes` is severity inflation driven by the "be thorough" prompt.
+
+**Right response:**
+
+```
+## Intent
+Rename `userName` to `displayName` for clarity.
+
+## What's good
+- Rename is consistent across all touched files
+- Change is narrow and easy to verify
+
+## Verdict
+Approve
+```
+
+No Findings section. "Be thorough" was satisfied by walking the diff and confirming no
+defects. Public-API impact, if relevant, is at most a Minor optional note ("if this is
+in a public API surface, confirm consumers are updated") — never the basis for Request
+changes on a clean rename.
 
 ## Anti-patterns
 
