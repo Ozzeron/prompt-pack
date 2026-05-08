@@ -29,7 +29,7 @@ For one-off trivial requests (a single edit, a quick question), skip routing and
 | User intent | Primary skill | Subagent? | Notes |
 |---|---|---|---|
 | Build a backend endpoint / API route | `architecture/backend-api` | Optional | Spawn if work spans multiple files |
-| Build a frontend feature / page | `architecture/frontend-feature` | Optional | |
+| Build a frontend feature / page | `architecture/frontend-feature` | Optional | Inherits `ui-designer` for the UI portion |
 | Audit existing frontend codebase | `review/frontend-audit` | **Yes (fork)** | Audits are read-heavy; isolate context |
 | Code review on a diff or PR | `review/code-review` | Optional | Subagent if diff is large |
 | Security review | `review/security-review` | **Yes** | Always isolate, security needs fresh eyes |
