@@ -26,23 +26,35 @@ For one-off trivial requests (a single edit, a quick question), skip routing and
 
 ## Routing table
 
+Only skills that actually exist in this pack are routed here. As new skills land, this
+table grows. Don't route to a skill that isn't in `prompts/`.
+
 | User intent | Primary skill | Subagent? | Notes |
 |---|---|---|---|
 | Build a backend endpoint / API route | `architecture/backend-api` | Optional | Spawn if work spans multiple files |
 | Build a frontend feature / page | `architecture/frontend-feature` | Optional | Inherits `ui-designer` for the UI portion |
+| Design a UI / new screen | `interface/ui-designer` | Optional | Ask creativity level first |
+| Design new tables / data model | `architecture/database-schema` | Optional | Add `postgres-supabase` if Supabase/Postgres |
+| Write a DB migration | `architecture/database-migrations` | Optional | Pair with `database-schema` for design changes |
+| Supabase RLS / auth / migration workflow | `architecture/postgres-supabase` | Optional | Inherits `database-schema` and `database-migrations` |
 | Audit existing frontend codebase | `review/frontend-audit` | **Yes (fork)** | Audits are read-heavy; isolate context |
 | Code review on a diff or PR | `review/code-review` | Optional | Subagent if diff is large |
-| Security review | `review/security-review` | **Yes** | Always isolate, security needs fresh eyes |
-| Design a UI / new screen | `interface/ui-designer` | Optional | Ask creativity level first |
-| Write tests for existing code | `delivery/test-writer` | Optional | |
-| Write commit message / PR description | `delivery/commit-writer` | No | Quick, inline |
-| Plan a refactor / migration | `architecture/refactor-planner` | **Yes** | Plans need uninterrupted thinking |
-| Document a module or API | `delivery/doc-writer` | Optional | |
-| Debug a failing test or bug | `review/debugger` | **Yes (fork)** | Bring context, isolate steps |
-| Design new tables / data model | `architecture/database-schema` | Optional | Add `postgres-supabase` if relevant stack |
-| Write a DB migration | `architecture/database-migrations` | Optional | Always pair with `database-schema` for design changes |
 | Review schema, query, or migration | `review/database-review` | Optional | Subagent if multiple tables involved |
-| Supabase RLS / auth / migration workflow | `architecture/postgres-supabase` | Optional | Inherits `database-schema` and `database-migrations` |
+| Wrap up / hand off completed work | `delivery/handoff` | No | Inline at end of any coding task |
+
+## Planned (not yet implemented)
+
+These intents will get their own skills. Until they do, fall back to the closest existing
+skill or handle inline.
+
+| Intent | Planned skill | Fallback today |
+|---|---|---|
+| Security review | `review/security-review` | Use `review/code-review` with security-focused emphasis |
+| Plan a refactor / migration | `architecture/refactor-planner` | Inline planning, then call relevant architecture skill |
+| Debug a failing test or bug | `review/debugger` | Inline; use `review/code-review` for the patch |
+| Write tests for existing code | `delivery/test-writer` | Inline; follow test rules in `architecture/frontend-feature` or `architecture/backend-api` |
+| Write commit / PR description | `delivery/commit-writer`, `delivery/pr-writer` | Use `delivery/handoff` output as a base |
+| Document a module or API | `delivery/doc-writer` | Inline |
 
 When more than one applies, pick the most specific one. If none clearly apply, ask one
 clarifying question instead of guessing.
