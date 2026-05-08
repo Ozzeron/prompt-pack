@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint skills
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run skill linter
+        run: npm run lint
+
+  shellcheck:
+    name: ShellCheck install.sh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: '.'
+          severity: warning
+
+  install-sh-smoke:
+    name: install.sh smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: List profiles and skills
+        run: ./install.sh --list
+
+      - name: Dry-run install (cursor / minimal) into temp dir
+        run: |
+          mkdir -p /tmp/test-target
+          cd /tmp/test-target
+          git init -q
+          $GITHUB_WORKSPACE/install.sh --target cursor --profile minimal --dry-run
+
+      - name: Dry-run install (codex / supabase) into temp dir
+        run: |
+          mkdir -p /tmp/test-codex
+          cd /tmp/test-codex
+          git init -q
+          $GITHUB_WORKSPACE/install.sh --target codex --profile supabase --dry-run

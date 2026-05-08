@@ -1,6 +1,6 @@
 ---
 name: ai-agent-docs
-description: Write AI-agent-facing docs: AGENTS.md, CLAUDE.md, .cursor/rules, .claude/agents, copilot-instructions.
+description: "Write AI-agent-facing docs: AGENTS.md, CLAUDE.md, .cursor/rules, .claude/agents, copilot-instructions."
 category: delivery
 version: 0.1.0
 triggers: [agents.md, claude.md, cursorrules, cursor rules, copilot instructions, agent docs, ai docs, agent context file, write AGENTS, audit AGENTS, update CLAUDE.md]

@@ -20,6 +20,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import YAML from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
@@ -71,26 +72,26 @@ function findSkillFiles() {
   return skills;
 }
 
+/**
+ * Parse YAML frontmatter using a real YAML parser. Returns:
+ *   { ok: true, data: <parsed-object> }   on success
+ *   { ok: false, error: <string> }        on parse failure or missing frontmatter
+ */
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
-  if (!match) return null;
-  const fm = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const m = line.match(/^([a-z_]+):\s*(.*)$/i);
-    if (!m) continue;
-    const key = m[1];
-    const val = m[2].trim();
-    if (val.startsWith('[') && val.endsWith(']')) {
-      fm[key] = val
-        .slice(1, -1)
-        .split(',')
-        .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
-        .filter(Boolean);
-    } else {
-      fm[key] = val.replace(/^['"]|['"]$/g, '');
+  if (!match) return { ok: false, error: 'missing or malformed YAML frontmatter (no --- delimiters)' };
+
+  try {
+    const data = YAML.parse(match[1]);
+    if (data === null || typeof data !== 'object') {
+      return { ok: false, error: 'frontmatter parsed to non-object' };
     }
+    return { ok: true, data };
+  } catch (e) {
+    // Strip the noisy code-frame YAML adds; keep the headline.
+    const msg = (e.message || String(e)).split('\n')[0];
+    return { ok: false, error: `YAML parse error: ${msg}` };
   }
-  return fm;
 }
 
 function extractSectionHeadings(body) {
@@ -142,24 +143,34 @@ function lintSkill(skill) {
   const lineCount = content.split(/\r?\n/).length;
   const failures = [];
 
-  const fm = parseFrontmatter(content);
-  if (!fm) {
-    failures.push('missing or malformed YAML frontmatter');
+  const result = parseFrontmatter(content);
+  if (!result.ok) {
+    failures.push(result.error);
     return failures;
   }
+  const fm = result.data;
 
   for (const key of REQUIRED_FRONTMATTER) {
-    if (!fm[key]) failures.push(`missing frontmatter field: ${key}`);
+    if (fm[key] === undefined || fm[key] === null || fm[key] === '') {
+      failures.push(`missing frontmatter field: ${key}`);
+    }
   }
 
   if (fm.name && fm.name !== skill.name) {
     failures.push(`frontmatter name "${fm.name}" != directory name "${skill.name}"`);
   }
-  if (fm.description && fm.description.length > DESCRIPTION_MAX) {
+  if (fm.description && typeof fm.description === 'string' && fm.description.length > DESCRIPTION_MAX) {
     failures.push(`description ${fm.description.length} > ${DESCRIPTION_MAX} chars`);
   }
   if (fm.category && fm.category !== skill.category) {
     failures.push(`frontmatter category "${fm.category}" != directory category "${skill.category}"`);
+  }
+  // Type sanity for arrays (YAML can quietly produce strings if the source is malformed).
+  if (fm.triggers !== undefined && !Array.isArray(fm.triggers)) {
+    failures.push(`triggers must be a list, got ${typeof fm.triggers}`);
+  }
+  if (fm.applies_to !== undefined && !Array.isArray(fm.applies_to)) {
+    failures.push(`applies_to must be a list, got ${typeof fm.applies_to}`);
   }
 
   if (lineCount < LENGTH_MIN) failures.push(`length ${lineCount} < ${LENGTH_MIN} lines`);
