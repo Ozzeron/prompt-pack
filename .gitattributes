@@ -1,0 +1,29 @@
+# Force LF line endings for all text files. Without this, git autocrlf on
+# Windows checks in CRLF, which breaks bash scripts on Linux/macOS with
+# "bad interpreter: /usr/bin/env^M".
+
+* text=auto eol=lf
+
+# Shell scripts must always be LF; bash chokes on CRLF shebangs.
+*.sh text eol=lf
+
+# PowerShell can handle either, but keep explicit.
+*.ps1 text eol=crlf
+
+# Markdown, YAML, JSON, JS, TS — LF.
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+
+# Treat binaries as binary so git doesn't munge them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary

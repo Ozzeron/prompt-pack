@@ -46,6 +46,8 @@ targets. Detailed guidance lives in [`docs/USAGE.md`](docs/USAGE.md).
 
 ### Quick start
 
+#### Linux / macOS (bash)
+
 ```bash
 # Clone once
 git clone https://github.com/Ozzeron/prompt-pack.git ~/code/prompt-pack
@@ -53,9 +55,30 @@ git clone https://github.com/Ozzeron/prompt-pack.git ~/code/prompt-pack
 # Install the minimal starter set into your project (Cursor)
 cd ~/code/your-project
 ~/code/prompt-pack/install.sh --target cursor --profile minimal
+```
 
-# Or PowerShell on Windows
-& ~\code\prompt-pack\install.ps1 -Target cursor -Profile minimal
+If the script doesn't run with "permission denied" (e.g. you downloaded a zip
+instead of cloning), make it executable first:
+
+```bash
+chmod +x ~/code/prompt-pack/install.sh
+```
+
+#### Windows (PowerShell)
+
+```powershell
+# Clone once
+git clone https://github.com/Ozzeron/prompt-pack.git $HOME\code\prompt-pack
+
+# Install the minimal starter set into your project (Cursor)
+cd $HOME\code\your-project
+& $HOME\code\prompt-pack\install.ps1 -Target cursor -Profile minimal
+```
+
+If you get "running scripts is disabled", run once:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
 ### Targets
