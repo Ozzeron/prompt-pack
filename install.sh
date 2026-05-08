@@ -172,14 +172,23 @@ get_body() {
   ' "$src"
 }
 
-confirm_overwrite() {
+# Returns 0 if we should write to the path (either it doesn't exist, or the user
+# confirmed overwrite, or --force is set; in the --force case the existing file is
+# backed up first).
+handle_existing_file() {
   local path="$1"
-  if [[ -e "$path" && $FORCE -eq 0 ]]; then
+  [[ ! -e "$path" ]] && return 0
+
+  if (( FORCE == 0 )); then
     read -r -p "  Overwrite $path? [y/N] " resp
-    [[ "$resp" =~ ^[yY]$ ]]
-  else
+    [[ "$resp" =~ ^[yY]$ ]] || return 1
     return 0
   fi
+
+  local backup
+  backup="$(backup_file "$path")"
+  [[ -n "$backup" ]] && echo "  Backed up to $backup"
+  return 0
 }
 
 # Rename an existing directory to <name>.bak-<timestamp>. Echoes the backup path,
@@ -198,6 +207,25 @@ backup_directory() {
   done
 
   mv "$dir" "$backup"
+  echo "$backup"
+}
+
+# Rename an existing file to <name>.bak-<timestamp>. Echoes the backup path,
+# or prints nothing if the source did not exist.
+backup_file() {
+  local file="$1"
+  [[ ! -f "$file" ]] && return 0
+
+  local stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  local backup="${file}.bak-${stamp}"
+  local i=1
+  while [[ -e "$backup" ]]; do
+    backup="${file}.bak-${stamp}-${i}"
+    i=$((i + 1))
+  done
+
+  mv "$file" "$backup"
   echo "$backup"
 }
 
@@ -246,7 +274,7 @@ install_cursor() {
       continue
     fi
 
-    confirm_overwrite "$dest" || { echo "  Skipped."; continue; }
+    handle_existing_file "$dest" || { echo "  Skipped."; continue; }
     cp "$src" "$dest"
     echo "  Wrote $dest"
   done
@@ -276,7 +304,7 @@ install_claude_code() {
       continue
     fi
 
-    confirm_overwrite "$dest" || { echo "  Skipped."; continue; }
+    handle_existing_file "$dest" || { echo "  Skipped."; continue; }
     cp "$src" "$dest"
     echo "  Wrote $dest"
   done
@@ -299,9 +327,15 @@ install_codex() {
     return 0
   fi
 
-  if [[ -e "$agents_file" && $FORCE -eq 0 ]]; then
-    read -r -p "$agents_file exists. Overwrite? [y/N] " resp
-    [[ "$resp" =~ ^[yY]$ ]] || { echo "Aborted."; return 1; }
+  if [[ -e "$agents_file" ]]; then
+    if (( FORCE == 0 )); then
+      read -r -p "$agents_file exists. Overwrite? [y/N] " resp
+      [[ "$resp" =~ ^[yY]$ ]] || { echo "Aborted."; return 1; }
+    else
+      local backup
+      backup="$(backup_file "$agents_file")"
+      [[ -n "$backup" ]] && echo "Backed up existing AGENTS.md to $backup"
+    fi
   fi
 
   local tmp
@@ -413,7 +447,7 @@ install_raw() {
       continue
     fi
 
-    confirm_overwrite "$dest" || { echo "  Skipped."; continue; }
+    handle_existing_file "$dest" || { echo "  Skipped."; continue; }
     get_body "$src" > "$dest"
     echo "  Wrote $dest"
   done

@@ -196,9 +196,15 @@ function Copy-SkillToFile {
     $destDir = Split-Path $DestPath -Parent
     if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
 
-    if ((Test-Path $DestPath) -and -not $Force) {
-        $resp = Read-Host "  Overwrite $DestPath? [y/N]"
-        if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; return }
+    if (Test-Path $DestPath) {
+        if (-not $Force) {
+            $resp = Read-Host "  Overwrite $DestPath? [y/N]"
+            if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; return }
+        }
+        else {
+            $backup = Backup-File -FilePath $DestPath
+            if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+        }
     }
 
     Copy-Item -Path $SrcPath -Destination $DestPath -Force
@@ -218,6 +224,22 @@ function Backup-Directory {
     while (Test-Path $backupPath) { $backupPath = "$DirPath.bak-$stamp-$i"; $i++ }
 
     Rename-Item -Path $DirPath -NewName (Split-Path $backupPath -Leaf)
+    return $backupPath
+}
+
+function Backup-File {
+    # Renames an existing file to <name>.bak-<timestamp>. Returns the backup path,
+    # or $null if the source did not exist.
+    param([string]$FilePath)
+
+    if (-not (Test-Path $FilePath -PathType Leaf)) { return $null }
+
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $backupPath = "$FilePath.bak-$stamp"
+    $i = 1
+    while (Test-Path $backupPath) { $backupPath = "$FilePath.bak-$stamp-$i"; $i++ }
+
+    Rename-Item -Path $FilePath -NewName (Split-Path $backupPath -Leaf)
     return $backupPath
 }
 
@@ -312,9 +334,15 @@ function Install-Codex {
         return
     }
 
-    if ((Test-Path $agentsFile) -and -not $Force) {
-        $resp = Read-Host "$agentsFile exists. Overwrite? [y/N]"
-        if ($resp -notmatch '^[yY]') { Write-Host "Aborted." -ForegroundColor Yellow; return }
+    if (Test-Path $agentsFile) {
+        if (-not $Force) {
+            $resp = Read-Host "$agentsFile exists. Overwrite? [y/N]"
+            if ($resp -notmatch '^[yY]') { Write-Host "Aborted." -ForegroundColor Yellow; return }
+        }
+        else {
+            $backup = Backup-File -FilePath $agentsFile
+            if ($backup) { Write-Host "Backed up existing AGENTS.md to $backup" -ForegroundColor DarkYellow }
+        }
     }
 
     $sb = [System.Text.StringBuilder]::new()
