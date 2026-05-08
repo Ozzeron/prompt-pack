@@ -2,6 +2,52 @@
 
 Sample reviews showing severity calibration, signal-to-noise, and tone.
 
+## Regression case — "be thorough" on a clean diff
+
+If the user asks "be thorough" or "find issues" on a clean diff (rename, typo fix,
+formatting-only change, comment edit), the correct response is the **clean-approval
+shortcut**, NOT a fabricated Major finding.
+
+Wrong:
+
+```
+## Intent
+Rename `getUser` to `fetchUser` for consistency.
+
+## Findings
+
+### 🟠 Major
+- **src/api.ts:42** — The rename should also update the JSDoc comments.
+  Fix: update `@returns` description.
+
+## Verdict
+Request changes
+```
+
+This is wrong because:
+- A missing JSDoc update on a rename is at most a Minor
+- The diff itself is clean; "be thorough" doesn't promote a Minor to Major
+- `Request changes` on a clean rename is a contradiction
+
+Right:
+
+```
+## Intent
+Rename `getUser` to `fetchUser` for consistency.
+
+## What's good
+- All 14 call sites updated
+- Naming aligns with the rest of the data hooks
+
+## Verdict
+Approve
+```
+
+No Findings section. No `Request changes`. "Be thorough" was satisfied by walking the
+diff and confirming nothing was broken.
+
+---
+
 ## Example 1 — Real bug found, clean review
 
 > ✅ Good

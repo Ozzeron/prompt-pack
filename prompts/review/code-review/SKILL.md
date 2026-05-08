@@ -2,7 +2,7 @@
 name: code-review
 description: Review a diff or pull request. Severity-classified, actionable, focused on correctness, security, and maintainability.
 category: review
-version: 0.1.0
+version: 0.2.0
 triggers: ["review this PR", "review diff", "code review", "review my changes"]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -60,7 +60,26 @@ Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additio
 3. Pass 2 — **security**. Inputs trusted? Authz at the right layer? Secrets safe? Injection?
 4. Pass 3 — **maintainability**. Naming clear? Duplication? God-functions? Hidden coupling?
 5. Pass 4 — **tests**. Are the changed paths covered? Are tests meaningful or just present?
-6. Sort findings by severity. Drop nits unless the file is otherwise clean.
+6. **Clean-diff gate.** If passes 1–4 produced **zero Blockers, zero Majors, and zero
+   real Minors**, STOP. Use the **clean-approval shortcut** in Output format. Do not
+   continue looking for things to flag. "Be thorough" was satisfied by completing the
+   four passes; finding nothing is a valid result.
+7. Sort remaining findings by severity. Drop Nits unless the rest of the review is
+   otherwise empty (and even then, max 3).
+
+### What counts as "clean"
+
+A diff is clean if:
+
+- No logic errors, off-by-ones, missing await, race conditions, missing null checks
+- No security issues, missing authz, leaked secrets, injection paths
+- No duplication or god-function smells introduced
+- No test gaps for the changed behaviour
+- Style/formatting alone (renames, typo fixes, formatting changes, comment edits)
+  is **always clean** unless they break something else
+
+A pure rename, typo fix, formatting-only change, or comment edit is **almost always
+clean by definition**. Approve those quickly.
 
 ## Severity definitions
 
@@ -72,6 +91,8 @@ Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additio
 | **Nit** | Subjective or trivial. Optional. Limit to 3 nits per review. |
 
 ## Output format
+
+### Standard form (when there are findings)
 
 ```
 ## Intent
@@ -100,18 +121,28 @@ Approve / Request changes / Comment
 
 If there are no findings of a level, omit that section entirely.
 
-## When the diff is clean
+### Clean-approval shortcut (mandatory when the diff is clean)
 
-If the four passes turn up no Blockers, no Majors, and no real Minors, **ship a clean
-approval**. Do not manufacture severity to look thorough. The Output format already
-allows omitting empty sections — use that. A two-line approval with a short "What's
-good" beats a fabricated finding every time.
+When the clean-diff gate in Process step 6 fires, do **not** use the standard form. Use
+this shortened form instead:
 
-The ask "be thorough" is not a request to invent issues. It's a request to make sure you
-looked. If you looked and there's nothing there, the thorough answer is *Approve*.
+```
+## Intent
+<one sentence: what this PR is doing>
 
-Nit-only reviews on a clean diff are an anti-pattern. If the only thing you can find is
-"could use optional chaining", omit it and approve.
+## What's good
+<1-2 specific things the author got right>
+
+## Verdict
+Approve
+```
+
+No Findings section at all. No "Request changes" verdict. No empty severity headings.
+If you find yourself writing "Findings" with nothing under it, you have made a mistake —
+use the shortcut instead.
+
+**Verdict on clean diff is always `Approve`.** A clean diff with `Comment` or `Request
+changes` verdict is a contradiction.
 
 ## Anti-patterns
 
@@ -121,6 +152,9 @@ Nit-only reviews on a clean diff are an anti-pattern. If the only thing you can 
 - ❌ More than 3 nits — you're reviewing the wrong things
 - ❌ Manufacturing Major or Minor findings on a clean diff because "reviews should find things"
 - ❌ Treating "be thorough" as a license to invent findings rather than confirm cleanliness
+- ❌ Inventing severity to justify the time spent reviewing
+- ❌ Verdict `Request changes` or `Comment` on a clean diff — it's a contradiction
+- ❌ Putting a `Findings` section with no actual findings inside it
 - ❌ Approving without reading the failure paths
 - ❌ Forwarding linter output as findings
 
