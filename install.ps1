@@ -35,6 +35,19 @@
 
 .EXAMPLE
   .\install.ps1 -Target cursor -Skills meta/engineering-principles, architecture/frontend-feature
+
+.EXAMPLE
+  .\install.ps1 -Target cursor -Profile minimal -DryRun
+
+.NOTES
+  Safety:
+  - Without -Force, every overwrite is confirmed interactively.
+  - With -Force, existing FILES are simply replaced; existing DIRECTORIES (only
+    used by the openclaw target) are renamed to <name>.bak-<timestamp> before
+    being replaced, never deleted outright.
+  - -DryRun reports what would be written without making changes.
+  - The script warns if the project already has agent-config files or if its
+    git working tree is dirty.
 #>
 
 [CmdletBinding()]
@@ -54,6 +67,7 @@ param(
     [string[]]$Skills,
 
     [switch]$Force,
+    [switch]$DryRun,
     [switch]$List
 )
 
@@ -174,6 +188,11 @@ function Show-List {
 function Copy-SkillToFile {
     param([string]$SrcPath, [string]$DestPath)
 
+    if ($DryRun) {
+        Write-Host "  [dry-run] would write $DestPath" -ForegroundColor DarkCyan
+        return
+    }
+
     $destDir = Split-Path $DestPath -Parent
     if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
 
@@ -184,6 +203,51 @@ function Copy-SkillToFile {
 
     Copy-Item -Path $SrcPath -Destination $DestPath -Force
     Write-Host "  Wrote $DestPath" -ForegroundColor Green
+}
+
+function Backup-Directory {
+    # Renames an existing directory to <name>.bak-<timestamp>. Returns the backup path,
+    # or $null if the source did not exist.
+    param([string]$DirPath)
+
+    if (-not (Test-Path $DirPath)) { return $null }
+
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $backupPath = "$DirPath.bak-$stamp"
+    $i = 1
+    while (Test-Path $backupPath) { $backupPath = "$DirPath.bak-$stamp-$i"; $i++ }
+
+    Rename-Item -Path $DirPath -NewName (Split-Path $backupPath -Leaf)
+    return $backupPath
+}
+
+function Test-AgentConfigCollision {
+    param([string]$ProjectPath, [string]$Target)
+
+    $hits = @()
+    switch ($Target) {
+        'cursor'      { if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' } }
+        'claude-code' { if (Test-Path (Join-Path $ProjectPath '.claude\agents')) { $hits += '.claude/agents/' } }
+        'codex'       { if (Test-Path (Join-Path $ProjectPath 'AGENTS.md'))     { $hits += 'AGENTS.md' } }
+        'openclaw'    { if (Test-Path (Join-Path $ProjectPath 'skills'))         { $hits += 'skills/' } }
+        'raw'         { if (Test-Path (Join-Path $ProjectPath 'docs\ai-rules')) { $hits += 'docs/ai-rules/' } }
+    }
+    return $hits
+}
+
+function Test-GitWorkingTree {
+    param([string]$ProjectPath)
+
+    Push-Location $ProjectPath
+    try {
+        $null = git rev-parse --is-inside-work-tree 2>$null
+        if ($LASTEXITCODE -ne 0) { return 'not-a-repo' }
+        $status = git status --porcelain 2>$null
+        if ([string]::IsNullOrWhiteSpace($status)) { return 'clean' }
+        return 'dirty'
+    }
+    catch { return 'unknown' }
+    finally { Pop-Location }
 }
 
 function Get-SkillBody {
@@ -241,6 +305,12 @@ function Install-Codex {
 
     $agentsFile = Join-Path $ProjectPath 'AGENTS.md'
     Write-Host "`nBuilding $agentsFile from $($SkillList.Count) skills`n" -ForegroundColor Cyan
+
+    if ($DryRun) {
+        $verb = if (Test-Path $agentsFile) { 'replace' } else { 'create' }
+        Write-Host "  [dry-run] would $verb $agentsFile from $($SkillList.Count) skills" -ForegroundColor DarkCyan
+        return
+    }
 
     if ((Test-Path $agentsFile) -and -not $Force) {
         $resp = Read-Host "$agentsFile exists. Overwrite? [y/N]"
@@ -300,17 +370,30 @@ function Install-OpenClaw {
         if (-not (Test-Path $src)) { Write-Host "  Missing: $src" -ForegroundColor Red; continue }
 
         $dest = Join-Path $skillsDir $name
-        if ((Test-Path $dest) -and -not $Force) {
-            $resp = Read-Host "  Overwrite $dest? [y/N]"
-            if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; continue }
-            Remove-Item -Path $dest -Recurse -Force
+
+        if ($DryRun) {
+            $action = if (Test-Path $dest) { 'replace (existing renamed to .bak)' } else { 'create' }
+            Write-Host "  [dry-run] would $action $dest" -ForegroundColor DarkCyan
+            continue
         }
 
+        if (Test-Path $dest) {
+            if (-not $Force) {
+                $resp = Read-Host "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N]"
+                if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; continue }
+            }
+            $backup = Backup-Directory -DirPath $dest
+            if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+        }
+
+        if (-not (Test-Path $skillsDir)) { New-Item -ItemType Directory -Path $skillsDir -Force | Out-Null }
         Copy-Item -Path $src -Destination $dest -Recurse -Force
         Write-Host "  Wrote $dest" -ForegroundColor Green
     }
 
     Write-Host "`nDone." -ForegroundColor Cyan
+    Write-Host "Backups (if any) are in $skillsDir as <name>.bak-<timestamp> directories." -ForegroundColor DarkGray
+    Write-Host "Delete them when you're confident the new version works." -ForegroundColor DarkGray
 }
 
 function Install-Raw {
@@ -370,6 +453,29 @@ Write-Host "Target:  $Target" -ForegroundColor Cyan
 Write-Host "Profile: $(if ($Skills) { 'custom (' + $Skills.Count + ' skills)' } else { $Profile })" -ForegroundColor Cyan
 Write-Host "Path:    $projectPath" -ForegroundColor Cyan
 Write-Host "Skills:  $($skillList.Count)" -ForegroundColor Cyan
+if ($DryRun) { Write-Host "Mode:    dry-run (no changes will be made)" -ForegroundColor Yellow }
+if ($Force)  { Write-Host "Mode:    force (existing files replaced; directories backed up to .bak-<timestamp>)" -ForegroundColor Yellow }
+
+# Pre-flight warnings
+$existing = Test-AgentConfigCollision -ProjectPath $projectPath -Target $Target
+if ($existing.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Notice: agent-config already present at:" -ForegroundColor Yellow
+    foreach ($p in $existing) { Write-Host "  $p" -ForegroundColor Yellow }
+    Write-Host "This run will modify or replace it. Use -DryRun first if unsure." -ForegroundColor Yellow
+}
+
+$gitState = Test-GitWorkingTree -ProjectPath $projectPath
+if ($gitState -eq 'dirty') {
+    Write-Host ""
+    Write-Host "Notice: git working tree is dirty. Consider committing or stashing before installing" -ForegroundColor Yellow
+    Write-Host "so you can review changes via 'git diff' afterwards." -ForegroundColor Yellow
+}
+elseif ($gitState -eq 'not-a-repo') {
+    Write-Host ""
+    Write-Host "Notice: this directory isn't a git repository. Without git, undoing a bad install" -ForegroundColor Yellow
+    Write-Host "requires manual deletion of the files this script writes." -ForegroundColor Yellow
+}
 
 switch ($Target) {
     'cursor'      { Install-Cursor      -SkillList $skillList -ProjectPath $projectPath }

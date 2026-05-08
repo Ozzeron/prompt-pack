@@ -245,3 +245,61 @@ cd ~/code/your-project
 
 `--force` skips the per-file overwrite prompt. The installer is idempotent — re-running
 it overwrites with the latest version of each skill.
+
+## Safety and reversibility
+
+The installer only touches agent-config locations. It never modifies your application
+code. Even so, treat it like any third-party script in your project:
+
+### Safe first run
+
+```bash
+cd ~/code/your-project
+~/code/prompt-pack/install.sh --target cursor --profile minimal --dry-run   # preview
+~/code/prompt-pack/install.sh --target cursor --profile minimal             # interactive
+```
+
+```powershell
+cd ~\code\your-project
+& ~\code\prompt-pack\install.ps1 -Target cursor -Profile minimal -DryRun
+& ~\code\prompt-pack\install.ps1 -Target cursor -Profile minimal
+```
+
+The installer runs pre-flight checks and warns when:
+
+- Agent-config already exists at the target location (`.cursor/rules/`,
+  `.claude/agents/`, `AGENTS.md`, `skills/`, `docs/ai-rules/`)
+- The git working tree is dirty (so you can review changes via `git diff` afterwards)
+- The directory isn't a git repo (so undoing requires manual deletion)
+
+### `--dry-run` (preview without writing)
+
+Reports every file or directory that **would** be created or replaced. No filesystem
+changes. Use this on every first install or before a profile change.
+
+### `--force` (non-interactive)
+
+Replaces existing **files** without prompting. For existing **directories** (only used by
+the `openclaw` target), the installer **never deletes them outright** — it renames them
+to `<name>.bak-<timestamp>` first, then writes the new version. Backups stay until you
+remove them yourself.
+
+```
+skills/
+  engineering-principles/                   # current
+  engineering-principles.bak-20260508-150622/  # previous, kept until you delete it
+```
+
+Delete `.bak-*` directories once you've confirmed the new install works.
+
+### Recommended first-run flow
+
+1. Make sure your working tree is clean: `git status`
+2. Preview: `--dry-run` with the target/profile you want
+3. Real run: drop `--dry-run`, keep interactive prompts (no `--force`)
+4. Review: `git diff` and `git status`
+5. If wrong: `git checkout .` and `git clean -fd .cursor .claude AGENTS.md skills docs/ai-rules`
+   (or whichever target you used)
+
+For automated re-installs (CI, dotfile setup, repo provisioning), `--force` is the
+intended mode. The directory-backup behaviour means it's still safe.

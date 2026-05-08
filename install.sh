@@ -16,7 +16,17 @@
 # Examples:
 #   ./install.sh --target cursor --profile minimal
 #   ./install.sh --target codex --profile supabase --path ~/code/project-a
+#   ./install.sh --target cursor --profile fullstack --dry-run
 #   ./install.sh --list
+#
+# Safety:
+#   - Without --force, every overwrite is confirmed interactively.
+#   - With --force, existing FILES are replaced; existing DIRECTORIES (only used
+#     by the openclaw target) are renamed to <name>.bak-<timestamp> before being
+#     replaced, never deleted outright.
+#   - --dry-run reports what would be written without making changes.
+#   - The script warns if the project already has agent-config files or if its
+#     git working tree is dirty.
 
 set -euo pipefail
 
@@ -27,6 +37,7 @@ TARGET=""
 PROFILE="minimal"
 TARGET_PATH="$(pwd)"
 FORCE=0
+DRY_RUN=0
 LIST=0
 EXPLICIT_SKILLS=()
 
@@ -171,6 +182,46 @@ confirm_overwrite() {
   fi
 }
 
+# Rename an existing directory to <name>.bak-<timestamp>. Echoes the backup path,
+# or prints nothing if the source did not exist.
+backup_directory() {
+  local dir="$1"
+  [[ ! -d "$dir" ]] && return 0
+
+  local stamp
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  local backup="${dir}.bak-${stamp}"
+  local i=1
+  while [[ -e "$backup" ]]; do
+    backup="${dir}.bak-${stamp}-${i}"
+    i=$((i + 1))
+  done
+
+  mv "$dir" "$backup"
+  echo "$backup"
+}
+
+detect_collisions() {
+  local target="$1"
+  case "$target" in
+    cursor)      [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/' ;;
+    claude-code) [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' ;;
+    codex)       [[ -e "$TARGET_PATH/AGENTS.md" ]]      && echo 'AGENTS.md' ;;
+    openclaw)    [[ -d "$TARGET_PATH/skills" ]]          && echo 'skills/' ;;
+    raw)         [[ -d "$TARGET_PATH/docs/ai-rules" ]]  && echo 'docs/ai-rules/' ;;
+  esac
+}
+
+git_working_tree_state() {
+  local dir="$1"
+  ( cd "$dir" && git rev-parse --is-inside-work-tree >/dev/null 2>&1 ) || { echo 'not-a-repo'; return; }
+  if [[ -z "$( cd "$dir" && git status --porcelain 2>/dev/null )" ]]; then
+    echo 'clean'
+  else
+    echo 'dirty'
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # Installers
 # ---------------------------------------------------------------------------
@@ -180,7 +231,8 @@ install_cursor() {
   echo
   echo "Installing to $rules_dir"
   echo
-  mkdir -p "$rules_dir"
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$rules_dir"; fi
 
   for skill in "${SKILLS[@]}"; do
     local name="${skill##*/}"
@@ -188,6 +240,12 @@ install_cursor() {
     local dest="$rules_dir/$name.md"
 
     if [[ ! -f "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
+
+    if (( DRY_RUN == 1 )); then
+      echo "  [dry-run] would write $dest"
+      continue
+    fi
+
     confirm_overwrite "$dest" || { echo "  Skipped."; continue; }
     cp "$src" "$dest"
     echo "  Wrote $dest"
@@ -203,7 +261,8 @@ install_claude_code() {
   echo
   echo "Installing to $agents_dir"
   echo
-  mkdir -p "$agents_dir"
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$agents_dir"; fi
 
   for skill in "${SKILLS[@]}"; do
     local name="${skill##*/}"
@@ -211,6 +270,12 @@ install_claude_code() {
     local dest="$agents_dir/$name.md"
 
     if [[ ! -f "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
+
+    if (( DRY_RUN == 1 )); then
+      echo "  [dry-run] would write $dest"
+      continue
+    fi
+
     confirm_overwrite "$dest" || { echo "  Skipped."; continue; }
     cp "$src" "$dest"
     echo "  Wrote $dest"
@@ -226,6 +291,13 @@ install_codex() {
   echo
   echo "Building $agents_file from ${#SKILLS[@]} skills"
   echo
+
+  if (( DRY_RUN == 1 )); then
+    local verb='create'
+    [[ -e "$agents_file" ]] && verb='replace'
+    echo "  [dry-run] would $verb $agents_file from ${#SKILLS[@]} skills"
+    return 0
+  fi
 
   if [[ -e "$agents_file" && $FORCE -eq 0 ]]; then
     read -r -p "$agents_file exists. Overwrite? [y/N] " resp
@@ -284,7 +356,8 @@ install_openclaw() {
   echo
   echo "Installing skill directories to $skills_dir"
   echo
-  mkdir -p "$skills_dir"
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$skills_dir"; fi
 
   for skill in "${SKILLS[@]}"; do
     local name="${skill##*/}"
@@ -292,17 +365,32 @@ install_openclaw() {
     local dest="$skills_dir/$name"
 
     if [[ ! -d "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
-    if [[ -d "$dest" && $FORCE -eq 0 ]]; then
-      read -r -p "  Overwrite $dest? [y/N] " resp
-      [[ "$resp" =~ ^[yY]$ ]] || { echo "  Skipped."; continue; }
-      rm -rf "$dest"
+
+    if (( DRY_RUN == 1 )); then
+      local action='create'
+      [[ -d "$dest" ]] && action='replace (existing renamed to .bak)'
+      echo "  [dry-run] would $action $dest"
+      continue
     fi
+
+    if [[ -d "$dest" ]]; then
+      if (( FORCE == 0 )); then
+        read -r -p "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N] " resp
+        [[ "$resp" =~ ^[yY]$ ]] || { echo "  Skipped."; continue; }
+      fi
+      local backup
+      backup="$(backup_directory "$dest")"
+      [[ -n "$backup" ]] && echo "  Backed up to $backup"
+    fi
+
     cp -R "$src" "$dest"
     echo "  Wrote $dest"
   done
 
   echo
   echo "Done."
+  echo "Backups (if any) are in $skills_dir as <name>.bak-<timestamp> directories."
+  echo "Delete them when you're confident the new version works."
 }
 
 install_raw() {
@@ -310,7 +398,8 @@ install_raw() {
   echo
   echo "Installing raw markdown bodies to $raw_dir"
   echo
-  mkdir -p "$raw_dir"
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$raw_dir"; fi
 
   for skill in "${SKILLS[@]}"; do
     local name="${skill##*/}"
@@ -318,6 +407,12 @@ install_raw() {
     local dest="$raw_dir/$name.md"
 
     if [[ ! -f "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
+
+    if (( DRY_RUN == 1 )); then
+      echo "  [dry-run] would write $dest"
+      continue
+    fi
+
     confirm_overwrite "$dest" || { echo "  Skipped."; continue; }
     get_body "$src" > "$dest"
     echo "  Wrote $dest"
@@ -338,6 +433,7 @@ while [[ $# -gt 0 ]]; do
     --path)     TARGET_PATH="$2"; shift 2 ;;
     --skill)    EXPLICIT_SKILLS+=("$2"); shift 2 ;;
     --force)    FORCE=1; shift ;;
+    --dry-run)  DRY_RUN=1; shift ;;
     --list)     LIST=1; shift ;;
     -h|--help)
       sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
@@ -384,6 +480,27 @@ else
 fi
 echo "Path:    $TARGET_PATH"
 echo "Skills:  ${#SKILLS[@]}"
+(( DRY_RUN == 1 )) && echo "Mode:    dry-run (no changes will be made)"
+(( FORCE   == 1 )) && echo "Mode:    force (existing files replaced; directories backed up to .bak-<timestamp>)"
+
+# Pre-flight warnings
+collision="$(detect_collisions "$TARGET")"
+if [[ -n "$collision" ]]; then
+  echo
+  echo "Notice: agent-config already present at: $collision"
+  echo "This run will modify or replace it. Use --dry-run first if unsure."
+fi
+
+git_state="$(git_working_tree_state "$TARGET_PATH")"
+if [[ "$git_state" == 'dirty' ]]; then
+  echo
+  echo "Notice: git working tree is dirty. Consider committing or stashing before installing"
+  echo "so you can review changes via 'git diff' afterwards."
+elif [[ "$git_state" == 'not-a-repo' ]]; then
+  echo
+  echo "Notice: this directory isn't a git repository. Without git, undoing a bad install"
+  echo "requires manual deletion of the files this script writes."
+fi
 
 case "$TARGET" in
   cursor)      install_cursor ;;
