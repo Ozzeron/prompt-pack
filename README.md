@@ -41,25 +41,40 @@ prompts/<category>/<name>/
 
 ## How to use
 
-### 1. OpenClaw / ClawHub
+This pack is the source of truth on GitHub. There is no single one-liner installer (yet) —
+ClawHub publishes one skill per slug, not whole repositories. Pick the path that fits your
+workflow.
+
+### 1. OpenClaw / ClawHub (per-skill)
+
+Once a skill is published to the ClawHub registry, install it by slug:
 
 ```bash
-clawhub install ozzeron/prompt-pack
+clawhub install <skill-slug>
 ```
 
-Skills become available immediately to your main agent and any spawned subagents.
+Publication status of each skill is tracked in its `CHANGELOG.md`. Until a skill is marked
+published, install it manually (see method 4).
 
 ### 2. Cursor
 
-Copy any `SKILL.md` into `.cursor/rules/<name>.md` in your project. The frontmatter is Cursor-compatible.
+Copy any `SKILL.md` into `.cursor/rules/<name>.md` in your project. The frontmatter is
+Cursor-compatible. The rule activates based on its `description` and `triggers`.
 
 ### 3. Claude Code
 
-Copy any `SKILL.md` into `.claude/agents/<name>.md`. Claude Code will pick it up as a subagent.
+Copy any `SKILL.md` into `.claude/agents/<name>.md`. Claude Code will pick it up as a
+subagent.
 
-### 4. ChatGPT / plain text
+### 4. Manual / any AI tool
 
-Open the `SKILL.md`, copy the body, paste into your conversation. The role and rules apply for the session.
+```bash
+git clone https://github.com/Ozzeron/prompt-pack.git
+```
+
+Then copy the body of any `SKILL.md` you want to use into your AI tool's system prompt or
+custom-instructions field. The frontmatter is metadata only; the prompt itself starts at
+the first heading.
 
 ## Prompt format
 
