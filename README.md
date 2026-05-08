@@ -41,40 +41,65 @@ prompts/<category>/<name>/
 
 ## How to use
 
-This pack is the source of truth on GitHub. There is no single one-liner installer (yet) —
-ClawHub publishes one skill per slug, not whole repositories. Pick the path that fits your
-workflow.
+The pack ships with an installer for each major AI tool. One command, six profiles, five
+targets. Detailed guidance lives in [`docs/USAGE.md`](docs/USAGE.md).
 
-### 1. OpenClaw / ClawHub (per-skill)
-
-Once a skill is published to the ClawHub registry, install it by slug:
+### Quick start
 
 ```bash
-clawhub install <skill-slug>
+# Clone once
+git clone https://github.com/Ozzeron/prompt-pack.git ~/code/prompt-pack
+
+# Install the minimal starter set into your project (Cursor)
+cd ~/code/your-project
+~/code/prompt-pack/install.sh --target cursor --profile minimal
+
+# Or PowerShell on Windows
+& ~\code\prompt-pack\install.ps1 -Target cursor -Profile minimal
 ```
 
-Publication status of each skill is tracked in its `CHANGELOG.md`. Until a skill is marked
-published, install it manually (see method 4).
+### Targets
 
-### 2. Cursor
+| Target        | What it does |
+|---------------|---|
+| `cursor`      | Copies skills into `.cursor/rules/` (frontmatter activates rules) |
+| `claude-code` | Copies skills into `.claude/agents/` (subagents) |
+| `codex`       | Builds a single `AGENTS.md` at project root (Codex CLI reads this) |
+| `openclaw`    | Copies skill directories into `<project>/skills/` (OpenClaw workspace) |
+| `raw`         | Strips frontmatter, writes bodies to `docs/ai-rules/` for paste into any AI tool |
 
-Copy any `SKILL.md` into `.cursor/rules/<name>.md` in your project. The frontmatter is
-Cursor-compatible. The rule activates based on its `description` and `triggers`.
+### Profiles
 
-### 3. Claude Code
+| Profile     | Skills | Use case |
+|-------------|--------|---|
+| `minimal`   | 4 | Always-on baseline (engineering principles + reuse + token discipline + handoff) |
+| `nextjs`    | 9 | Next.js / React frontend work |
+| `backend`   | 12 | Backend APIs with relational DB |
+| `supabase`  | 13 | Backend with Postgres + Supabase RLS |
+| `fullstack` | 18 | Almost everything except niche audits |
+| `all`       | 21 | Every skill in the pack |
 
-Copy any `SKILL.md` into `.claude/agents/<name>.md`. Claude Code will pick it up as a
-subagent.
-
-### 4. Manual / any AI tool
+### Custom selection
 
 ```bash
-git clone https://github.com/Ozzeron/prompt-pack.git
+# PowerShell
+.\install.ps1 -Target cursor -Skills meta/engineering-principles, architecture/frontend-feature
+
+# Bash
+./install.sh --target cursor --skill meta/engineering-principles --skill architecture/frontend-feature
 ```
 
-Then copy the body of any `SKILL.md` you want to use into your AI tool's system prompt or
-custom-instructions field. The frontmatter is metadata only; the prompt itself starts at
-the first heading.
+### List everything
+
+```bash
+./install.sh --list                    # bash
+.\install.ps1 -List                    # PowerShell
+```
+
+### Per-tool details
+
+See [`docs/USAGE.md`](docs/USAGE.md) for tool-specific notes (always-on rules in Cursor,
+path-specific instructions in Codex, ClawHub publication status, manual paste flow).
 
 ## Prompt format
 

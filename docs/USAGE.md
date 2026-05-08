@@ -1,122 +1,247 @@
 # Usage
 
-How to actually consume `prompt-pack` in different AI tools. There is no single one-liner
-installer (yet) — pick the path that fits your workflow.
+How to install and use `prompt-pack` skills with each major AI coding tool. The pack
+ships with `install.sh` (bash) and `install.ps1` (PowerShell) — one command per project.
+
+## Prerequisites
+
+Clone the pack once anywhere on your machine:
+
+```bash
+git clone https://github.com/Ozzeron/prompt-pack.git ~/code/prompt-pack
+```
+
+That's the source. Updates: `cd ~/code/prompt-pack && git pull`, then re-run the installer
+in projects where you want the latest.
+
+## Targets
+
+The installer supports five targets. Pick one based on your AI tool:
+
+| Target        | Output location | Tool |
+|---------------|----------------|------|
+| `cursor`      | `<project>/.cursor/rules/` | Cursor IDE |
+| `claude-code` | `<project>/.claude/agents/` | Claude Code |
+| `codex`       | `<project>/AGENTS.md` (single merged file) | OpenAI Codex CLI |
+| `openclaw`    | `<project>/skills/<name>/` (full directories) | OpenClaw workspace |
+| `raw`         | `<project>/docs/ai-rules/` (frontmatter-stripped) | ChatGPT, Claude.ai, any tool that takes a system prompt |
+
+## Profiles
+
+Don't pick skills one at a time — pick a profile and adjust later:
+
+| Profile     | Count | Includes |
+|-------------|-------|----------|
+| `minimal`   | 4 | `engineering-principles`, `reuse-before-create`, `token-discipline`, `handoff` |
+| `nextjs`    | 9 | `minimal` + frontend-feature, ui-designer, code-review, debugger, test-writer |
+| `backend`   | 12 | `minimal` + backend-api, database-schema, database-migrations, code-review, database-review, security-review, debugger, test-writer |
+| `supabase`  | 13 | `backend` + postgres-supabase |
+| `fullstack` | 18 | Almost every skill except niche audits |
+| `all`       | 21 | Every skill in the pack |
+
+Custom selection works too — see "Picking specific skills" below.
 
 ## Cursor
 
-Each `SKILL.md` is compatible with Cursor's `.cursor/rules/` directory.
+Cursor reads project-local rules from `.cursor/rules/*.md`. Each rule has YAML frontmatter
+that controls when it activates.
 
 ```bash
-# Once: clone or fork the pack somewhere
-git clone https://github.com/Ozzeron/prompt-pack.git ~/code/prompt-pack
-
-# In your project: link the skills you want
-mkdir -p .cursor/rules
-cp ~/code/prompt-pack/prompts/meta/engineering-principles/SKILL.md \
-   .cursor/rules/engineering-principles.md
-cp ~/code/prompt-pack/prompts/meta/token-discipline/SKILL.md \
-   .cursor/rules/token-discipline.md
-cp ~/code/prompt-pack/prompts/architecture/frontend-feature/SKILL.md \
-   .cursor/rules/frontend-feature.md
+cd ~/code/your-project
+~/code/prompt-pack/install.sh --target cursor --profile nextjs
 ```
 
-Cursor reads the frontmatter `description` and matches based on context. Restart Cursor
-or reload the window after copying.
+```powershell
+cd ~\code\your-project
+& ~\code\prompt-pack\install.ps1 -Target cursor -Profile nextjs
+```
 
-For project-wide always-on rules (engineering-principles, token-discipline), prefer
-`.cursorrules` in repo root or `globs: '**/*'` frontmatter so the rules apply broadly.
+Reload the Cursor window (`Cmd/Ctrl+Shift+P` → `Reload Window`) to pick up the new rules.
+
+### Always-on rules
+
+Some rules should apply to every file (engineering principles, reuse, token discipline).
+Open the copied file in `.cursor/rules/` and edit the frontmatter:
+
+```yaml
+---
+name: engineering-principles
+alwaysApply: true     # add this line
+description: ...
+---
+```
+
+### Path-scoped rules
+
+For rules that should only apply to specific files (e.g. `frontend-feature` only for
+`.tsx`):
+
+```yaml
+---
+name: frontend-feature
+globs: ["**/*.tsx", "**/*.ts"]
+description: ...
+---
+```
+
+### Using rules in chat
+
+In Cursor's agent chat you can reference a rule by name:
+
+```
+@frontend-feature build a settings page for user preferences
+```
 
 ## Claude Code
 
-Copy any `SKILL.md` into `.claude/agents/<name>.md`:
+Claude Code picks up subagents from `.claude/agents/*.md` automatically. Description
+matching activates the right subagent for the task.
 
 ```bash
-mkdir -p .claude/agents
-cp ~/code/prompt-pack/prompts/architecture/backend-api/SKILL.md \
-   .claude/agents/backend-api.md
+cd ~/code/your-project
+~/code/prompt-pack/install.sh --target claude-code --profile fullstack
 ```
 
-Claude Code picks up files in `.claude/agents/` automatically as subagents. The
-`description` in frontmatter is what Claude Code displays when matching.
+```powershell
+cd ~\code\your-project
+& ~\code\prompt-pack\install.ps1 -Target claude-code -Profile fullstack
+```
 
-## OpenClaw / ClawHub
+No reload needed — Claude Code reads `.claude/agents/` on each invocation.
 
-When a skill is published to the ClawHub registry (see CHANGELOG of each skill for
-status), install by slug:
+### Repository-wide context
+
+For repo-wide context (conventions, do-not-touch zones, test commands), Claude Code reads
+`CLAUDE.md` first. To generate one from the pack, use the `codex` target — Claude Code
+also reads `AGENTS.md` if `CLAUDE.md` is absent:
+
+```bash
+~/code/prompt-pack/install.sh --target codex --profile minimal
+mv AGENTS.md CLAUDE.md   # if you prefer the Claude-specific name
+```
+
+## OpenAI Codex CLI
+
+Codex CLI reads `AGENTS.md` files in three layers and merges them:
+1. `~/.codex/AGENTS.md` — global, applies everywhere
+2. `<repo>/AGENTS.md` — per-project
+3. `<repo>/<dir>/AGENTS.md` or `AGENTS.override.md` — per-directory
+
+The installer's `codex` target builds a single merged `AGENTS.md` at the path you point
+it to. The combined file size respects Codex's 32 KB limit; skills that would push it
+over are skipped with a notice.
+
+### Per-project (most common)
+
+```bash
+cd ~/code/your-project
+~/code/prompt-pack/install.sh --target codex --profile supabase
+```
+
+### Global (apply to every project)
+
+```bash
+mkdir -p ~/.codex
+~/code/prompt-pack/install.sh --target codex --profile minimal --path ~/.codex
+```
+
+### Verify it loaded
+
+```bash
+codex --ask-for-approval never "Summarize the current instructions."
+```
+
+### Directory-specific overrides
+
+If a sub-tree of your project needs different rules (e.g. `services/payments` uses a
+different test command), add a manual `services/payments/AGENTS.override.md` with just
+the override content. Codex merges from root → cwd, with closer files winning.
+
+## OpenClaw
+
+OpenClaw reads skill directories from its workspace `skills/` folder. Each skill is a
+directory with `SKILL.md` plus optional supporting files.
+
+```bash
+~/code/prompt-pack/install.sh --target openclaw --profile fullstack --path ~/.openclaw/workspace
+```
+
+```powershell
+& ~\code\prompt-pack\install.ps1 -Target openclaw -Profile fullstack -Path ~\.openclaw\workspace
+```
+
+### ClawHub (per-skill)
+
+Once a skill is published to the ClawHub registry, install it by slug instead:
 
 ```bash
 clawhub install <skill-slug>
-clawhub list
 ```
 
-ClawHub installs into `<workdir>/skills/<slug>/`. Skills are picked up automatically by
-the OpenClaw main agent.
+Publication status is tracked in each skill's `CHANGELOG.md`. Most skills are not
+published yet — use the local installer for now.
 
-For manual install (no ClawHub publication yet), copy the directory into your OpenClaw
-workspace skills folder:
+## ChatGPT, Claude.ai, any other AI tool
 
-```bash
-cp -r ~/code/prompt-pack/prompts/meta/engineering-principles \
-      ~/.openclaw/workspace/skills/engineering-principles
-```
+Use the `raw` target. It strips YAML frontmatter and writes the prompt body to
+`docs/ai-rules/<name>.md`. Paste the body into:
 
-## ChatGPT / Claude / any AI tool
-
-Open the `SKILL.md` you want, copy the body (everything after the closing `---` of the
-frontmatter), and paste it into:
-
-- ChatGPT: a custom GPT's Instructions, or a system prompt at the top of the conversation
-- Claude.ai: the project's Custom Instructions
+- ChatGPT: a custom GPT's Instructions, or a project's instructions
+- Claude.ai: project Custom Instructions
 - Any other tool: its system-prompt or persistent-instruction field
 
-The frontmatter is metadata; the AI doesn't need to see it.
+```bash
+~/code/prompt-pack/install.sh --target raw --profile minimal
+cat docs/ai-rules/engineering-principles.md   # then copy-paste
+```
+
+## Picking specific skills
+
+If a profile doesn't fit, pass skills explicitly:
+
+```bash
+./install.sh --target cursor \
+  --skill meta/engineering-principles \
+  --skill meta/reuse-before-create \
+  --skill architecture/frontend-feature \
+  --skill review/debugger
+```
+
+```powershell
+.\install.ps1 -Target cursor -Skills `
+  meta/engineering-principles, `
+  meta/reuse-before-create, `
+  architecture/frontend-feature, `
+  review/debugger
+```
+
+## Listing what's available
+
+```bash
+./install.sh --list
+```
+
+```powershell
+.\install.ps1 -List
+```
+
+Shows all profiles, all skills, and all targets.
 
 ## Recommended starter set
 
-If you don't know where to begin, install these three first. They give you the most
-benefit per skill:
+Don't install everything on day one. Start with `minimal` to set the engineering
+baseline, then add task-specific skills as you hit those tasks.
 
-1. **`meta/engineering-principles`** — DRY, file size, type safety, modern standards.
-   Always-on baseline.
-2. **`meta/token-discipline`** — what to read and what not to. Saves money on every
-   request.
-3. **`delivery/handoff`** — structured wrap-up after any task. Catches the "task
-   complete? what did you do?" hole.
-
-After that, add skills relevant to what you're doing this week:
-
-- Frontend work: `interface/ui-designer` + `architecture/frontend-feature`
-- Backend work: `architecture/backend-api`
-- Database work: `architecture/database-schema` + `architecture/database-migrations`
-   (+ `architecture/postgres-supabase` for Supabase)
-- Reviewing PRs: `review/code-review`
-- Auditing legacy frontend: `review/frontend-audit`
-- Reviewing DB / queries: `review/database-review`
-
-## Orchestration pattern
-
-If you operate a "main agent" that delegates to specialists (Claude Code, OpenClaw, custom
-agent runtime), install **`meta/task-router`** alongside the specialist skills. The router
-maps user intents to the right specialist and decides when to spawn a subagent.
-
-```
-user request
-  → main agent reads task-router
-  → matches request to one or more skills
-  → invokes inline OR spawns a subagent with the right role
-  → aggregates output and replies
-```
+After a week of real use, audit which rules actually trigger value vs. which sit dead.
+Remove the dead ones. The pack is a buffet, not an obligation.
 
 ## Updating
 
-When you pull updates from the pack, re-copy any skills you've installed. There's no
-auto-sync yet.
-
 ```bash
 cd ~/code/prompt-pack && git pull
-# Then re-copy whatever you've linked
+cd ~/code/your-project
+~/code/prompt-pack/install.sh --target cursor --profile minimal --force
 ```
 
-If you've modified a skill locally for your project, keep the modification in your
-project, not in the upstream pack — the pack stays generic.
+`--force` skips the per-file overwrite prompt. The installer is idempotent — re-running
+it overwrites with the latest version of each skill.
