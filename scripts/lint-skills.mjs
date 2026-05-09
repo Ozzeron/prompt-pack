@@ -45,6 +45,23 @@ const DESCRIPTION_MAX = 120;
 const LENGTH_MIN = 80;
 const LENGTH_MAX = 310;
 
+// Skills that create or modify production code (as opposed to reviewing, planning,
+// or summarising). Each must inherit meta/reuse-before-create so the DRY decision
+// flow is in scope before any new artifact is added. CONTRIBUTING.md reviewer
+// checklist references this same invariant.
+const CODE_CREATING_SKILLS = new Set([
+  'architecture/backend-api',
+  'architecture/frontend-feature',
+  'architecture/database-schema',
+  'architecture/database-migrations',
+  'architecture/postgres-supabase',
+  'architecture/refactor-planner',
+  'interface/ui-designer',
+  'delivery/test-writer',
+  'delivery/doc-writer',
+  'delivery/ai-agent-docs',
+]);
+
 const LEAKAGE_TERMS = [
   /\bozzeron\b/i,
   /\bproject-a\b/i,
@@ -99,6 +116,28 @@ function extractSectionHeadings(body) {
     .split(/\r?\n/)
     .filter((line) => /^## /.test(line))
     .map((line) => line.trim());
+}
+
+// Returns the text content of the `## Inherits` section (lines between that heading
+// and the next `## ` heading, or end of body). Returns '' if no Inherits section.
+function extractInheritsBlock(body) {
+  const lines = body.split(/\r?\n/);
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^## Inherits\b/.test(lines[i])) {
+      start = i + 1;
+      break;
+    }
+  }
+  if (start === -1) return '';
+  let end = lines.length;
+  for (let i = start; i < lines.length; i++) {
+    if (/^## /.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start, end).join('\n');
 }
 
 function isInOrder(found, required) {
@@ -204,6 +243,19 @@ function lintSkill(skill) {
   }
 
   failures.push(...checkLinks(body, skill.path));
+
+  // Code-creating skills must inherit meta/reuse-before-create. The DRY decision flow
+  // is the central anti-tech-debt mechanism; skipping it in any coding skill leaves a
+  // hole the reviewer checklist explicitly forbids.
+  const skillId = `${skill.category}/${skill.name}`;
+  if (CODE_CREATING_SKILLS.has(skillId)) {
+    const inheritsBlock = extractInheritsBlock(body);
+    if (!/meta\/reuse-before-create/.test(inheritsBlock)) {
+      failures.push(
+        'code-creating skill must inherit meta/reuse-before-create (declared in ## Inherits)',
+      );
+    }
+  }
 
   const leakage = checkLeakage(content);
   if (leakage.length > 0) {

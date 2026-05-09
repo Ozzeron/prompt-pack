@@ -42,6 +42,7 @@ Out of scope:
 ## Inherits
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — DRY, file size, type safety, naming, modern standards. Non-negotiable.
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before adding any new endpoint, validator, error helper, or shared util, search for an existing one that fits or extends.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — what to read and what not to.
 
 ## Token discipline (specific)

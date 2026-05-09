@@ -40,6 +40,7 @@ Out of scope:
 ## Inherits
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, single responsibility, modern standards apply to schemas too.
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before adding a new table, enum, or join table, look for an existing entity that already covers the shape or that should be extended instead.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read existing migrations and one or two adjacent schemas, not the whole history.
 ## Token discipline (specific)
 

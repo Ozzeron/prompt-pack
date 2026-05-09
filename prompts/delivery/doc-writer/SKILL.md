@@ -40,6 +40,7 @@ Out of scope:
 ## Inherits
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — grounds doc work in the same accuracy and traceability standards as code; docs are a deliverable, not filler.
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before writing a new doc page or section, check whether an existing README/ADR/comment already covers it and should be extended instead of forked.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — controls output length so doc drafts stay proportional; no padding, no restating the obvious.
 
 ## Token discipline (specific)

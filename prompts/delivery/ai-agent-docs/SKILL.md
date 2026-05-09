@@ -45,6 +45,7 @@ Out of scope:
 ## Inherits
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — apply the principle of smallest effective surface: write only what the agent will actually use; every line has a token cost
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before adding a new agent rule file or section, check existing AGENTS.md / CLAUDE.md / .cursor/rules content; agent docs duplicate quickly when authors do not search
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — agent-facing docs have strict length budgets; length limits are part of the spec, not suggestions
 - [`delivery/doc-writer`](../doc-writer/SKILL.md) — this skill is a specialized version of doc-writer for AI-readable docs; defer to doc-writer for non-agent documentation surfaces
 

@@ -19,14 +19,17 @@ with no orchestration story and no usage discipline. This repo aims for three th
 
 ```
 prompts/
-  architecture/      # backend, frontend, system-design roles
-  review/            # code-review, security-review, ui-audit
-  interface/         # ui-designer, design-tokens, ux-writer
-  delivery/          # handoff, pr-writer, commit-writer
-  meta/              # task-router, token-discipline, prompt-format
+  architecture/      # backend-api, frontend-feature, database-schema,
+                     #  database-migrations, postgres-supabase, refactor-planner
+  review/            # code-review, security-review, frontend-audit,
+                     #  database-review, duplication-audit, debugger
+  interface/         # ui-designer
+  delivery/          # handoff, test-writer, doc-writer, ai-agent-docs
+  meta/              # task-router, engineering-principles, reuse-before-create,
+                     #  token-discipline
 docs/
-  USAGE.md           # how to consume in OpenClaw / Cursor / Claude Code
-  CONTRIBUTING.md    # how to add or modify a prompt
+  USAGE.md           # how to consume in OpenClaw / Cursor / Claude Code / Codex
+  CONTRIBUTING.md    # how to add or modify a prompt (incl. reviewer checklist)
   PROMPT-FORMAT.md   # the schema each prompt must follow
 ```
 
@@ -95,7 +98,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 | Profile     | Skills | Use case |
 |-------------|--------|---|
-| `minimal`   | 4 | Always-on baseline (engineering principles + reuse + token discipline + handoff) |
+| `minimal`   | 4 | Core baseline pulled in via `## Inherits` by other skills (engineering principles + reuse + token discipline) plus `delivery/handoff` for end-of-task summaries |
 | `nextjs`    | 9 | Next.js / React frontend work |
 | `backend`   | 12 | Backend APIs with relational DB |
 | `supabase`  | 13 | Backend with Postgres + Supabase RLS |
@@ -152,7 +155,7 @@ user request
 
 ## Status
 
-🟢 **v0.1.3** — first stable release. 21 skills, format-locked, lint-gated, tested across
+🟢 **v0.1.4** — first stable release. 21 skills, format-locked, lint-gated, tested across
 four external review rounds. Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major

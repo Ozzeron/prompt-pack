@@ -53,6 +53,7 @@ Out of scope:
 ## Inherits
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — DRY, file size, single responsibility shape *what* is being refactored toward.
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — a refactor that introduces brand-new abstractions instead of consolidating into existing ones is the failure mode this skill exists to prevent; the destination must reuse before it creates.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the target area, not the whole repo.
 ## Token discipline (specific)
 

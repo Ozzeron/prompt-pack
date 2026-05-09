@@ -40,6 +40,7 @@ Out of scope:
 ## Inherits
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
+- [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before introducing a new migration helper, naming convention, or backfill pattern, check the most recent migrations for an established one and follow it.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the most recent migrations only, not the whole history.
 ## Token discipline (specific)
 
