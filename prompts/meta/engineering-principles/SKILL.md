@@ -3,7 +3,7 @@ name: engineering-principles
 description: Cross-cutting engineering standards every coding skill inherits. DRY, modular, type-safe, maintainable, modern.
 category: meta
 version: 0.1.0
-triggers: [always, "writing code", "modifying code"]
+triggers: [inherit-only]
 applies_to: [openclaw, cursor, claude-code, generic]
 ---
 

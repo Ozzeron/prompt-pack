@@ -3,7 +3,7 @@ name: task-router
 description: Orchestrator skill. Maps user requests to the right specialist prompt and decides when to spawn subagents.
 category: meta
 version: 0.1.0
-triggers: [orchestration, "complex task", "multi-step request"]
+triggers: ["add a feature", "build", "implement", "refactor", "fix bug", "review this", "audit", "design", "migrate", orchestration, "multi-step"]
 applies_to: [openclaw, claude-code]
 ---
 
@@ -48,6 +48,20 @@ table grows. Don't route to a skill that isn't in `prompts/`.
 | Write or update docs (README, ADR, doc comments, API docs) | `delivery/doc-writer` | Optional | Grounded in actual code, never auto-publishes |
 | Write AGENTS.md / CLAUDE.md / .cursorrules / agent instructions | `delivery/ai-agent-docs` | Optional | Specialised version of doc-writer for AI-readable docs |
 | Wrap up / hand off completed work | `delivery/handoff` | No | Inline at end of any coding task |
+
+## Composed flows
+
+Some intents map to a sequence of skills, not just one. Run them in order, aggregate the
+result once at the end.
+
+| User intent | Sequence | Notes |
+|---|---|---|
+| Full PR review | `review/code-review` → `review/security-review` | Run code-review first; feed its diff scope into security-review. Aggregate findings into one report grouped by severity. Subagent each step if the diff is large. |
+| Schema change PR | `review/database-review` → `review/code-review` → `review/security-review` | DB review first because schema dictates query/auth implications. |
+| Refactor execution | `architecture/refactor-planner` → `review/duplication-audit` (optional) → implementation | Planner outputs steps; do not skip to implementation without a plan. |
+
+When a composed flow applies, say so up front ("running code-review then security-review")
+so the user knows two passes are coming.
 
 ## Planned (not yet implemented)
 
@@ -104,3 +118,11 @@ Do not narrate the routing table itself — that is internal.
 
 The catalog will grow. When a recurring request type doesn't fit any existing skill,
 that's a signal to add a new one — not to stretch an existing one.
+
+### `inherit-only` trigger convention
+
+`meta/engineering-principles` and `meta/token-discipline` use `triggers: [inherit-only]`.
+This is a deliberate signal: do not load them as standalone always-on rules. Every
+coding skill in this pack already lists them under "Inherits" and pulls in their content
+by reference. Loading them independently on every request would double-charge tokens
+for rules that are already in scope through the parent skill.

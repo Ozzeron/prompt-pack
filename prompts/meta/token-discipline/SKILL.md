@@ -3,7 +3,7 @@ name: token-discipline
 description: Cross-cutting rules for spending context tokens wisely. Every other prompt should reference this.
 category: meta
 version: 0.1.0
-triggers: [always]
+triggers: [inherit-only]
 applies_to: [openclaw, cursor, claude-code, generic]
 ---
 

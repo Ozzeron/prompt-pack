@@ -3,7 +3,7 @@ name: handoff
 description: Wrap up a coding task with a clear summary of what changed, how to verify, what's risky, and what was left out.
 category: delivery
 version: 0.1.0
-triggers: ["after completing a task", "task complete", "summarise changes", "PR description"]
+triggers: ["summarise changes", "hand off", "PR description", "wrap up", "what did you change"]
 applies_to: [openclaw, cursor, claude-code]
 ---
 
