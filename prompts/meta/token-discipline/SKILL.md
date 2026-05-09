@@ -1,20 +1,27 @@
 ---
 name: token-discipline
-description: Cross-cutting rules for spending context tokens wisely. Every other prompt should reference this.
+description: Manage the agent's attention budget. Read what improves correctness; skip what adds noise.
 category: meta
-version: 0.1.0
+version: 0.2.0
 triggers: [inherit-only]
 applies_to: [openclaw, cursor, claude-code, generic]
 ---
 
 # Token Discipline
 
-Context is money and signal. A bloated context window degrades model performance even on strong
-models, and dramatically more on weaker ones. This document is the single source of truth for
-"what an agent should and should not read" while working on a task.
+Tokens are an **attention budget, not a money budget**. The reason this skill exists is
+not to save the user money — even on unlimited budgets, a context window stuffed with
+low-signal files makes the model worse: it loses track of what matters, mixes patterns
+from unrelated code, and hallucinates more confidently. Bigger context is not smarter
+context.
 
-Every other prompt in this pack inherits these rules. Specific roles may add stricter rules
-on top, but never relax these.
+The goal of this skill is **not** to make the agent read as little as possible. It is to
+make the agent read **the right things first**, and only widen the read when correctness
+demands it. Spend context where it buys reliability; do not spend it on noise.
+
+This document is the single source of truth for "what an agent should and should not
+read" while working on a task. Every other prompt in this pack inherits these rules.
+Specific roles may add stricter rules on top, but never relax these.
 
 ## When to use
 

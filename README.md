@@ -40,9 +40,11 @@ The discipline that does the work:
    inspecting 2–3 canonical examples in the target repo before writing
    code, so the result matches the project's style instead of the
    agent's default.
-3. **Token-disciplined.** Every prompt has explicit scope limits and
-   "don't read these things" rules, because context is money and noise
-   degrades the answer.
+3. **Attention-disciplined, not token-cheap.** Every prompt has explicit
+   scope limits and "don't read these things" rules, because context is
+   an *attention budget* and a window stuffed with low-signal files
+   makes the model worse — even at unlimited cost. Bigger context is
+   not smarter context.
 4. **Orchestrator-first.** A `task-router` maps user intents to specific
    roles, including composed flows (PR review = code-review →
    security-review), so users don't memorise the catalog.
@@ -60,6 +62,23 @@ The discipline that does the work:
   a claim to beat anyone on a synthetic eval.
 - Not exhaustive. If your stack needs a skill that is not here,
   open an issue — a small principled pack beats a huge unaudited one.
+
+### Context discipline, not token cheapness
+
+The pack does not try to make the agent read as little as possible. It
+tries to make the agent read the **right things first**, then widen the
+read only when correctness demands it.
+
+For small tasks that means staying lean. For risky work — refactors,
+database changes, security review, PR review — it means spending more
+context on the files that actually reduce uncertainty, and skipping the
+ones that just add noise.
+
+The goal is not lower token usage. The goal is **better signal per
+token**. Even on unlimited budget, a model that reads everything is a
+model that mixes patterns from unrelated code and hallucinates with
+confidence. Tokens are an attention budget; spend them where they buy
+reliability.
 
 ## Repository layout
 
