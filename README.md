@@ -5,14 +5,32 @@ Built to be **simple to use**, **token-aware**, and **stack-agnostic**.
 
 > One source of truth → multiple ways to consume: OpenClaw skills, Cursor rules, Claude Code subagents, plain copy-paste.
 
-## Why another prompt repo
+## Why not another prompt list?
 
-Most existing collections (awesome-cursorrules, awesome-claude-code-subagents, etc.)
-are dumps of markdown files with no orchestration story and no usage discipline.
-AI coding agents under those prompts ship the same recurring failures: duplicate
-components, fresh utilities for things that already exist, dependencies added for
-problems the project already solved, and convention drift. This repo is built
-around the discipline that prevents that:
+This is **not a prompt directory**. It is a small, opinionated
+discipline pack designed to reduce the technical debt AI coding agents
+generate by default.
+
+The usual collections (awesome-cursorrules, awesome-claude-code-subagents,
+awesome-copilot, awesome-agent-skills, etc.) are catalogues: hundreds or
+thousands of prompts, every variant of "you are a senior X", optimised
+for breadth and discoverability. Pick one, paste it in, hope.
+
+Under those prompts, agents ship the same recurring failures regardless
+of model: duplicate components, fresh utilities for things that already
+exist in the repo, dependencies added for problems the project already
+solved, convention drift, scope creep, and "helpful" rewrites of code
+that was fine. Bigger catalogues do not fix this; they multiply the
+surface where it can happen.
+
+prompt-pack picks the opposite trade-off: **fewer skills, stronger
+behaviour**. 21 curated skills, lint-gated, one orchestrator, explicit
+inheritance, hardened across seven external review rounds (one of them
+empirical — the pack ran on a real review and we patched what dropped).
+It is small enough that you can read the whole catalogue in one sitting
+and audit what your agent is actually being told.
+
+The discipline that does the work:
 
 1. **Reuse before create.** A central `reuse-before-create` skill,
    inherited by every code-creating role, forces the agent to search
@@ -30,6 +48,18 @@ around the discipline that prevents that:
    security-review), so users don't memorise the catalog.
 5. **Curated, not exhaustive.** Each prompt earns its place.
    No 200 variants of "you are a senior X".
+
+### What this is not
+
+- Not a `.cursorrules` collection. The pack ships a real installer with
+  five targets (Cursor, Claude Code, Codex, OpenClaw, raw paste) and
+  six profiles, plus a linter that enforces the format on every PR.
+- Not a vendor-specific bundle. It runs on whatever AI coding tool you
+  already use; no migration, no platform lock-in.
+- Not a benchmark or a leaderboard. It is opinionated discipline, not
+  a claim to beat anyone on a synthetic eval.
+- Not exhaustive. If your stack needs a skill that is not here,
+  open an issue — a small principled pack beats a huge unaudited one.
 
 ## Repository layout
 
