@@ -38,10 +38,22 @@ jobs:
           severity: warning
 
   install-sh-smoke:
-    name: install.sh smoke test
-    runs-on: ubuntu-latest
+    # Run on both Ubuntu (bash 5.x) and macOS (bash 3.2 default).
+    # macOS still ships bash 3.2 because of the GPLv3 switch, so any bash 4+
+    # builtin (mapfile, readarray, declare -A, ${var^^}, etc.) silently breaks
+    # the installer for Mac users with no warning. CI on Ubuntu alone misses
+    # this entire class of bug.
+    name: install.sh smoke test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Show bash version
+        run: bash --version
 
       - name: List profiles and skills
         run: ./install.sh --list

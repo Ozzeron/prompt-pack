@@ -508,7 +508,13 @@ TARGET_PATH="$(cd "$TARGET_PATH" 2>/dev/null && pwd || { echo "Error: path does 
 if (( ${#EXPLICIT_SKILLS[@]} > 0 )); then
   SKILLS=("${EXPLICIT_SKILLS[@]}")
 else
-  mapfile -t SKILLS < <(profile_skills "$PROFILE")
+  # bash 3.2 compatibility (macOS default bash): use read loop instead of mapfile.
+  # mapfile is bash 4+ only; macOS still ships bash 3.2 because of the GPLv3 switch,
+  # so any script that wants to run on a stock Mac shell must avoid it.
+  SKILLS=()
+  while IFS= read -r _line; do
+    SKILLS+=("$_line")
+  done < <(profile_skills "$PROFILE")
 fi
 
 if (( ${#SKILLS[@]} == 0 )); then

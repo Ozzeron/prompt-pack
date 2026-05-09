@@ -1,0 +1,61 @@
+fix(install.sh): replace mapfile (bash 4+) with read loop (bash 3.2 compatible) for macOS
+
+Pre-share strict macOS audit caught a P0 portability bug. Line 511
+used "mapfile -t SKILLS < <(profile_skills $PROFILE)" which is a
+bash 4+ builtin. macOS ships bash 3.2 by default (Apple did not
+upgrade past it because bash 4 went to GPLv3) and that line is on
+the critical install path: when the user does not pass an explicit
+skill list, mapfile is the only thing that populates the SKILLS
+array from the chosen profile.
+
+On a stock Mac with no Homebrew bash:
+  ./install.sh --target cursor --profile minimal
+  -> install.sh: line 511: mapfile: command not found
+  -> Error: no skills resolved (profile=minimal)
+
+The install would silently fail with no installable skills. Pure
+P0 because it is the default path the README quick-start tells
+users to run.
+
+Fix in install.sh:
+- Replaced mapfile with a portable bash 3.2 read loop:
+    SKILLS=()
+    while IFS= read -r _line; do
+      SKILLS+=("$_line")
+    done < <(profile_skills "$PROFILE")
+- Process substitution "< <(...)" is bash 3.2-supported, so the
+  redirect form is fine on macOS.
+- Added a comment explaining why this is the long form.
+
+Why CI did not catch it:
+- The install.sh smoke test was running only on ubuntu-latest,
+  which has bash 5.x. mapfile is present there. The bug was
+  invisible to the green CI badge and would only surface when an
+  actual Mac user tried to install.
+
+Fix in .github/workflows/ci.yml:
+- install-sh-smoke now runs as a matrix on [ubuntu-latest,
+  macos-latest]. fail-fast disabled so we see both outcomes on
+  any single failure. macOS runner uses the system bash 3.2 by
+  default, so any future bash 4+ feature (declare -A, var^^,
+  readarray, globstar, etc.) will get caught at PR time, not
+  after a Mac user reports a broken install.
+- Added "bash --version" step to the smoke job so the runner's
+  bash version is visible in the logs (Ubuntu shows 5.x, macOS
+  shows 3.2; future contributors do not need to look it up).
+
+Other macOS-specific scans I ran (all clean):
+- No bash 4+ parameter expansions
+- No declare -A / typeset -A (associative arrays)
+- No readarray, globstar, append-redirect
+- No GNU-only coreutils flags: sed -i pattern (GNU vs BSD), date
+  -d, readlink -f, cp --reflink, ls --color, grep -P, find
+  -printf, stat (GNU vs BSD differ), cp/mv -t, xargs -d
+- Shebang is /usr/bin/env bash (correct - finds Homebrew bash if
+  installed, falls back to /bin/bash 3.2 otherwise)
+- Line endings are LF in git (.gitattributes enforces eol=lf for
+  *.sh)
+- Executable bit set in git tree (mode 100755)
+- No UTF-8 BOM at start of file
+
+Verified locally: 21 skills + 4 cross-checks still pass.
