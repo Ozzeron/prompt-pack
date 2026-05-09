@@ -34,3 +34,7 @@ logs/
 # Coverage
 coverage/
 .nyc_output/
+
+# Local tag-message drafts (force-recreated each release)
+.git-tag-*-msg.txt
+
