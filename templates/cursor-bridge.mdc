@@ -10,6 +10,26 @@ For any non-trivial coding request, do not answer immediately. First decide
 whether one of the prompt-pack rules in `.cursor/rules/` applies, and invoke
 it explicitly with `@<rule-name>` before responding.
 
+**Mandatory routes** (do not answer ad-hoc when these match):
+
+- **Whole-project review or audit** — the user asks to look at, review,
+  audit, or assess the codebase as a whole, and **does not** point you at
+  a diff, PR, or specific changes. This includes "проревьюй весь
+  проект", "перевір весь репо", "check the whole repo", "audit
+  the project", "general code quality review". You **must** invoke
+  `@repo-audit` before producing the report. Answering ad-hoc here is the
+  failure mode this rule exists to prevent.
+- **PR / diff review** — the user pointed at a diff, PR, branch range, or
+  named changeset. You **must** invoke `@code-review` before producing
+  findings.
+- **Security review** of changes or a module — you **must** invoke
+  `@security-review`.
+
+For every other intent in the table below, prefer explicit `@<rule-name>`
+invocation when the request is high-stakes (refactor planning, schema
+design, RLS work). Cursor's auto-loading of agent-requested rules is
+best-effort; explicit invocation is the only guarantee.
+
 ## Common mappings
 
 | User intent (any language) | Use rule |

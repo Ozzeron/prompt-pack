@@ -119,8 +119,10 @@ architecture/refactor-planner
 interface/ui-designer
 review/code-review
 review/repo-audit
+review/frontend-audit
 review/database-review
 review/security-review
+review/duplication-audit
 review/debugger
 delivery/handoff
 delivery/test-writer

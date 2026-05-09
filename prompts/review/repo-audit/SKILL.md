@@ -2,7 +2,7 @@
 name: repo-audit
 description: Whole-project audit. Architecture, security, data, deps, maintainability. Sample-based; no diff required.
 category: review
-version: 0.1.0
+version: 0.2.0
 triggers: ["audit the project", "review the whole repo", "проревьюй весь проект", "перевір весь репозиторій", "whole project review", "full audit", "architecture review", "general code quality"]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -39,8 +39,14 @@ declared the project fine).
 - [ ] **Coverage honesty.** You will name exactly what you did and did not
       inspect in the output. No "looked at the whole project" claims unless
       you actually did.
+- [ ] **CI definition check.** Before claiming "no CI" in findings, list
+      the contents of `.github/workflows/`, `.gitlab-ci.yml`, `azure-
+      pipelines.yml`, `.circleci/`, etc. Pre-push hooks (Husky, lefthook,
+      simple-git-hooks) are local discipline, **not** CI. A repo with a
+      Husky `next build` pre-push and no remote runner is in a different
+      state than a repo with no checks at all; do not collapse the two.
 
-If you cannot tick all four, stop and ask. Do not start reading.
+If you cannot tick all five, stop and ask. Do not start reading.
 
 ## When to use
 
@@ -193,6 +199,11 @@ under every heading.
   audit body
 - ❌ Producing a report longer than the project's own README — the
   audit is supposed to compress, not expand
+- ❌ Reporting "no CI" without first inspecting `.github/workflows/` and
+  similar provider directories. A pre-push hook (Husky, lefthook) is not
+  CI; equating the two is a routine but credibility-eroding mistake.
+- ❌ Reporting OAuth flows as safe without checking the redirect /
+  callback parameter handling. See the OAuth security note below.
 
 ## Notes
 
@@ -205,3 +216,43 @@ listed under "Not inspected" and a recommended follow-up pass.
 When the user follows up with "and the X area?", treat that as a separate
 audit invocation rather than expanding the current one — the original
 report's coverage section should not silently grow.
+
+### Recurring high-signal finding patterns
+
+These are concrete patterns worth surfacing as findings whenever the
+codebase exhibits them. Each one tends to be a real risk that users
+miss in self-review.
+
+- **OAuth callback open-redirect.** When the project has
+  `/api/.../callback`, `/auth/callback`, or similar routes that read a
+  `next`, `redirect`, `state.return_to`, or comparable query parameter
+  and then `redirect()` to it, check whether the value is validated
+  against an allowlist of internal paths. Unchecked redirect after
+  successful auth is a classic open-redirect path that turns the
+  legitimate auth flow into a phishing primitive. Mark it Medium or
+  High depending on whether it is reachable on production.
+- **OAuth/external-service error bodies leaked to the client.** When
+  an `/api/.../token`, `/api/.../refresh`, or similar route returns the
+  upstream provider's raw error text in the JSON response (`details:
+  err`, `error: errText`), flag it. Internal error messages help
+  attackers fingerprint the integration; production should return a
+  generic message and log the detail server-side.
+- **Inline TanStack Query keys when the project declares a key
+  factory.** A skill or convention doc says "use `queryKeys.user()`"
+  but the code has `queryKey: ['currentUser']` inline somewhere. The
+  inline key never invalidates with the factory key; the cache silently
+  diverges. Quick win every time.
+- **Two layers of route protection that disagree.** A `middleware.ts`
+  with a `protectedRoutes` list **and** a `(app)/layout.tsx` calling
+  `getUser()`. The lists drift; new routes get covered by one but not
+  the other. Flag the divergence; recommend either making layout the
+  sole gate or generating the middleware list from a single source.
+- **`PROGRESS.md` / `ARCHITECTURE.md` drift from code.** Counts of
+  migrations, named patterns ("useState forms" vs "useSheetForm"),
+  feature lists. Documentation that lies is worse than missing
+  documentation; surface as a Medium finding so the user sees the
+  drift even when the code is fine.
+
+These are not exhaustive; treat them as a starting checklist for the
+areas where audits most often miss real risks. Add new ones to this
+list when the same finding appears across multiple audits.

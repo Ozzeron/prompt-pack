@@ -168,7 +168,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 | `nextjs`    | 10 | Next.js / React frontend work |
 | `backend`   | 13 | Backend APIs with relational DB |
 | `supabase`  | 14 | Backend with Postgres + Supabase RLS |
-| `fullstack` | 19 | Almost everything except niche audits |
+| `fullstack` | 21 | Almost everything (includes frontend / duplication audits) |
 | `all`       | 22 | Every skill in the pack |
 
 ### Custom selection
