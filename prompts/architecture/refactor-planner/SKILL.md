@@ -118,10 +118,14 @@ Each phase is its own ship. The old shape stays working until the very end.
 1. **Confirm the destination.** What does the codebase look like *after* the refactor?
    Sketch it briefly. If the user hasn't decided, stop and ask. The destination is not
    optional — you can't plan a journey without one.
-2. **Audit the starting state.**
+2. **Audit the starting state and the project's conventions.**
    - What files / modules are involved?
    - How many consumers does the thing-being-changed have? Use grep to count.
    - What tests exist for this area? (Determines how confidently each step can be shipped.)
+   - Inspect 1–2 canonical examples of how similar refactors were done in this repo
+     before (look at recent merges, ADRs, or comparable extracted modules). Match the
+     project's style for the destination, not your default style. If there is no prior
+     example, propose the convention up front so the user can reject it before any code moves.
 3. **Choose the pattern.** Default: expand-then-contract. Use a different pattern only
    if you can justify why expand-then-contract doesn't apply.
 4. **Decompose into steps.** Each step:

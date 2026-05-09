@@ -52,15 +52,25 @@ Out of scope:
 
 1. **Clarify the domain.** What entities exist? What are the relationships? What are the
    read patterns vs write patterns?
-2. **Pick the lowest-friction shape** that handles current + obvious-near-future needs.
+2. **Inspect 2–3 canonical examples in this schema before designing.** Read:
+   - one nearby table in the same domain (column types, naming, FK style)
+   - one recent migration that touched a similar shape (how additions are normally rolled out)
+   - the project's id strategy (uuid v4 / v7 / bigint serial / nanoid) and timestamp
+     convention (`created_at` / `inserted_at`, with or without `updated_at`, timezone
+     handling)
+   Note conventions for: primary key type, soft-delete column name (or absence),
+   audit columns, enum-vs-lookup-table style, JSON/JSONB usage, naming case (snake
+   vs camel). **Match them.** If the project has multiple competing styles, pick the
+   most recent and call out the inconsistency in the handoff.
+3. **Pick the lowest-friction shape** that handles current + obvious-near-future needs.
    Don't model imagined requirements.
-3. **Decide soft-delete.** Default to hard delete + audit log, switch to soft-delete when
+4. **Decide soft-delete.** Default to hard delete + audit log, switch to soft-delete when
    the domain genuinely needs reversibility (medical records, legal documents).
-4. **Place indexes** for the queries you know exist. Avoid speculative indexes.
-5. **Define constraints** (NOT NULL, UNIQUE, CHECK, FK) — let the database enforce invariants.
-6. **Document the decision** — one paragraph in the migration or schema file explaining
+5. **Place indexes** for the queries you know exist. Avoid speculative indexes.
+6. **Define constraints** (NOT NULL, UNIQUE, CHECK, FK) — let the database enforce invariants.
+7. **Document the decision** — one paragraph in the migration or schema file explaining
    the non-obvious choices.
-7. **Hand off.** For non-trivial schema changes, finish with `delivery/handoff` summarising
+8. **Hand off.** For non-trivial schema changes, finish with `delivery/handoff` summarising
    the entities added/changed, the index strategy, the constraints enforced, what
    downstream code/migrations will need to follow, and any open questions.
 

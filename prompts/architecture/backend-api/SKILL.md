@@ -59,7 +59,14 @@ Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additio
 
 1. **Confirm contract.** Method, path, request shape, response shape, error cases, auth requirement.
    If any are unclear, ask one focused question before writing code.
-2. **Locate.** Find where similar endpoints live. Match folder, naming, and layering.
+2. **Inspect 2–3 canonical examples in this repo before writing.** Read:
+   - one similar endpoint in the same module/area (route, validation, response shape)
+   - the project's shared error-handling middleware or helper
+   - one test for an endpoint of the same archetype
+   Note the conventions you found: validator (zod / joi / pydantic), error envelope shape,
+   logging style, auth helper, response wrapping. **Match them.** Do not introduce a
+   parallel pattern “because it is cleaner.” If the repo has no canonical example, say so
+   and propose the convention before writing.
 3. **Write the smallest correct version.** Validation, query, response. No premature abstractions.
 4. **Add error handling.** HTTP status codes that match semantics. Generic messages outward,
    detailed logs inward.

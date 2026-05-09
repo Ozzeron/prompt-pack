@@ -96,6 +96,63 @@ Before opening a PR:
 - [ ] No company-specific or product-specific references unless universally applicable
 - [ ] If you added a routing entry, it's in `meta/task-router/SKILL.md`
 
+## Reviewer checklist
+
+When reviewing a skill PR, work through the following gates in order. The first failure
+blocks merge; do not soften a no into a maybe.
+
+**1. Justification**
+- [ ] The PR description names the recurring AI failure mode this skill prevents (or, for
+      a fix, the failure mode the existing skill missed). "Best practices" alone is not enough.
+- [ ] If a new skill: the issue thread shows that no existing skill (or extension of one)
+      could cover this.
+
+**2. Scope hygiene**
+- [ ] "When to use" lists concrete triggers a real user might phrase, not abstract
+      categories like "complex task".
+- [ ] "Out of scope" is non-empty and lists at least one tempting-but-rejected use.
+- [ ] No silent overlap with another skill's scope. If overlap exists, one skill points
+      at the other.
+
+**3. Discipline content**
+- [ ] Anti-patterns section has ≥5 items, each describing a specific failure (“❌ X because Y”),
+      not a generic "bad practice".
+- [ ] Token-discipline section is present and tells the agent what NOT to read for this skill.
+- [ ] Output format is concrete (template, table, or worked example), not just "a clear
+      summary".
+
+**4. Inherits and references**
+- [ ] If the skill creates code, it inherits `meta/engineering-principles`,
+      `meta/reuse-before-create`, and `meta/token-discipline`.
+- [ ] Every linked skill exists at the path given (the linter enforces this; trust it).
+- [ ] `meta/task-router` has a row pointing to this skill (or this PR adds one).
+
+**5. Trigger discipline**
+- [ ] No `triggers: [always]` unless the skill is genuinely a baseline rule for all turns.
+- [ ] Skills meant to be loaded only by reference use `triggers: [inherit-only]` (the
+      linter enforces this is the sole trigger).
+- [ ] Triggers contain phrases users actually emit, not internal jargon.
+
+**6. Stack-agnosticism vs leakage**
+- [ ] No project, company, or client name (the linter blocks the obvious ones; check for
+      new ones too).
+- [ ] Stack-specific guidance (Next.js App Router, Supabase RLS, etc.) is allowed when it
+      illustrates a discipline rule, not when it ties the skill to one stack.
+
+**7. Length and shape**
+- [ ] File is within 80–310 lines.
+- [ ] No section is padded to look thorough; remove filler before approving.
+- [ ] Code blocks have language tags; tables are used for lookup data, not prose.
+
+**8. Composition with the rest of the pack**
+- [ ] If this is a coding skill, it ends with an explicit `delivery/handoff` step (skip
+      only when the skill itself is a one-shot lookup).
+- [ ] If this is a meta skill, it does not duplicate rules that live in another meta
+      skill; it inherits or links instead.
+
+When all gates pass, leave a short approval that names the AI failure mode the skill
+closed. That message becomes the contributor's reward and the catalog's living rationale.
+
 ## Versioning
 
 Bump the `version` in frontmatter when a skill's behaviour changes:

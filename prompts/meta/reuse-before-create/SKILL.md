@@ -73,6 +73,54 @@ means the search was shallow. Effective searches:
 | **Data hook / query** | grep the resource name, check `api/`, `data/`, `queries/`, `hooks/` |
 | **Style class / token** | grep the class string or hex value, check `theme.ts`, `tokens.ts`, `tailwind.config` |
 
+### Concrete commands
+
+Default tool is `rg` (ripgrep). Fall back to `grep -rn` if `rg` is unavailable. Always
+run from repo root, not from a feature folder.
+
+```bash
+# UI component (looking to reuse a button before creating)
+rg -t tsx -t ts "^export (default )?(function|const) (Button|.*Button)" --no-heading
+rg -t tsx "<Button[\s/>]" -l                       # who uses it
+rg -t ts -t tsx "^import .* from .*['\"].*ui/button['\"]"  # the canonical import path
+
+# Hook (looking to reuse useUser before creating useCurrentUser)
+rg -t ts -t tsx "^export (function|const) use[A-Z]\w+" --no-heading -g '!**/*.test.*'
+rg -t ts -t tsx "\buse[A-Z]\w+\(" -g '!node_modules' | head -50  # call sites
+
+# Utility (looking to reuse a formatter before creating one)
+rg -t ts "^export (function|const) (format|parse|validate|to|is|has|can)[A-Z]\w+"
+rg -t ts "format(Date|Currency|Number|Time|Phone|Address)" -g '!node_modules'
+
+# Type / interface (looking for an existing User / Order / Invoice shape)
+rg -t ts "^(export )?(interface|type) (User|Order|Invoice)\b" --no-heading
+rg -t ts "^(export )?type \w+ = z\.infer<typeof"   # zod-derived types
+
+# Constant / enum (looking for STATUS / ROLE / TIER values before redefining)
+rg -t ts "^export const [A-Z_]{2,}\s*="
+rg -t ts "^(export )?enum [A-Z]\w+\b"
+
+# Schema / validator
+rg -t ts "z\.object\(\{" -A 1 -g '!node_modules' | head -40
+rg -t ts "export const \w+Schema\s*="
+
+# API endpoint / route
+rg -t ts "\bapp\.(get|post|put|patch|delete)\(['\"]"      # express
+rg -t ts -g 'app/api/**/route.ts' -g 'app/**/route.ts' "^export (async )?function (GET|POST|PUT|PATCH|DELETE)"  # next 13+
+rg -t py "@(router|app)\.(get|post|put|patch|delete)\("   # fastapi
+
+# Data hook / query (TanStack Query, SWR, RTK Query)
+rg -t ts -t tsx "useQuery\(\{\s*queryKey:|useSWR\(['\"]|api\.\w+\.use\w+Query"
+rg -t ts "queryKey:\s*\[['\"](\w+)" -o -r '$1' | sort -u  # all query key roots
+
+# Style class / token
+rg "#[0-9a-fA-F]{3,8}\b" --no-heading -g '*.css' -g '*.ts' -g '*.tsx'  # hex colors
+rg -t ts "theme\.(colors|space|radii|fontSizes)\.\w+"     # token references
+```
+
+If `rg` returns nothing, vary the query (loosen the regex, drop the type filter, search
+the whole tree). "No results" on the first try means broaden, not create.
+
 ### Don't trust names alone
 
 Names lie. The codebase may have a `formatDate` that strips timezones, a `useUser` that

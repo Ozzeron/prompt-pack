@@ -89,11 +89,33 @@ For dynamically typed languages without types, the discipline shifts to:
 
 ## 6. Imports and dependencies
 
-- Don't add a dependency when 5 lines of code solve it
-- Don't add a dependency when an existing one already does the job
-- New dependencies need a one-line justification in the PR/handoff
-- Prefer the project's existing tools (state library, form library, validator) over
-  introducing parallel ones
+New dependencies are the most common form of silent technical debt: each one is a
+perpetual maintenance, security, and bundle-size cost paid by everyone, often to save
+a few lines once.
+
+Before `npm install <anything>`:
+
+- **Search the existing dependency tree first.** Run `cat package.json` (or equivalent)
+  and check whether a current dep already covers the need. Common false adds: a date
+  library when `date-fns` / `dayjs` / `luxon` is already there; a fetch wrapper when
+  `axios` / `ky` is present; `lodash.debounce` when `lodash` itself is in deps; a UUID
+  lib when `crypto.randomUUID()` already works in target runtimes.
+- **Try 5 lines first.** If the task is `debounce`, `groupBy`, `chunk`, `formatBytes`,
+  `slugify`, `clamp`, `range`, `sleep`, or similar single-purpose helpers, write it
+  inline. These are not dependency-worthy.
+- **Justify in writing.** A new dep is allowed when it crosses one of these bars:
+  cryptographic correctness (hashing, signing, JWT), parsing complexity (CSV, XML, ICS,
+  YAML), browser/runtime compatibility (date-fns over hand-rolling timezone logic),
+  large surface (form library, query client, ORM). The justification belongs in the
+  PR description / handoff, one sentence, naming the alternative considered.
+- **Match the project, do not import parallel stacks.** If the project uses Zod, do
+  not add Yup. If it uses TanStack Query, do not add SWR for one component. Parallel
+  stacks are how monorepos rot.
+- **Check size and freshness.** Use `npm view <pkg> dist.unpackedSize`, look at last
+  publish date, and look at open critical issues. Dead packages (no release in 18+
+  months on a security-relevant area) are a no.
+- **Lockfile hygiene.** Pin the version, update the lockfile, do not silently bump
+  unrelated transitive deps in the same PR.
 
 ## 7. State management
 
