@@ -7,11 +7,12 @@ Built to be **simple to use**, **token-aware**, and **stack-agnostic**.
 
 ## Why another prompt repo
 
-Most existing collections (awesome-cursorrules, awesome-claude-code-subagents, etc.) are dumps of markdown files
-with no orchestration story and no usage discipline. AI coding agents under those prompts ship the same
-recurring failures: duplicate components, fresh utilities for things that already exist, dependencies
-added for problems the project already solved, and convention drift. This repo is built around the
-discipline that prevents that:
+Most existing collections (awesome-cursorrules, awesome-claude-code-subagents, etc.)
+are dumps of markdown files with no orchestration story and no usage discipline.
+AI coding agents under those prompts ship the same recurring failures: duplicate
+components, fresh utilities for things that already exist, dependencies added for
+problems the project already solved, and convention drift. This repo is built
+around the discipline that prevents that:
 
 1. **Reuse before create.** A central `reuse-before-create` skill, inherited by every code-creating role,
    forces the agent to search for an existing artifact before adding a new one. Every "new" entry needs
@@ -149,8 +150,9 @@ Every prompt follows the schema in [`docs/PROMPT-FORMAT.md`](docs/PROMPT-FORMAT.
 
 ## Orchestration
 
-[`prompts/meta/task-router/SKILL.md`](prompts/meta/task-router/SKILL.md) is the entry point for orchestrator agents.
-It maps user intents to specific prompts and decides when to spawn subagents.
+[`prompts/meta/task-router/SKILL.md`](prompts/meta/task-router/SKILL.md) is the entry
+point for orchestrator agents. It maps user intents to specific prompts and decides
+when to spawn subagents.
 
 A typical flow:
 
@@ -172,8 +174,10 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 
 ## Status
 
-🟢 **v0.1.5** — first stable release. 21 skills, format-locked, lint-gated, tested across
-six external review rounds (one of them empirical — the pack ran on a real review and we patched what dropped). Use it.
+🟢 **v0.1.6** — current stable v0.1.x release.
+21 skills, format-locked, lint-gated, hardened across six external review rounds
+(one of them empirical — the pack ran on a real review and we patched what dropped).
+Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major
 bump (v1.0.0) when the format itself changes.

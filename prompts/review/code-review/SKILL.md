@@ -2,7 +2,7 @@
 name: code-review
 description: Review a diff or pull request. Severity-classified, actionable, focused on correctness, security, and maintainability.
 category: review
-version: 0.4.0
+version: 0.4.1
 triggers: ["review this PR", "review diff", "code review", "review my changes"]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -80,7 +80,10 @@ Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additio
   reading is needed.
 - Open the surrounding file only when the diff hunk's correctness depends on it.
 - Read project conventions (AGENTS.md, CLAUDE.md, README) once at start, then stop.
-- Do not read tests unless reviewing test quality is part of the request.
+- Do not read unrelated test files. For Pass 4 (tests), inspect only tests changed in
+  the diff plus, if needed, the nearest existing test pattern to assess coverage on the
+  changed paths. Reading the entire test suite is out of scope unless the user explicitly
+  asked for a test-quality review.
 
 ## Process
 

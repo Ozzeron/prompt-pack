@@ -126,6 +126,14 @@ blocks merge; do not soften a no into a maybe.
       is opened. See `docs/PROMPT-FORMAT.md` ("Writing principle: rules that must
       survive compression") and `prompts/review/code-review/SKILL.md` for the reference
       shape. Pure output-only skills (e.g. handoff) are exempt.
+      *Migration note:* the Preflight requirement applies in full to **new** discipline-
+      bearing skills. **Existing v0.1.x skills** are migrated gradually, one at a time,
+      after empirical testing on a real task. As of v0.1.5 only `review/code-review`
+      ships with a Preflight section by design; the other discipline-bearing skills
+      (`architecture/*`, the rest of `review/*`, `interface/ui-designer`) will gain
+      Preflight in subsequent patch releases as each is validated. Reviewing an existing
+      skill that does not yet have one is not a blocker; reviewing a new skill that
+      omits one is.
 
 **4. Inherits and references**
 - [ ] If the skill creates code, it inherits `meta/engineering-principles`,
