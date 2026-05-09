@@ -229,7 +229,7 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 
 ## Status
 
-🟢 **v0.1.8** — current stable v0.1.x release.
+🟢 **v0.1.9** — current stable v0.1.x release.
 21 skills, format-locked, lint-gated, hardened across eight external review rounds
 (one of them empirical — the pack ran on a real review and we patched what dropped).
 Use it.
