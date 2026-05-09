@@ -94,6 +94,12 @@ Out of scope:
    package.json scripts, .env.example, src/server.ts:1-30`). This makes the grounding
    auditable.
 
+8. **Hand off.** For multi-section docs (full README, ADR, AGENTS.md, release notes),
+   finish with `delivery/handoff` summarising what was written, what was deliberately
+   left unwritten, the `<!-- VERIFY: ... -->` items the user must resolve, and where to
+   place or merge the draft. Skip handoff for single-comment edits where the diff speaks
+   for itself.
+
 ## Output format
 
 ### README section (Quickstart-style)

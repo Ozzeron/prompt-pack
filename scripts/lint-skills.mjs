@@ -172,6 +172,22 @@ function lintSkill(skill) {
   if (fm.applies_to !== undefined && !Array.isArray(fm.applies_to)) {
     failures.push(`applies_to must be a list, got ${typeof fm.applies_to}`);
   }
+  // inherit-only invariant: a skill marked inherit-only is loaded by reference from
+  // other skills (Inherits sections) and must not also self-activate via other triggers
+  // or via [always]. Mixing the two is what the v0.1.2 trigger discipline patch was
+  // explicitly designed to prevent.
+  if (Array.isArray(fm.triggers)) {
+    const hasInheritOnly = fm.triggers.includes('inherit-only');
+    const hasAlways = fm.triggers.includes('always');
+    if (hasInheritOnly && fm.triggers.length !== 1) {
+      failures.push(
+        `triggers: inherit-only must be the sole trigger; got ${JSON.stringify(fm.triggers)}`,
+      );
+    }
+    if (hasInheritOnly && hasAlways) {
+      failures.push('triggers: inherit-only cannot be combined with always');
+    }
+  }
 
   if (lineCount < LENGTH_MIN) failures.push(`length ${lineCount} < ${LENGTH_MIN} lines`);
   if (lineCount > LENGTH_MAX) failures.push(`length ${lineCount} > ${LENGTH_MAX} lines`);

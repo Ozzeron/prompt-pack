@@ -244,6 +244,20 @@ CREATE INDEX ... ON public.<table> (...);
 For migration proposals: follow `architecture/database-migrations` output format, plus
 include `NOTIFY pgrst, 'reload schema';` at the end if needed.
 
+## Hand off
+
+For RLS, auth-integration, or migration-workflow changes, finish with `delivery/handoff`
+summarising:
+
+- which tables/operations the new policies cover and which remain unprotected
+- the role surface (`anon`, `authenticated`, `service_role`) per policy and why
+- indexes added to support policy predicates (and which queries they unblock)
+- whether `auth.users` columns are read directly or via a subselect (perf note)
+- schema-cache reload needed (`NOTIFY pgrst, 'reload schema';`) yes/no
+- pitfalls applicable to this change (RLS off after pg_dump restore, dashboard-vs-CLI drift)
+
+Skip handoff for single-policy tweaks on already-secured tables where the diff is obvious.
+
 ## Anti-patterns
 
 - ❌ Tables in `public` without RLS

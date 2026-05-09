@@ -3,7 +3,7 @@ name: reuse-before-create
 description: DRY discipline core. Before creating anything new, find what already exists. Every coding skill inherits this.
 category: meta
 version: 0.1.0
-triggers: [always, "writing code", "adding component", "adding util", "adding type"]
+triggers: ["writing code", "adding component", "adding util", "adding type", "creating file", "new helper", "new hook"]
 applies_to: [openclaw, cursor, claude-code, generic]
 ---
 

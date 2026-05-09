@@ -60,6 +60,9 @@ Out of scope:
 5. **Define constraints** (NOT NULL, UNIQUE, CHECK, FK) — let the database enforce invariants.
 6. **Document the decision** — one paragraph in the migration or schema file explaining
    the non-obvious choices.
+7. **Hand off.** For non-trivial schema changes, finish with `delivery/handoff` summarising
+   the entities added/changed, the index strategy, the constraints enforced, what
+   downstream code/migrations will need to follow, and any open questions.
 
 ## Conventions (relational)
 

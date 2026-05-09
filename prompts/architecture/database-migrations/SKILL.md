@@ -159,6 +159,19 @@ When proposing a migration:
 For trivial migrations (single phase, no data change, no lock risk), skip the phases section
 and just provide the SQL with a one-line comment of intent.
 
+## Hand off
+
+For any multi-phase migration (expand/contract, backfill, lock-risky DDL), finish with
+`delivery/handoff` summarising:
+
+- which phase this PR ships and which phases are deferred
+- estimated lock duration / concurrency impact and how it was mitigated
+- the rollback decision (trivial revert / no-op / partial) per phase
+- backfill batch size, idempotency marker, and how to resume on failure
+- which downstream code or follow-up migrations must land before CONTRACT
+
+Skip handoff for single-statement, lock-free schema additions where the SQL is self-evident.
+
 ## Anti-patterns
 
 - ❌ `DROP COLUMN` and `git push` in the same PR as a code change — old replicas will crash
