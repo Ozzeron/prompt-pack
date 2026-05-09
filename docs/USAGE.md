@@ -43,8 +43,10 @@ Custom selection works too — see "Picking specific skills" below.
 
 ## Cursor
 
-Cursor reads project-local rules from `.cursor/rules/*.md`. Each rule has YAML frontmatter
-that controls when it activates.
+Cursor reads project-local rules from `.cursor/rules/*.mdc`. The installer
+generates these as proper Cursor Project Rules with the Cursor-native
+frontmatter fields (`description`, `globs`, `alwaysApply`); your generic
+`triggers` and `applies_to` are not read by Cursor.
 
 ```bash
 cd ~/code/your-project
@@ -56,41 +58,66 @@ cd ~\code\your-project
 & ~\code\prompt-pack\install.ps1 -Target cursor -Profile nextjs
 ```
 
-Reload the Cursor window (`Cmd/Ctrl+Shift+P` → `Reload Window`) to pick up the new rules.
+Reload the Cursor window (`Cmd/Ctrl+Shift+P` → `Reload Window`) to pick up
+the new rules.
 
-### Always-on rules
+### How rules activate on Cursor
 
-Some rules should apply to every file (engineering principles, reuse, token discipline).
-Open the copied file in `.cursor/rules/` and edit the frontmatter:
+The installer assigns activation modes automatically. Cursor supports four
+modes; the installer maps them like this:
 
-```yaml
----
-name: engineering-principles
-alwaysApply: true     # add this line
-description: ...
----
+- **Always Apply (`alwaysApply: true`)** — the meta layer that the pack
+  inherits everywhere: `engineering-principles`, `reuse-before-create`,
+  `token-discipline`, `task-router`. Plus a small `prompt-pack-router.mdc`
+  bridge file that names the routing table and multilingual aliases. These
+  load on every turn. Keep this set small — anything else here eats context
+  unnecessarily.
+- **Agent Requested** (`alwaysApply: false`, no `globs`) — every other skill.
+  Cursor decides whether to load the rule based on the `description` field
+  matching the user's request. This is best-effort and **not guaranteed**
+  to fire on every relevant request. For critical workflows, invoke the
+  rule explicitly.
+- **Auto Attached** (`globs:`) — not used by the installer by default. Add
+  globs manually if you want a rule to load whenever certain files are in
+  context (e.g. set `globs: ["**/*.tsx", "**/*.ts"]` on `frontend-feature`
+  for a TypeScript codebase).
+- **Manual** — invoke any rule explicitly with `@<rule-name>` in chat. This
+  is the **most reliable** mode; prefer it for code review, security review,
+  audit, and other workflows where you want the discipline to actually run.
+
+### Recommended usage in chat
+
+For critical work, invoke explicitly:
+
 ```
-
-### Path-scoped rules
-
-For rules that should only apply to specific files (e.g. `frontend-feature` only for
-`.tsx`):
-
-```yaml
----
-name: frontend-feature
-globs: ["**/*.tsx", "**/*.ts"]
-description: ...
----
-```
-
-### Using rules in chat
-
-In Cursor's agent chat you can reference a rule by name:
-
-```
+@code-review review the diff in PR #42
+@security-review audit the new upload endpoint
+@repo-audit check the whole project
 @frontend-feature build a settings page for user preferences
 ```
+
+The `prompt-pack-router.mdc` bridge file (always loaded) gives the agent
+the routing table and recognises Russian and Ukrainian intent aliases
+("проревьюй весь проект" → `@repo-audit`, etc.). It improves
+auto-routing but does not replace explicit `@<rule-name>` for critical
+workflows.
+
+### Customising activation
+
+If you want a rule to behave differently — for example, make
+`code-review` always-on instead of agent-requested — open the generated
+`.cursor/rules/<name>.mdc` and edit the frontmatter:
+
+```yaml
+---
+description: Review a diff or pull request...
+globs: ["**/*.ts", "**/*.tsx"]    # optional: load when these files in context
+alwaysApply: false                # change to true for always-on
+---
+```
+
+Reinstalling with `--force` will overwrite your edits and back up the
+prior version with a `.bak-<timestamp>` suffix.
 
 ## Claude Code
 

@@ -64,6 +64,7 @@ delivery/handoff
 architecture/frontend-feature
 interface/ui-designer
 review/code-review
+review/repo-audit
 review/debugger
 delivery/test-writer
 EOF
@@ -78,6 +79,7 @@ architecture/backend-api
 architecture/database-schema
 architecture/database-migrations
 review/code-review
+review/repo-audit
 review/database-review
 review/security-review
 review/debugger
@@ -95,6 +97,7 @@ architecture/database-schema
 architecture/database-migrations
 architecture/postgres-supabase
 review/code-review
+review/repo-audit
 review/database-review
 review/security-review
 review/debugger
@@ -115,6 +118,7 @@ architecture/postgres-supabase
 architecture/refactor-planner
 interface/ui-designer
 review/code-review
+review/repo-audit
 review/database-review
 review/security-review
 review/debugger
@@ -264,10 +268,79 @@ git_working_tree_state() {
 # Installers
 # ---------------------------------------------------------------------------
 
+# Skills that should ship as Cursor `alwaysApply: true` rules: the meta layer
+# (foundation rules that the pack is designed to inherit) plus the orchestrator
+# router. Every other skill ships as `alwaysApply: false` and is reachable via
+# `@<skill-name>` (Manual mode) or by Cursor's Agent Requested mode using the
+# rule's description. Cursor does not read our generic `triggers:` field, so the
+# only way these rules surface automatically is through these three Cursor-
+# native frontmatter fields.
+is_cursor_always_apply() {
+  case "$1" in
+    meta/engineering-principles|meta/reuse-before-create|meta/token-discipline|meta/task-router)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+
+# Transform a generic SKILL.md into a Cursor-native .mdc rule.
+#
+# Cursor Project Rules require:
+#   - .mdc extension (not .md, Cursor will not pick it up otherwise)
+#   - Cursor-native frontmatter (description / globs / alwaysApply); our
+#     `triggers:` and `applies_to:` are ignored by Cursor.
+#   - description used by Cursor's Agent Requested mode to decide relevance.
+#
+# The body of the skill is preserved verbatim. Only the YAML frontmatter is
+# rewritten.
+write_cursor_mdc() {
+  local src="$1"
+  local dest="$2"
+  local skill="$3"
+
+  local always_apply="false"
+  if is_cursor_always_apply "$skill"; then
+    always_apply="true"
+  fi
+
+  # Pull description out of the source frontmatter. We keep the original
+  # wording because it is hand-tuned for the agent's relevance decision.
+  local description
+  description=$(awk '
+    /^---$/ { in_fm = !in_fm; next }
+    in_fm && /^description:/ {
+      sub(/^description: */, "")
+      print
+      exit
+    }
+  ' "$src")
+
+  # Strip the existing frontmatter from the body (everything between the first
+  # pair of --- lines plus the closing --- itself).
+  local body
+  body=$(awk '
+    BEGIN { fm_count = 0 }
+    /^---$/ { fm_count++; if (fm_count <= 2) next }
+    fm_count >= 2 { print }
+  ' "$src")
+
+  # Write the Cursor-native rule.
+  {
+    echo "---"
+    echo "description: $description"
+    echo "globs:"
+    echo "alwaysApply: $always_apply"
+    echo "---"
+    echo "$body"
+  } > "$dest"
+}
+
 install_cursor() {
   local rules_dir="$TARGET_PATH/.cursor/rules"
   echo
   echo "Installing to $rules_dir"
+  echo "  (Cursor target: writing .mdc Project Rules with Cursor-native frontmatter)"
   echo
 
   if (( DRY_RUN == 0 )); then mkdir -p "$rules_dir"; fi
@@ -275,23 +348,109 @@ install_cursor() {
   for skill in "${SKILLS[@]}"; do
     local name="${skill##*/}"
     local src="$PROMPTS_ROOT/$skill/SKILL.md"
-    local dest="$rules_dir/$name.md"
+    local dest="$rules_dir/$name.mdc"
 
     if [[ ! -f "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
 
     if (( DRY_RUN == 1 )); then
-      echo "  [dry-run] would write $dest"
+      local mode="agent-requested"
+      if is_cursor_always_apply "$skill"; then mode="always-apply"; fi
+      echo "  [dry-run] would write $dest  ($mode)"
       continue
     fi
 
     handle_existing_file "$dest" || { echo "  Skipped."; continue; }
-    cp "$src" "$dest"
-    echo "  Wrote $dest"
+    write_cursor_mdc "$src" "$dest" "$skill"
+    if is_cursor_always_apply "$skill"; then
+      echo "  Wrote $dest  (alwaysApply: true)"
+    else
+      echo "  Wrote $dest  (agent-requested; invoke with @${name} for explicit use)"
+    fi
   done
+
+  # Also drop the bridge router so the agent learns the routing table without
+  # needing to load every skill into context. The bridge is alwaysApply by
+  # design - it is small and cheap, and it is what makes specialised rules
+  # discoverable on Cursor where our generic triggers field is invisible.
+  if (( DRY_RUN == 0 )); then
+    write_cursor_bridge "$rules_dir/prompt-pack-router.mdc"
+    echo "  Wrote $rules_dir/prompt-pack-router.mdc  (always-apply bridge)"
+  else
+    echo "  [dry-run] would write $rules_dir/prompt-pack-router.mdc  (always-apply bridge)"
+  fi
 
   echo
   echo "Done. Reload your Cursor window to pick up the new rules."
-  echo "Tip: open a rule file and add 'alwaysApply: true' to the frontmatter for always-on rules."
+  echo "Specialised rules are agent-requested; for critical workflows invoke them"
+  echo "explicitly with @code-review, @security-review, @repo-audit, etc."
+}
+
+# The Cursor bridge router. Always-on, kept short by design. Maps the most
+# common user intents - including Russian and Ukrainian - to the right
+# skill, since Cursor cannot read our generic triggers field.
+write_cursor_bridge() {
+  local dest="$1"
+  cat > "$dest" <<'BRIDGE_EOF'
+---
+description: Prompt-pack routing bridge. Always loaded. Maps user intents (English, Russian, Ukrainian) to the matching prompt-pack rule for non-trivial coding work.
+globs:
+alwaysApply: true
+---
+
+# Prompt-pack routing bridge
+
+For any non-trivial coding request, do not answer immediately. First decide
+whether one of the prompt-pack rules in `.cursor/rules/` applies, and invoke
+it explicitly with `@<rule-name>` before responding.
+
+## Common mappings
+
+| User intent (any language) | Use rule |
+|---|---|
+| PR / diff review ("review this PR", "проверь diff", "перевір PR") | `@code-review` |
+| Whole-project review or audit ("проревьюй весь проект", "загальний аудит", "check the whole repo") | `@repo-audit` |
+| Security review of changes or a module ("security review", "перевір безпеку") | `@security-review` |
+| Frontend audit of an existing UI codebase ("audit the frontend", "проаудитуй фронт") | `@frontend-audit` |
+| Database review (schema/query/migration) | `@database-review` |
+| Find code duplication / DRY audit | `@duplication-audit` |
+| Debug a failing test or bug | `@debugger` |
+| Build a frontend feature / page ("add a feature", "сделай страницу", "зроби фічу") | `@frontend-feature` |
+| Build a backend endpoint / API ("add an endpoint", "добавь API") | `@backend-api` |
+| Design a new UI / screen | `@ui-designer` |
+| Design new tables / data model | `@database-schema` |
+| Write a DB migration | `@database-migrations` |
+| Supabase RLS / auth / migration workflow | `@postgres-supabase` |
+| Plan a refactor / migration | `@refactor-planner` |
+| Write tests for existing code | `@test-writer` |
+| Write or update docs (README, ADR, AGENTS.md, etc.) | `@doc-writer` |
+| Wrap up / hand off completed work | `@handoff` |
+
+## Disambiguation rules
+
+- **"Review" without a diff or PR.** If the user asks to review or look at
+  code without pointing at a diff, PR, or specific changes, this is an
+  audit. Prefer `@repo-audit` (whole project) or `@frontend-audit` (UI
+  codebase). Do not silently route to `@code-review`, which is diff-anchored.
+  Russian/Ukrainian: "проревьюй весь проект", "подивись на код", "перевір
+  весь репо" - all map to audit, not PR review.
+
+- **"Build / add a feature" without an existing reference.** Default to the
+  matching `@*-feature` or `@*-api` skill in greenfield mode.
+
+- **"Migrate".** Schema migration -> `@database-migrations`. Framework or
+  pattern migration -> `@refactor-planner`. Ask if unclear.
+
+- **"Fix bug" without a failing test or error message.** Ask for the failure
+  signal before invoking `@debugger`.
+
+## Always-on rules
+
+The meta layer (`engineering-principles`, `reuse-before-create`,
+`token-discipline`, `task-router`) is `alwaysApply: true` and stays in
+context for every turn. The specialised rules above are agent-requested
+or manual; on Cursor, prefer explicit `@<rule-name>` invocation for
+critical workflows.
+BRIDGE_EOF
 }
 
 install_claude_code() {

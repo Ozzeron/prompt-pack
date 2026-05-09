@@ -24,7 +24,7 @@ that was fine. Bigger catalogues do not fix this; they multiply the
 surface where it can happen.
 
 prompt-pack picks the opposite trade-off: **fewer skills, stronger
-behaviour**. 21 curated skills, lint-gated, one orchestrator, explicit
+behaviour**. 22 curated skills, lint-gated, one orchestrator, explicit
 inheritance, hardened across eight external review rounds (one of them
 empirical — the pack ran on a real review and we patched what dropped).
 It is small enough that you can read the whole catalogue in one sitting
@@ -86,8 +86,9 @@ reliability.
 prompts/
   architecture/      # backend-api, frontend-feature, database-schema,
                      #  database-migrations, postgres-supabase, refactor-planner
-  review/            # code-review, security-review, frontend-audit,
-                     #  database-review, duplication-audit, debugger
+  review/            # code-review, repo-audit, security-review,
+                     #  frontend-audit, database-review,
+                     #  duplication-audit, debugger
   interface/         # ui-designer
   delivery/          # handoff, test-writer, doc-writer, ai-agent-docs
   meta/              # task-router, engineering-principles, reuse-before-create,
@@ -164,11 +165,11 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 | Profile     | Skills | Use case |
 |-------------|--------|---|
 | `minimal`   | 4 | Core baseline pulled in via `## Inherits` by other skills (engineering principles + reuse + token discipline) plus `delivery/handoff` for end-of-task summaries |
-| `nextjs`    | 9 | Next.js / React frontend work |
-| `backend`   | 12 | Backend APIs with relational DB |
-| `supabase`  | 13 | Backend with Postgres + Supabase RLS |
-| `fullstack` | 18 | Almost everything except niche audits |
-| `all`       | 21 | Every skill in the pack |
+| `nextjs`    | 10 | Next.js / React frontend work |
+| `backend`   | 13 | Backend APIs with relational DB |
+| `supabase`  | 14 | Backend with Postgres + Supabase RLS |
+| `fullstack` | 19 | Almost everything except niche audits |
+| `all`       | 22 | Every skill in the pack |
 
 ### Custom selection
 
@@ -230,7 +231,7 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 ## Status
 
 🟢 **v0.1.9** — current stable v0.1.x release.
-21 skills, format-locked, lint-gated, hardened across eight external review rounds
+22 skills, format-locked, lint-gated, hardened across nine external review rounds
 (one of them empirical — the pack ran on a real review and we patched what dropped).
 Use it.
 

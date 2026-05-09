@@ -2,7 +2,7 @@
 name: task-router
 description: Orchestrator skill. Maps user requests to the right specialist prompt and decides when to spawn subagents.
 category: meta
-version: 0.2.0
+version: 0.3.0
 triggers: ["add a feature", "build", "implement", "refactor", "fix bug", "review this", "audit", "design", "migrate", orchestration, "multi-step"]
 applies_to: [openclaw, claude-code]
 ---
@@ -38,6 +38,7 @@ table grows. Don't route to a skill that isn't in `prompts/`.
 | Write a DB migration | `architecture/database-migrations` | Optional | Pair with `database-schema` for design changes |
 | Supabase RLS / auth / migration workflow | `architecture/postgres-supabase` | Optional | Inherits `database-schema` and `database-migrations` |
 | Audit existing frontend codebase | `review/frontend-audit` | **Yes (fork)** | Audits are read-heavy; isolate context |
+| Audit / review whole project (no diff) | `review/repo-audit` | **Yes (fork)** | Sample across areas; honest coverage section in output. Use when the user asks for a project-wide review without pointing at a diff. |
 | Code review on a diff or PR | `review/code-review` | Optional | Subagent if diff is large |
 | Security review on a diff or module | `review/security-review` | **Yes** | Always isolate; complements code-review |
 | Review schema, query, or migration | `review/database-review` | Optional | Subagent if multiple tables involved |

@@ -92,6 +92,7 @@ $Profiles = @{
         'architecture/frontend-feature',
         'interface/ui-designer',
         'review/code-review',
+        'review/repo-audit',
         'review/debugger',
         'delivery/test-writer'
     )
@@ -104,6 +105,7 @@ $Profiles = @{
         'architecture/database-schema',
         'architecture/database-migrations',
         'review/code-review',
+        'review/repo-audit',
         'review/database-review',
         'review/security-review',
         'review/debugger',
@@ -119,6 +121,7 @@ $Profiles = @{
         'architecture/database-migrations',
         'architecture/postgres-supabase',
         'review/code-review',
+        'review/repo-audit',
         'review/database-review',
         'review/security-review',
         'review/debugger',
@@ -137,6 +140,7 @@ $Profiles = @{
         'architecture/refactor-planner',
         'interface/ui-designer',
         'review/code-review',
+        'review/repo-audit',
         'review/database-review',
         'review/security-review',
         'review/debugger',
@@ -285,23 +289,208 @@ function Get-SkillBody {
     return $content
 }
 
+# Skills that should ship as Cursor `alwaysApply: true` rules: the meta layer
+# (foundation rules the pack inherits) plus the orchestrator router. Every
+# other skill ships as `alwaysApply: false` and is reachable via `@<name>`
+# (Manual mode) or Cursor's Agent Requested mode using the rule's description.
+# Cursor does not read our generic `triggers:` field, so these three Cursor-
+# native frontmatter fields are the only way the rules surface automatically.
+$Script:CursorAlwaysApplySkills = @(
+    'meta/engineering-principles',
+    'meta/reuse-before-create',
+    'meta/token-discipline',
+    'meta/task-router'
+)
+
+function Test-CursorAlwaysApply {
+    param([string]$Skill)
+    return $Script:CursorAlwaysApplySkills -contains $Skill
+}
+
+# Transform a generic SKILL.md into a Cursor-native .mdc rule.
+#
+# Cursor Project Rules require:
+#   - .mdc extension (not .md, Cursor will not pick it up otherwise)
+#   - Cursor-native frontmatter (description / globs / alwaysApply); our
+#     generic `triggers:` and `applies_to:` are ignored by Cursor.
+#   - description used by Cursor's Agent Requested mode to decide relevance.
+#
+# The body of the skill is preserved verbatim. Only the YAML frontmatter is
+# rewritten.
+function Write-CursorMdc {
+    param(
+        [string]$SrcPath,
+        [string]$DestPath,
+        [string]$Skill
+    )
+
+    $alwaysApply = if (Test-CursorAlwaysApply -Skill $Skill) { 'true' } else { 'false' }
+
+    $raw = Get-Content -Raw -Path $SrcPath
+
+    # Extract original description and strip the frontmatter from the body.
+    $description = ''
+    if ($raw -match '^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n') {
+        $fm = $Matches[1]
+        if ($fm -match '(?m)^description:\s*(.+)$') {
+            $description = $Matches[1].Trim()
+        }
+    }
+    $body = $raw -replace '(?s)^---\s*\r?\n.*?\r?\n---\s*\r?\n', ''
+
+    # Cursor-native frontmatter + original body.
+    $newFrontmatter = @(
+        '---',
+        "description: $description",
+        'globs:',
+        "alwaysApply: $alwaysApply",
+        '---',
+        ''
+    ) -join "`n"
+
+    Set-Content -Path $DestPath -Value ($newFrontmatter + $body) -NoNewline -Encoding utf8
+}
+
 function Install-Cursor {
     param([string[]]$SkillList, [string]$ProjectPath)
 
     $rulesDir = Join-Path $ProjectPath '.cursor\rules'
-    Write-Host "`nInstalling to $rulesDir`n" -ForegroundColor Cyan
+    Write-Host "`nInstalling to $rulesDir" -ForegroundColor Cyan
+    Write-Host "  (Cursor target: writing .mdc Project Rules with Cursor-native frontmatter)`n" -ForegroundColor DarkGray
+
+    if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $rulesDir | Out-Null }
 
     foreach ($skill in $SkillList) {
         $name = ($skill -split '/')[-1]
         $src = Join-Path $PromptsRoot ($skill -replace '/', '\') | Join-Path -ChildPath 'SKILL.md'
         if (-not (Test-Path $src)) { Write-Host "  Missing: $src" -ForegroundColor Red; continue }
 
-        $dest = Join-Path $rulesDir "$name.md"
-        Copy-SkillToFile -SrcPath $src -DestPath $dest
+        $dest = Join-Path $rulesDir "$name.mdc"
+        $alwaysApply = Test-CursorAlwaysApply -Skill $skill
+        $mode = if ($alwaysApply) { 'always-apply' } else { 'agent-requested' }
+
+        if ($DryRun) {
+            Write-Host "  [dry-run] would write $dest  ($mode)"
+            continue
+        }
+
+        if (Test-Path $dest) {
+            if (-not $Force) {
+                $resp = Read-Host "  Overwrite $dest? [y/N]"
+                if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; continue }
+            }
+            else {
+                $backup = Backup-File -FilePath $dest
+                if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+            }
+        }
+
+        Write-CursorMdc -SrcPath $src -DestPath $dest -Skill $skill
+        if ($alwaysApply) {
+            Write-Host "  Wrote $dest  (alwaysApply: true)"
+        } else {
+            Write-Host "  Wrote $dest  (agent-requested; invoke with @$name for explicit use)"
+        }
+    }
+
+    # Bridge router: small always-apply rule that names the routing table so
+    # specialised rules are discoverable on Cursor where our generic triggers
+    # are invisible. Multilingual intent aliases live here.
+    $bridgeDest = Join-Path $rulesDir 'prompt-pack-router.mdc'
+    if ($DryRun) {
+        Write-Host "  [dry-run] would write $bridgeDest  (always-apply bridge)"
+    } else {
+        if (Test-Path $bridgeDest) {
+            if (-not $Force) {
+                $resp = Read-Host "  Overwrite $bridgeDest? [y/N]"
+                if ($resp -notmatch '^[yY]') {
+                    Write-Host "  Skipped bridge router." -ForegroundColor Yellow
+                } else {
+                    Write-CursorBridgeRule -DestPath $bridgeDest
+                    Write-Host "  Wrote $bridgeDest  (always-apply bridge)"
+                }
+            } else {
+                $backup = Backup-File -FilePath $bridgeDest
+                if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+                Write-CursorBridgeRule -DestPath $bridgeDest
+                Write-Host "  Wrote $bridgeDest  (always-apply bridge)"
+            }
+        } else {
+            Write-CursorBridgeRule -DestPath $bridgeDest
+            Write-Host "  Wrote $bridgeDest  (always-apply bridge)"
+        }
     }
 
     Write-Host "`nDone. Reload your Cursor window to pick up the new rules." -ForegroundColor Cyan
-    Write-Host "Tip: open a rule file and add 'alwaysApply: true' to the frontmatter for always-on rules." -ForegroundColor DarkGray
+    Write-Host "Specialised rules are agent-requested; for critical workflows invoke them" -ForegroundColor DarkGray
+    Write-Host "explicitly with @code-review, @security-review, @repo-audit, etc." -ForegroundColor DarkGray
+}
+
+function Write-CursorBridgeRule {
+    param([string]$DestPath)
+
+    $content = @'
+---
+description: Prompt-pack routing bridge. Always loaded. Maps user intents (English, Russian, Ukrainian) to the matching prompt-pack rule for non-trivial coding work.
+globs:
+alwaysApply: true
+---
+
+# Prompt-pack routing bridge
+
+For any non-trivial coding request, do not answer immediately. First decide
+whether one of the prompt-pack rules in `.cursor/rules/` applies, and invoke
+it explicitly with `@<rule-name>` before responding.
+
+## Common mappings
+
+| User intent (any language) | Use rule |
+|---|---|
+| PR / diff review ("review this PR", "проверь diff", "перевір PR") | `@code-review` |
+| Whole-project review or audit ("проревьюй весь проект", "загальний аудит", "check the whole repo") | `@repo-audit` |
+| Security review of changes or a module ("security review", "перевір безпеку") | `@security-review` |
+| Frontend audit of an existing UI codebase ("audit the frontend", "проаудитуй фронт") | `@frontend-audit` |
+| Database review (schema/query/migration) | `@database-review` |
+| Find code duplication / DRY audit | `@duplication-audit` |
+| Debug a failing test or bug | `@debugger` |
+| Build a frontend feature / page ("add a feature", "сделай страницу", "зроби фічу") | `@frontend-feature` |
+| Build a backend endpoint / API ("add an endpoint", "добавь API") | `@backend-api` |
+| Design a new UI / screen | `@ui-designer` |
+| Design new tables / data model | `@database-schema` |
+| Write a DB migration | `@database-migrations` |
+| Supabase RLS / auth / migration workflow | `@postgres-supabase` |
+| Plan a refactor / migration | `@refactor-planner` |
+| Write tests for existing code | `@test-writer` |
+| Write or update docs (README, ADR, AGENTS.md, etc.) | `@doc-writer` |
+| Wrap up / hand off completed work | `@handoff` |
+
+## Disambiguation rules
+
+- **"Review" without a diff or PR.** If the user asks to review or look at
+  code without pointing at a diff, PR, or specific changes, this is an
+  audit. Prefer `@repo-audit` (whole project) or `@frontend-audit` (UI
+  codebase). Do not silently route to `@code-review`, which is diff-anchored.
+  Russian/Ukrainian: "проревьюй весь проект", "подивись на код", "перевір
+  весь репо" - all map to audit, not PR review.
+
+- **"Build / add a feature" without an existing reference.** Default to the
+  matching `@*-feature` or `@*-api` skill in greenfield mode.
+
+- **"Migrate".** Schema migration -> `@database-migrations`. Framework or
+  pattern migration -> `@refactor-planner`. Ask if unclear.
+
+- **"Fix bug" without a failing test or error message.** Ask for the failure
+  signal before invoking `@debugger`.
+
+## Always-on rules
+
+The meta layer (`engineering-principles`, `reuse-before-create`,
+`token-discipline`, `task-router`) is `alwaysApply: true` and stays in
+context for every turn. The specialised rules above are agent-requested
+or manual; on Cursor, prefer explicit `@<rule-name>` invocation for
+critical workflows.
+'@
+    Set-Content -Path $DestPath -Value $content -NoNewline -Encoding utf8
 }
 
 function Install-ClaudeCode {
