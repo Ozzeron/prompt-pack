@@ -25,7 +25,7 @@ surface where it can happen.
 
 prompt-pack picks the opposite trade-off: **fewer skills, stronger
 behaviour**. 21 curated skills, lint-gated, one orchestrator, explicit
-inheritance, hardened across seven external review rounds (one of them
+inheritance, hardened across eight external review rounds (one of them
 empirical — the pack ran on a real review and we patched what dropped).
 It is small enough that you can read the whole catalogue in one sitting
 and audit what your agent is actually being told.
@@ -230,7 +230,7 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 ## Status
 
 🟢 **v0.1.8** — current stable v0.1.x release.
-21 skills, format-locked, lint-gated, hardened across six external review rounds
+21 skills, format-locked, lint-gated, hardened across eight external review rounds
 (one of them empirical — the pack ran on a real review and we patched what dropped).
 Use it.
 
