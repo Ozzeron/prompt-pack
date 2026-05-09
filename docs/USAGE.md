@@ -119,6 +119,58 @@ alwaysApply: false                # change to true for always-on
 Reinstalling with `--force` will overwrite your edits and back up the
 prior version with a `.bak-<timestamp>` suffix.
 
+### Recommended `.gitignore` for Cursor target
+
+The `--force` reinstall path leaves `<rule>.mdc.bak-<timestamp>` files
+behind so your customisations are recoverable. They accumulate in
+`.cursor/rules/` and pollute the directory listing in your editor and
+in diffs. Add the following to your project's `.gitignore` (the pack
+does not commit a `.gitignore` into your project on install):
+
+```gitignore
+# prompt-pack reinstall backups (created by install.{sh,ps1} --force)
+.cursor/rules/*.bak-*
+```
+
+### Verification checklist (post-install sanity check)
+
+After a Cursor install you can confirm the rules landed correctly with
+three quick checks. Useful when contributing a new skill or when
+debugging "why isn't my rule firing".
+
+```bash
+# 1. Count generated rule files (skills + 1 bridge router).
+#    On `fullstack` profile, expect 22 (21 skills + bridge).
+ls .cursor/rules/*.mdc | wc -l
+
+# 2. Count alwaysApply: true rules. Should be 5 on fullstack:
+#    engineering-principles, reuse-before-create, token-discipline,
+#    task-router, and the prompt-pack-router bridge.
+grep -l 'alwaysApply: true' .cursor/rules/*.mdc | wc -l
+
+# 3. Confirm the Mandatory routes section is present in the bridge.
+grep -c '^## Mandatory routes' .cursor/rules/prompt-pack-router.mdc
+# (or its English variant)
+grep -c 'Mandatory routes' .cursor/rules/prompt-pack-router.mdc
+```
+
+PowerShell equivalents:
+
+```powershell
+# 1. File count
+(Get-ChildItem .cursor/rules/*.mdc).Count
+
+# 2. Always-apply count
+(Select-String -Path .cursor/rules/*.mdc -Pattern 'alwaysApply: true' -List).Count
+
+# 3. Mandatory routes presence
+(Select-String -Path .cursor/rules/prompt-pack-router.mdc -Pattern 'Mandatory routes').Count
+```
+
+If any of the three returns an unexpected number, reinstall with
+`--force` to refresh. If the counts stay wrong after a fresh install,
+file an issue with the profile name and the actual numbers.
+
 ## Claude Code
 
 Claude Code picks up subagents from `.claude/agents/*.md` automatically. Description

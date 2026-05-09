@@ -25,10 +25,12 @@ surface where it can happen.
 
 prompt-pack picks the opposite trade-off: **fewer skills, stronger
 behaviour**. 22 curated skills, lint-gated, one orchestrator, explicit
-inheritance, hardened across eight external review rounds (one of them
-empirical — the pack ran on a real review and we patched what dropped).
-It is small enough that you can read the whole catalogue in one sitting
-and audit what your agent is actually being told.
+inheritance, hardened across nine external review rounds **plus four
+empirical field tests** — the pack ran on real codebases and we patched
+what dropped, including the encoding and Cursor-format issues a
+model-only review would never have caught. It is small enough that you
+can read the whole catalogue in one sitting and audit what your agent
+is actually being told.
 
 The discipline that does the work:
 
@@ -230,9 +232,9 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 
 ## Status
 
-🟢 **v0.1.9** — current stable v0.1.x release.
-22 skills, format-locked, lint-gated, hardened across nine external review rounds
-(one of them empirical — the pack ran on a real review and we patched what dropped).
+🟢 **v0.1.10** — current stable v0.1.x release.
+22 skills, format-locked, lint-gated, hardened across nine review rounds plus
+four empirical field tests on real Next.js / Supabase projects.
 Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major
