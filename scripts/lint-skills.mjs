@@ -70,6 +70,14 @@ const LEAKAGE_TERMS = [
   /\bacme-data\b/i,
   /\betl-tool\b/i,
   /\bproject-d\b/i,
+  // Personal first names that previously slipped into example ADR deciders.
+  // Canonical placeholder names (alice, bob) are the safe substitutes.
+  /@alice\b/i,
+  /@bob\b/i,
+  /@alice\b/i,
+  /@carol\b/i,
+  /@dave\b/i,
+  /@erin\b/i,
 ];
 
 function findSkillFiles() {
