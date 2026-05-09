@@ -12,12 +12,18 @@
 
 # Markdown, YAML, JSON, JS, TS — LF.
 *.md text eol=lf
+*.mdc text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
 *.json text eol=lf
 *.mjs text eol=lf
 *.js text eol=lf
 *.ts text eol=lf
+
+# The Cursor bridge template carries multilingual content; keep it as a
+# UTF-8-without-BOM blob so the installer can copy it byte-for-byte without
+# re-interpreting through any host shell encoding.
+templates/cursor-bridge.mdc text eol=lf working-tree-encoding=UTF-8
 
 # Treat binaries as binary so git doesn't munge them.
 *.png binary

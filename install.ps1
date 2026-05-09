@@ -326,7 +326,10 @@ function Write-CursorMdc {
 
     $alwaysApply = if (Test-CursorAlwaysApply -Skill $Skill) { 'true' } else { 'false' }
 
-    $raw = Get-Content -Raw -Path $SrcPath
+    # PowerShell 5's `Get-Content -Raw` reads as ANSI/cp1252 by default, which
+    # corrupts every non-ASCII character in the source SKILL.md (em-dashes,
+    # Cyrillic, smart quotes). Read raw bytes and decode as UTF-8 explicitly.
+    $raw = [System.IO.File]::ReadAllText($SrcPath, [System.Text.Encoding]::UTF8)
 
     # Extract original description and strip the frontmatter from the body.
     $description = ''
@@ -348,7 +351,15 @@ function Write-CursorMdc {
         ''
     ) -join "`n"
 
-    Set-Content -Path $DestPath -Value ($newFrontmatter + $body) -NoNewline -Encoding utf8
+    # PowerShell 5's `Set-Content -Encoding utf8` writes UTF-8 WITH BOM and silently
+    # double-encodes non-ASCII strings via the ANSI pipeline (Cyrillic in our
+    # multilingual bridge becomes mojibake: `п` -> bytes D0 BF -> reencoded as
+    # C3 90 C2 BF). Bypass the pipeline entirely by writing raw bytes through
+    # System.IO.File with an explicit UTF-8-without-BOM encoder. Cursor's YAML
+    # frontmatter parser also dislikes a BOM before the opening `---`, so no BOM
+    # is doubly correct here.
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($DestPath, ($newFrontmatter + $body), $utf8NoBom)
 }
 
 function Install-Cursor {
@@ -429,68 +440,19 @@ function Install-Cursor {
 function Write-CursorBridgeRule {
     param([string]$DestPath)
 
-    $content = @'
----
-description: Prompt-pack routing bridge. Always loaded. Maps user intents (English, Russian, Ukrainian) to the matching prompt-pack rule for non-trivial coding work.
-globs:
-alwaysApply: true
----
-
-# Prompt-pack routing bridge
-
-For any non-trivial coding request, do not answer immediately. First decide
-whether one of the prompt-pack rules in `.cursor/rules/` applies, and invoke
-it explicitly with `@<rule-name>` before responding.
-
-## Common mappings
-
-| User intent (any language) | Use rule |
-|---|---|
-| PR / diff review ("review this PR", "проверь diff", "перевір PR") | `@code-review` |
-| Whole-project review or audit ("проревьюй весь проект", "загальний аудит", "check the whole repo") | `@repo-audit` |
-| Security review of changes or a module ("security review", "перевір безпеку") | `@security-review` |
-| Frontend audit of an existing UI codebase ("audit the frontend", "проаудитуй фронт") | `@frontend-audit` |
-| Database review (schema/query/migration) | `@database-review` |
-| Find code duplication / DRY audit | `@duplication-audit` |
-| Debug a failing test or bug | `@debugger` |
-| Build a frontend feature / page ("add a feature", "сделай страницу", "зроби фічу") | `@frontend-feature` |
-| Build a backend endpoint / API ("add an endpoint", "добавь API") | `@backend-api` |
-| Design a new UI / screen | `@ui-designer` |
-| Design new tables / data model | `@database-schema` |
-| Write a DB migration | `@database-migrations` |
-| Supabase RLS / auth / migration workflow | `@postgres-supabase` |
-| Plan a refactor / migration | `@refactor-planner` |
-| Write tests for existing code | `@test-writer` |
-| Write or update docs (README, ADR, AGENTS.md, etc.) | `@doc-writer` |
-| Wrap up / hand off completed work | `@handoff` |
-
-## Disambiguation rules
-
-- **"Review" without a diff or PR.** If the user asks to review or look at
-  code without pointing at a diff, PR, or specific changes, this is an
-  audit. Prefer `@repo-audit` (whole project) or `@frontend-audit` (UI
-  codebase). Do not silently route to `@code-review`, which is diff-anchored.
-  Russian/Ukrainian: "проревьюй весь проект", "подивись на код", "перевір
-  весь репо" - all map to audit, not PR review.
-
-- **"Build / add a feature" without an existing reference.** Default to the
-  matching `@*-feature` or `@*-api` skill in greenfield mode.
-
-- **"Migrate".** Schema migration -> `@database-migrations`. Framework or
-  pattern migration -> `@refactor-planner`. Ask if unclear.
-
-- **"Fix bug" without a failing test or error message.** Ask for the failure
-  signal before invoking `@debugger`.
-
-## Always-on rules
-
-The meta layer (`engineering-principles`, `reuse-before-create`,
-`token-discipline`, `task-router`) is `alwaysApply: true` and stays in
-context for every turn. The specialised rules above are agent-requested
-or manual; on Cursor, prefer explicit `@<rule-name>` invocation for
-critical workflows.
-'@
-    Set-Content -Path $DestPath -Value $content -NoNewline -Encoding utf8
+    # Bridge content is stored as a separate file (templates/cursor-bridge.mdc)
+    # rather than embedded in this script. PowerShell 5 reads source files as
+    # ANSI/cp1252 unless they have a UTF-8 BOM, which silently double-encodes
+    # any Cyrillic literal in the script (п -> bytes D0 BF -> reencoded as
+    # mojibake C3 90 C2 BF). Copying the template's bytes verbatim with
+    # Copy-Item bypasses the entire encoding pipeline. The template is locked
+    # to UTF-8 LF in .gitattributes.
+    $templatePath = Join-Path $PSScriptRoot 'templates\cursor-bridge.mdc'
+    if (-not (Test-Path $templatePath)) {
+        Write-Host "  Warning: bridge template not found at $templatePath; skipping bridge rule." -ForegroundColor Yellow
+        return
+    }
+    Copy-Item -Path $templatePath -Destination $DestPath -Force
 }
 
 function Install-ClaudeCode {

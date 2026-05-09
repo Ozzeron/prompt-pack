@@ -388,69 +388,19 @@ install_cursor() {
 # The Cursor bridge router. Always-on, kept short by design. Maps the most
 # common user intents - including Russian and Ukrainian - to the right
 # skill, since Cursor cannot read our generic triggers field.
+# Bridge content lives in templates/cursor-bridge.mdc as a single source of
+# truth. Both install.sh and install.ps1 copy it byte-for-byte. PowerShell 5
+# cannot safely embed Cyrillic literals in source files (it interprets them
+# as ANSI/cp1252 unless the script has a UTF-8 BOM, which double-encodes the
+# bytes); a separate file avoids the entire encoding pipeline.
 write_cursor_bridge() {
   local dest="$1"
-  cat > "$dest" <<'BRIDGE_EOF'
----
-description: Prompt-pack routing bridge. Always loaded. Maps user intents (English, Russian, Ukrainian) to the matching prompt-pack rule for non-trivial coding work.
-globs:
-alwaysApply: true
----
-
-# Prompt-pack routing bridge
-
-For any non-trivial coding request, do not answer immediately. First decide
-whether one of the prompt-pack rules in `.cursor/rules/` applies, and invoke
-it explicitly with `@<rule-name>` before responding.
-
-## Common mappings
-
-| User intent (any language) | Use rule |
-|---|---|
-| PR / diff review ("review this PR", "проверь diff", "перевір PR") | `@code-review` |
-| Whole-project review or audit ("проревьюй весь проект", "загальний аудит", "check the whole repo") | `@repo-audit` |
-| Security review of changes or a module ("security review", "перевір безпеку") | `@security-review` |
-| Frontend audit of an existing UI codebase ("audit the frontend", "проаудитуй фронт") | `@frontend-audit` |
-| Database review (schema/query/migration) | `@database-review` |
-| Find code duplication / DRY audit | `@duplication-audit` |
-| Debug a failing test or bug | `@debugger` |
-| Build a frontend feature / page ("add a feature", "сделай страницу", "зроби фічу") | `@frontend-feature` |
-| Build a backend endpoint / API ("add an endpoint", "добавь API") | `@backend-api` |
-| Design a new UI / screen | `@ui-designer` |
-| Design new tables / data model | `@database-schema` |
-| Write a DB migration | `@database-migrations` |
-| Supabase RLS / auth / migration workflow | `@postgres-supabase` |
-| Plan a refactor / migration | `@refactor-planner` |
-| Write tests for existing code | `@test-writer` |
-| Write or update docs (README, ADR, AGENTS.md, etc.) | `@doc-writer` |
-| Wrap up / hand off completed work | `@handoff` |
-
-## Disambiguation rules
-
-- **"Review" without a diff or PR.** If the user asks to review or look at
-  code without pointing at a diff, PR, or specific changes, this is an
-  audit. Prefer `@repo-audit` (whole project) or `@frontend-audit` (UI
-  codebase). Do not silently route to `@code-review`, which is diff-anchored.
-  Russian/Ukrainian: "проревьюй весь проект", "подивись на код", "перевір
-  весь репо" - all map to audit, not PR review.
-
-- **"Build / add a feature" without an existing reference.** Default to the
-  matching `@*-feature` or `@*-api` skill in greenfield mode.
-
-- **"Migrate".** Schema migration -> `@database-migrations`. Framework or
-  pattern migration -> `@refactor-planner`. Ask if unclear.
-
-- **"Fix bug" without a failing test or error message.** Ask for the failure
-  signal before invoking `@debugger`.
-
-## Always-on rules
-
-The meta layer (`engineering-principles`, `reuse-before-create`,
-`token-discipline`, `task-router`) is `alwaysApply: true` and stays in
-context for every turn. The specialised rules above are agent-requested
-or manual; on Cursor, prefer explicit `@<rule-name>` invocation for
-critical workflows.
-BRIDGE_EOF
+  local template="$SCRIPT_DIR/templates/cursor-bridge.mdc"
+  if [[ ! -f "$template" ]]; then
+    echo "  Warning: bridge template not found at $template; skipping bridge rule." >&2
+    return
+  fi
+  cp "$template" "$dest"
 }
 
 install_claude_code() {
