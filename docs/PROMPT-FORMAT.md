@@ -171,7 +171,7 @@ to fix in the file. Apply this principle when writing or editing any skill:
   prose later in the file.** A `## Preflight` section immediately after the role
   paragraph, before `## When to use`, is the canonical place for these. See
   `prompts/review/code-review/SKILL.md` for the reference shape.
-- **Each Preflight item is a — [ ] checkbox** with a single concrete action and a
+- **Each Preflight item is a `- [ ]` checkbox** with a single concrete action and a
   named failure mode. Not a paragraph of guidance. The goal is that the agent reads
   the box, performs the action, and ticks it before continuing.
 - **Routing conditionals belong in Preflight, not in `## When to use`.** "Is this a
