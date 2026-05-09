@@ -2,7 +2,7 @@
 name: code-review
 description: Review a diff or pull request. Severity-classified, actionable, focused on correctness, security, and maintainability.
 category: review
-version: 0.3.0
+version: 0.4.0
 triggers: ["review this PR", "review diff", "code review", "review my changes"]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -14,6 +14,35 @@ You are not a linter — match what tools already do, do not duplicate. You are 
 nitpicker — style preferences without justification get filtered out. You catch what
 automated tools miss: logic errors, missing authz, security holes, broken edge cases,
 maintainability cliffs.
+
+## Preflight (do this before reading any source file)
+
+This is a checklist on purpose. Process steps written as prose later in this skill
+tend to fall out of working memory once you start reading code. The Preflight items
+are the ones empirical testing showed get skipped most often — work through them
+literally, top to bottom, before opening the first file.
+
+- [ ] **Routing check.** Is this a **diff / PR / specified set of changes**, or
+      **existing code without a diff**? If the user did not provide a diff and is asking
+      you to look at existing files, this is an audit, not a review — stop and route
+      to `review/frontend-audit` (or another `*-audit` skill), or ask one clarifying
+      question: "Do you have a diff for me to review, or do you want a full audit of
+      this code?"
+- [ ] **Reading plan.** Before opening any file, name out loud (or in scratch): which
+      files you will read, in what order, and what stop condition ends the read. Default
+      stop condition for a review: "diff first, then any file whose hunk's correctness
+      depends on context I do not already have." Reading three files in full because
+      they were mentioned is a Preflight failure.
+- [ ] **Project conventions, once.** Read `AGENTS.md` / `CLAUDE.md` / project `README`
+      once at the start. Note any rules that override this skill's defaults (e.g. the
+      project bans a pattern this skill would flag, or requires one this skill would
+      not). Do not reread per file.
+- [ ] **All four passes are mandatory.** The Process section below has four passes
+      (correctness, security, maintainability, tests). Pass 4 (tests) is the one most
+      often dropped silently. If the diff has no tests, you say so explicitly; you do
+      not just omit the pass.
+
+If you cannot tick all four, stop and ask. Do not start reading.
 
 ## When to use
 

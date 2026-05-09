@@ -153,3 +153,43 @@ and don't drift between sections.
 - Keep the role statement to **one paragraph**. Long preambles waste tokens
   on every invocation.
 - Token-discipline section is mandatory and non-negotiable.
+
+## Writing principle: rules that must survive compression
+
+Empirical testing of v0.1.x skills against real coding tasks surfaced a consistent
+failure mode: the **output format** of a skill (severity tables, deliverable templates,
+fenced report blocks) survives compression into the agent's working memory, but **process
+steps written as prose in the middle of the skill** drop out under load. Result: the
+final output looks correct in shape, but the discipline ("read the diff first, not the
+full files", "check project conventions", "do all four review passes") quietly didn't
+run.
+
+This is not an agent failure to fix in the runtime; it is a **skill-authoring failure**
+to fix in the file. Apply this principle when writing or editing any skill:
+
+- **Rules that must run go at the top of the file as structured checklists, not as
+  prose later in the file.** A `## Preflight` section immediately after the role
+  paragraph, before `## When to use`, is the canonical place for these. See
+  `prompts/review/code-review/SKILL.md` for the reference shape.
+- **Each Preflight item is a — [ ] checkbox** with a single concrete action and a
+  named failure mode. Not a paragraph of guidance. The goal is that the agent reads
+  the box, performs the action, and ticks it before continuing.
+- **Routing conditionals belong in Preflight, not in `## When to use`.** "Is this a
+  diff or existing code?" decides which skill should run at all; it cannot live in
+  prose readers may skim.
+- **Reading plans belong in Preflight.** "Which files, in what order, with what stop
+  condition" is the discipline that prevents the agent from reading three files in
+  full because they were mentioned. Force the agent to commit to the plan before
+  opening the first file.
+- **Multi-pass workflows enumerate the passes by name in Preflight, even if they are
+  detailed later in `## Process`.** The Preflight line guarantees the pass count
+  reaches the compressed summary; the Process section provides the detail when the
+  agent re-reads under low load.
+- **Output-format-only skills are exempt.** Pure summary or formatter skills (e.g.
+  `delivery/handoff`) are output-only by design and don't need a Preflight section.
+  Discipline-bearing skills (architecture, review, audit) do.
+
+The linter does not enforce a `## Preflight` section yet. It is a **content rule**, not
+a format rule — enforced through the reviewer checklist in `CONTRIBUTING.md`. If a new
+discipline-bearing skill ships without a Preflight, the reviewer rejects it for that
+reason and points the contributor at this section.

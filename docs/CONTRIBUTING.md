@@ -120,6 +120,12 @@ blocks merge; do not soften a no into a maybe.
 - [ ] Token-discipline section is present and tells the agent what NOT to read for this skill.
 - [ ] Output format is concrete (template, table, or worked example), not just "a clear
       summary".
+- [ ] **Preflight section present for discipline-bearing skills.** Architecture, review,
+      and audit skills must open with a `## Preflight` checklist of the routing,
+      reading-plan, conventions, and pass-count items that have to run before any file
+      is opened. See `docs/PROMPT-FORMAT.md` ("Writing principle: rules that must
+      survive compression") and `prompts/review/code-review/SKILL.md` for the reference
+      shape. Pure output-only skills (e.g. handoff) are exempt.
 
 **4. Inherits and references**
 - [ ] If the skill creates code, it inherits `meta/engineering-principles`,

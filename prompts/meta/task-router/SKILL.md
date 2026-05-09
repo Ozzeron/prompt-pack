@@ -2,7 +2,7 @@
 name: task-router
 description: Orchestrator skill. Maps user requests to the right specialist prompt and decides when to spawn subagents.
 category: meta
-version: 0.1.0
+version: 0.2.0
 triggers: ["add a feature", "build", "implement", "refactor", "fix bug", "review this", "audit", "design", "migrate", orchestration, "multi-step"]
 applies_to: [openclaw, claude-code]
 ---
@@ -74,6 +74,31 @@ skill or handle inline.
 
 When more than one applies, pick the most specific one. If none clearly apply, ask one
 clarifying question instead of guessing.
+
+## Disambiguation rules (do not skip)
+
+These are the conditionals that empirical testing showed agents most often miss when
+fuzzy-matching a request to a single row in the table above. Each one demands an
+**explicit check**, not a vibe match.
+
+- **"Review" without a diff or PR.** If the request says "review", "look at", or
+  "check" some code but does **not** point at a diff, PR, branch range, or specific
+  set of changes, do **not** route to `review/code-review`. Either:
+  - route to `review/frontend-audit` (or another `*-audit` skill) when the request is
+    about an existing codebase as a whole, **or**
+  - ask one clarifying question: “Do you have a diff for me to review, or do you want
+    a full audit of this code?”
+  Code-review's whole token discipline ("read the diff first, surrounding files only
+  when needed") collapses if there is no diff to anchor on.
+- **"Build" / "add a feature" without an existing code reference.** Default to the
+  matching `architecture/*` skill in greenfield mode. Do not silently route to a
+  review skill just because the user mentioned existing code.
+- **"Migrate" can mean schema or framework.** Schema migration →
+  `architecture/database-migrations`. Framework or pattern migration →
+  `architecture/refactor-planner`. If unclear, ask.
+- **"Fix bug" without a failing test or error message.** Ask for the failure signal
+  before routing to `review/debugger`. Hypothesis-first work needs evidence to
+  hypothesise from.
 
 ## Process
 
