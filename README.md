@@ -152,7 +152,7 @@ user request
 
 ## Status
 
-🟢 **v0.1.0** — first stable release. 21 skills, format-locked, lint-gated, tested across
+🟢 **v0.1.1** — first stable release. 21 skills, format-locked, lint-gated, tested across
 four external review rounds. Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major
