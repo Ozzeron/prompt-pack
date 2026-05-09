@@ -38,3 +38,8 @@ coverage/
 # Local tag-message drafts (force-recreated each release)
 .git-tag-*-msg.txt
 
+
+# Local commit message drafts
+.commit-msg.txt
+.commit-msg-*.txt
+
