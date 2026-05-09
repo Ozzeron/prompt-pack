@@ -8,12 +8,21 @@ Built to be **simple to use**, **token-aware**, and **stack-agnostic**.
 ## Why another prompt repo
 
 Most existing collections (awesome-cursorrules, awesome-claude-code-subagents, etc.) are dumps of markdown files
-with no orchestration story and no usage discipline. This repo aims for three things:
+with no orchestration story and no usage discipline. AI coding agents under those prompts ship the same
+recurring failures: duplicate components, fresh utilities for things that already exist, dependencies
+added for problems the project already solved, and convention drift. This repo is built around the
+discipline that prevents that:
 
-1. **Curated, not exhaustive.** Each prompt earns its place. No 200 variants of "you are a senior X".
-2. **Orchestrator-first.** A `task-router` decides which role to apply, so users don't have to memorise the catalog.
+1. **Reuse before create.** A central `reuse-before-create` skill, inherited by every code-creating role,
+   forces the agent to search for an existing artifact before adding a new one. Every "new" entry needs
+   a one-line justification.
+2. **Convention discovery first.** Architecture skills require inspecting 2–3 canonical examples in the
+   target repo before writing code, so the result matches the project's style instead of the agent's default.
 3. **Token-disciplined.** Every prompt has explicit scope limits and "don't read these things" rules,
-   because context is money.
+   because context is money and noise degrades the answer.
+4. **Orchestrator-first.** A `task-router` maps user intents to specific roles, including composed flows
+   (PR review = code-review → security-review), so users don't memorise the catalog.
+5. **Curated, not exhaustive.** Each prompt earns its place. No 200 variants of "you are a senior X".
 
 ## Repository layout
 
@@ -153,17 +162,28 @@ user request
   → aggregates output and replies
 ```
 
+For multi-pass intents the router exposes **composed flows** instead of single skills:
+
+| Intent | Sequence |
+|---|---|
+| Full PR review | `review/code-review` → `review/security-review` |
+| Schema change PR | `review/database-review` → `review/code-review` → `review/security-review` |
+| Refactor execution | `architecture/refactor-planner` → `review/duplication-audit` (optional) → implementation |
+
 ## Status
 
 🟢 **v0.1.4** — first stable release. 21 skills, format-locked, lint-gated, tested across
-four external review rounds. Use it.
+five external review rounds. Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major
 bump (v1.0.0) when the format itself changes.
 
 ## Contributing
 
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md). PRs welcome once the format stabilises.
+See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md). The format is stable for the v0.1.x line
+(schema in [`docs/PROMPT-FORMAT.md`](docs/PROMPT-FORMAT.md), enforced by `npm run lint`); the
+reviewer checklist in CONTRIBUTING is the gate for every PR. New skills, fixes, and content
+contributions are welcome — open an issue first for new skills.
 
 ## License
 
