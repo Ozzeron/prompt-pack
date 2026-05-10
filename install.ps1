@@ -515,6 +515,11 @@ function Install-Codex {
         if (-not (Test-Path $src)) { Write-Host "  Missing: $src" -ForegroundColor Red; continue }
 
         $body = Get-SkillBody -SrcPath $src
+        # Strip relative cross-skill links (e.g. [meta/foo](../foo/SKILL.md)) that are
+        # valid source cross-references but become broken paths once all skills are
+        # inlined into a single AGENTS.md. The referenced skill is already present as
+        # a separate section in the same file.
+        $body = $body -replace '\[([^\]]+)\]\(\.\./[^)]+/SKILL\.md\)', '$1'
         $section = "`n---`n`n<!-- skill: $skill -->`n$body`n"
 
         $candidateSize = $totalBytes + $section.Length

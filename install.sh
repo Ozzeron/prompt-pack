@@ -476,6 +476,11 @@ install_codex() {
 
     local body
     body="$(get_body "$src")"
+    # Strip relative cross-skill links (e.g. [meta/foo](../foo/SKILL.md)) that are
+    # valid source cross-references but become broken paths once all skills are
+    # inlined into a single AGENTS.md. The referenced skill is already present as
+    # a separate section in the same file.
+    body="$(printf '%s' "$body" | sed 's/\[\([^]]*\)\](\.\.\/[^)]*\/SKILL\.md)/\1/g')"
     local section
     section="$(printf '\n---\n\n<!-- skill: %s -->\n%s\n' "$skill" "$body")"
 
