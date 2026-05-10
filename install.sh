@@ -487,14 +487,18 @@ YAML
 # In the repo, skills cross-reference each other with markdown links like
 # `[`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)`.
 # Under the flat .agents/skills/ layout those relative paths don't resolve
-# and the `meta/` category prefix in the label is misleading. Replace each
-# such link with `$<basename>`, which is how Codex addresses skills.
+# and the `meta/` category prefix in the label is misleading.
+#
+# We rewrite to a hybrid form that is both a valid Codex skill reference
+# (the inline-code label `$<name>` is what Codex matches) and a working
+# relative markdown link in the new layout (so a reader in their editor
+# can still ctrl/cmd-click through to the referenced SKILL.md).
 #
 # Examples:
 #   [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
-#       -> `$engineering-principles`
+#       -> [`$engineering-principles`](../engineering-principles/SKILL.md)
 #   [`postgres-supabase`](../postgres-supabase/SKILL.md)
-#       -> `$postgres-supabase`
+#       -> [`$postgres-supabase`](../postgres-supabase/SKILL.md)
 #
 # Implementation: extended-regex sed -E. The pattern matches the bracketed
 # label, ignores the category prefix in it, and uses the URL's last segment
@@ -506,7 +510,7 @@ convert_cross_links_for_codex() {
   # On BSD sed (macOS) and GNU sed (Linux), -E enables extended regex with
   # the same syntax used here. -i differs between BSD and GNU, so we write
   # to a temp file and move.
-  sed -E 's/\[`[^`]+`\]\([^)]*\/([A-Za-z0-9._-]+)\/SKILL\.md\)/`$\1`/g' "$file" > "$tmp"
+  sed -E 's|\[`[^`]+`\]\([^)]*/([A-Za-z0-9._-]+)/SKILL\.md\)|[`$\1`](../\1/SKILL.md)|g' "$file" > "$tmp"
   mv "$tmp" "$file"
 }
 

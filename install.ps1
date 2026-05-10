@@ -571,14 +571,18 @@ function Write-CodexOpenaiYaml {
 # In the repo, skills cross-reference each other with markdown links like
 # `[`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)`.
 # Under the flat .agents/skills/ layout those relative paths don't resolve
-# and the `meta/` category prefix in the label is misleading. Replace each
-# such link with `$<basename>`, which is how Codex addresses skills.
+# and the `meta/` category prefix in the label is misleading.
+#
+# We rewrite to a hybrid form that is both a valid Codex skill reference
+# (the inline-code label `$<name>` is what Codex matches) and a working
+# relative markdown link in the new layout (so a reader in their editor
+# can still ctrl/cmd-click through to the referenced SKILL.md).
 #
 # Examples:
 #   [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
-#       -> `$engineering-principles`
+#       -> [`$engineering-principles`](../engineering-principles/SKILL.md)
 #   [`postgres-supabase`](../postgres-supabase/SKILL.md)
-#       -> `$postgres-supabase`
+#       -> [`$postgres-supabase`](../postgres-supabase/SKILL.md)
 function Convert-CrossLinksForCodex {
     param([string]$Body)
 
@@ -588,7 +592,7 @@ function Convert-CrossLinksForCodex {
         # over the bracketed label, because the label sometimes carries the
         # legacy `category/name` form.
         $basename = $m.Groups[2].Value
-        return '`$' + $basename + '`'
+        return '[`$' + $basename + '`](../' + $basename + '/SKILL.md)'
     })
 }
 
