@@ -16,27 +16,25 @@ when the task matches, or you can invoke explicitly with `$<skill-name>`.
 
 ### Routing rules
 
-- PR / diff review              -> `$code-review`
-- Repo-wide audit / no diff     -> `$repo-audit`
-- Security review               -> `$security-review`
-- Frontend feature or page      -> `$frontend-feature`
-- Backend endpoint / API        -> `$backend-api`
-- DB schema / migrations        -> `$database-schema` / `$database-migrations`
-- Refactor request              -> `$refactor-planner`
-- Handoff / wrap-up             -> `$handoff`
+Map the user's intent to a `$<skill-name>` from the list above. Only skills
+that are actually installed in this project are listed here; if an intent
+does not match any installed skill, answer ad-hoc.
 
-If the user asks for a review without providing a diff, prefer
-`$repo-audit` over `$code-review`.
+<!-- PROMPT_PACK_ROUTING_RULES -->
 
 ### Multilingual intent aliases
 
-Russian / Ukrainian phrases the agent should map to the same routes:
+Russian / Ukrainian phrases that should map to the same routes (only the
+routes whose target skill is installed will be honoured):
 
 - review / PR review:    "проревьюй", "ревью", "проверь", "перевір"
 - repo audit / no diff:  "проаудитуй", "аудит", "весь проект", "весь репозиторій"
 - security:              "безопасность", "безпека", "уязвимости", "вразливості"
 - refactor:              "рефактор", "реструктуризация", "переписать"
 - handoff:               "сдача", "передача", "итоги", "підсумок"
+
+If the user asks for a review without providing a diff, prefer
+`$repo-audit` over `$code-review` (when both are installed).
 
 ## Context policy
 

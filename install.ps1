@@ -618,6 +618,29 @@ function Install-Codex {
 # UTF-8 bytes (PowerShell 5 mangles non-ASCII string literals embedded in
 # .ps1 sources, so the multilingual aliases must come from a separate file)
 # and substitute the skill list before writing.
+# Routing rules: list of (intent label, [target skill names]) tuples. We emit
+# the rule only if at least one target skill is in the installed set, and we
+# keep only the installed targets in the rendered line. This keeps the
+# AGENTS.md honest for any profile (minimal -> no `$code-review` rule, etc.)
+# instead of pointing Codex at skills that aren't there.
+$Script:CodexRoutingRules = @(
+    @{ Label = 'PR / diff review';         Targets = @('code-review') },
+    @{ Label = 'Repo-wide audit / no diff'; Targets = @('repo-audit') },
+    @{ Label = 'Security review';          Targets = @('security-review') },
+    @{ Label = 'Frontend feature or page'; Targets = @('frontend-feature') },
+    @{ Label = 'Frontend audit';           Targets = @('frontend-audit') },
+    @{ Label = 'Backend endpoint / API';   Targets = @('backend-api') },
+    @{ Label = 'DB schema / migrations';   Targets = @('database-schema', 'database-migrations') },
+    @{ Label = 'DB review';                Targets = @('database-review') },
+    @{ Label = 'Refactor request';         Targets = @('refactor-planner') },
+    @{ Label = 'Duplication audit';        Targets = @('duplication-audit') },
+    @{ Label = 'Bug investigation';        Targets = @('debugger') },
+    @{ Label = 'Test writing';             Targets = @('test-writer') },
+    @{ Label = 'Documentation';            Targets = @('doc-writer') },
+    @{ Label = 'UI design';                Targets = @('ui-designer') },
+    @{ Label = 'Handoff / wrap-up';        Targets = @('handoff') }
+)
+
 function Write-CodexAgentsMd {
     param([string]$DestPath, [string[]]$SkillList)
 
@@ -628,12 +651,42 @@ function Write-CodexAgentsMd {
     }
 
     $template = [System.IO.File]::ReadAllText($templatePath, [System.Text.Encoding]::UTF8)
+
+    # Build the set of installed skill names (basename, after the last `/`).
+    $installedSet = @{}
+    foreach ($s in $SkillList) {
+        $name = ($s -split '/')[-1]
+        $installedSet[$name] = $true
+    }
+
+    # Rendered "### Installed skills" list.
     $skillLines = ($SkillList | ForEach-Object {
         $name = ($_ -split '/')[-1]
         "- ``$" + $name + "``"
     }) -join "`n"
 
+    # Rendered "### Routing rules" list, filtered to installed skills only.
+    # Format the label with a fixed-width pad so the arrows align in markdown.
+    $maxLabel = 0
+    $emittedRules = @()
+    foreach ($rule in $Script:CodexRoutingRules) {
+        $availableTargets = @($rule.Targets | Where-Object { $installedSet.ContainsKey($_) })
+        if ($availableTargets.Count -eq 0) { continue }
+        $emittedRules += [pscustomobject]@{ Label = $rule.Label; Targets = $availableTargets }
+        if ($rule.Label.Length -gt $maxLabel) { $maxLabel = $rule.Label.Length }
+    }
+    $routingLines = if ($emittedRules.Count -eq 0) {
+        '_(No specialised skills installed; the agent will answer ad-hoc.)_'
+    } else {
+        ($emittedRules | ForEach-Object {
+            $labelPadded = $_.Label.PadRight($maxLabel)
+            $targetStr = ($_.Targets | ForEach-Object { "``" + '$' + $_ + "``" }) -join ' / '
+            "- $labelPadded -> $targetStr"
+        }) -join "`n"
+    }
+
     $rendered = $template.Replace('<!-- PROMPT_PACK_SKILL_LIST -->', $skillLines)
+    $rendered = $rendered.Replace('<!-- PROMPT_PACK_ROUTING_RULES -->', $routingLines)
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($DestPath, $rendered, $utf8NoBom)

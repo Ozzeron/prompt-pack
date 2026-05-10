@@ -477,6 +477,29 @@ install_claude_code() {
 # multilingual routing bridge so Codex picks the right skill when the user
 # writes in Russian/Ukrainian. The full skill bodies stay in the skill
 # folders; AGENTS.md only mentions skill names + intent aliases.
+# Routing rules: each entry is "Label|skill1[,skill2]". The rule is emitted
+# only if at least one target skill is in the installed set, and only the
+# installed targets appear in the rendered line. This keeps AGENTS.md honest
+# for any profile (minimal -> no `$code-review` rule, etc.) instead of
+# pointing Codex at skills that aren't there.
+CODEX_ROUTING_RULES=(
+  "PR / diff review|code-review"
+  "Repo-wide audit / no diff|repo-audit"
+  "Security review|security-review"
+  "Frontend feature or page|frontend-feature"
+  "Frontend audit|frontend-audit"
+  "Backend endpoint / API|backend-api"
+  "DB schema / migrations|database-schema,database-migrations"
+  "DB review|database-review"
+  "Refactor request|refactor-planner"
+  "Duplication audit|duplication-audit"
+  "Bug investigation|debugger"
+  "Test writing|test-writer"
+  "Documentation|doc-writer"
+  "UI design|ui-designer"
+  "Handoff / wrap-up|handoff"
+)
+
 write_codex_agents_md() {
   local dest="$1"
   shift
@@ -488,7 +511,15 @@ write_codex_agents_md() {
     return 0
   fi
 
-  # Build the bullet list of installed skills.
+  # Build the set of installed skill basenames as an associative-style lookup.
+  # bash 3.2 (macOS default) has no associative arrays, so we use a delimited
+  # string and substring search.
+  local installed_set="|"
+  for skill in "${skill_list[@]}"; do
+    installed_set+="${skill##*/}|"
+  done
+
+  # Render the "### Installed skills" bullet list.
   local skill_lines=""
   for skill in "${skill_list[@]}"; do
     local name="${skill##*/}"
@@ -498,10 +529,55 @@ write_codex_agents_md() {
     skill_lines+="- \`\$${name}\`"
   done
 
-  # Substitute the placeholder. Use awk so we don't have to escape special
-  # characters for sed (skill_lines contains $).
-  awk -v lines="$skill_lines" '
-    /<!-- PROMPT_PACK_SKILL_LIST -->/ { print lines; next }
+  # First pass: pick rules whose at least one target is installed and find the
+  # max label length so we can pad arrows for readability.
+  local emitted_labels=()
+  local emitted_targets=()
+  local max_label=0
+  for rule in "${CODEX_ROUTING_RULES[@]}"; do
+    local label="${rule%%|*}"
+    local targets_csv="${rule#*|}"
+    local available_targets=""
+    local targets_arr
+    IFS=',' read -ra targets_arr <<< "$targets_csv"
+    for t in "${targets_arr[@]}"; do
+      if [[ "$installed_set" == *"|${t}|"* ]]; then
+        if [[ -n "$available_targets" ]]; then
+          available_targets+=" / "
+        fi
+        available_targets+="\`\$${t}\`"
+      fi
+    done
+    if [[ -n "$available_targets" ]]; then
+      emitted_labels+=("$label")
+      emitted_targets+=("$available_targets")
+      (( ${#label} > max_label )) && max_label=${#label}
+    fi
+  done
+
+  # Second pass: render the routing block with right-padded labels.
+  local routing_lines=""
+  if (( ${#emitted_labels[@]} == 0 )); then
+    routing_lines='_(No specialised skills installed; the agent will answer ad-hoc.)_'
+  else
+    local i
+    for i in "${!emitted_labels[@]}"; do
+      local label="${emitted_labels[$i]}"
+      local pad=$(( max_label - ${#label} ))
+      local spaces=""
+      while (( pad > 0 )); do spaces+=" "; pad=$((pad - 1)); done
+      if [[ -n "$routing_lines" ]]; then
+        routing_lines+=$'\n'
+      fi
+      routing_lines+="- ${label}${spaces} -> ${emitted_targets[$i]}"
+    done
+  fi
+
+  # Substitute placeholders in the template. Use awk: it handles the dollar
+  # signs inside our replacement strings without sed-style escaping pain.
+  awk -v skills="$skill_lines" -v rules="$routing_lines" '
+    /<!-- PROMPT_PACK_SKILL_LIST -->/ { print skills; next }
+    /<!-- PROMPT_PACK_ROUTING_RULES -->/ { print rules; next }
     { print }
   ' "$template" > "$dest"
 }
