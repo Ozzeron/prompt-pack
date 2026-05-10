@@ -88,6 +88,7 @@ param(
     [string[]]$Skills,
 
     [switch]$Force,
+    [switch]$NoBackup,
     [switch]$DryRun,
     [switch]$List
 )
@@ -246,9 +247,16 @@ function Copy-SkillToFile {
 function Backup-Directory {
     # Renames an existing directory to <name>.bak-<timestamp>. Returns the backup path,
     # or $null if the source did not exist.
+    # When -NoBackup is set, the directory is removed instead and $null is returned
+    # (caller will see no "Backed up to ..." line).
     param([string]$DirPath)
 
     if (-not (Test-Path $DirPath)) { return $null }
+
+    if ($NoBackup) {
+        Remove-Item -Path $DirPath -Recurse -Force
+        return $null
+    }
 
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $backupPath = "$DirPath.bak-$stamp"
@@ -262,9 +270,15 @@ function Backup-Directory {
 function Backup-File {
     # Renames an existing file to <name>.bak-<timestamp>. Returns the backup path,
     # or $null if the source did not exist.
+    # When -NoBackup is set, the file is removed instead and $null is returned.
     param([string]$FilePath)
 
     if (-not (Test-Path $FilePath -PathType Leaf)) { return $null }
+
+    if ($NoBackup) {
+        Remove-Item -Path $FilePath -Force
+        return $null
+    }
 
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $backupPath = "$FilePath.bak-$stamp"

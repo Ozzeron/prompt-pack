@@ -3,7 +3,7 @@
 # Install prompt-pack skills into a project directory.
 #
 # Usage:
-#   ./install.sh --target <cursor|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--list]
+#   ./install.sh --target <cursor|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--no-backup] [--list]
 #
 # Targets:
 #   cursor          - .cursor/rules/*.mdc + alwaysApply bridge router.
@@ -32,9 +32,11 @@
 #
 # Safety:
 #   - Without --force, every overwrite is confirmed interactively.
-#   - With --force, existing FILES are replaced; existing DIRECTORIES (only used
-#     by the openclaw target) are renamed to <name>.bak-<timestamp> before being
-#     replaced, never deleted outright.
+#   - With --force, existing FILES are replaced; existing DIRECTORIES are
+#     renamed to <name>.bak-<timestamp> before being replaced, never deleted
+#     outright. Add --no-backup to skip the backup step (DIRECTORIES are
+#     removed instead of renamed). Useful for repeated re-installs over the
+#     same project where you don't want to accumulate .bak-* clutter.
 #   - --dry-run reports what would be written without making changes.
 #   - The script warns if the project already has agent-config files or if its
 #     git working tree is dirty.
@@ -51,6 +53,7 @@ SCOPE="repo"
 FORCE=0
 DRY_RUN=0
 LIST=0
+NO_BACKUP=0
 EXPLICIT_SKILLS=()
 
 # Session-only flag: set to 1 the first time the user answers 'a' (yes to
@@ -216,9 +219,16 @@ handle_existing_file() {
 
 # Rename an existing directory to <name>.bak-<timestamp>. Echoes the backup path,
 # or prints nothing if the source did not exist.
+# When --no-backup is set, the directory is removed instead of renamed and
+# nothing is echoed (caller will see no "Backed up to ..." line).
 backup_directory() {
   local dir="$1"
   [[ ! -d "$dir" ]] && return 0
+
+  if (( NO_BACKUP == 1 )); then
+    rm -rf "$dir"
+    return 0
+  fi
 
   local stamp
   stamp="$(date +%Y%m%d-%H%M%S)"
@@ -235,9 +245,15 @@ backup_directory() {
 
 # Rename an existing file to <name>.bak-<timestamp>. Echoes the backup path,
 # or prints nothing if the source did not exist.
+# When --no-backup is set, the file is removed instead of renamed.
 backup_file() {
   local file="$1"
   [[ ! -f "$file" ]] && return 0
+
+  if (( NO_BACKUP == 1 )); then
+    rm -f "$file"
+    return 0
+  fi
 
   local stamp
   stamp="$(date +%Y%m%d-%H%M%S)"
@@ -945,6 +961,7 @@ while [[ $# -gt 0 ]]; do
     --scope)    SCOPE="$2"; shift 2 ;;
     --skill)    EXPLICIT_SKILLS+=("$2"); shift 2 ;;
     --force)    FORCE=1; shift ;;
+    --no-backup) NO_BACKUP=1; shift ;;
     --dry-run)  DRY_RUN=1; shift ;;
     --list)     LIST=1; shift ;;
     -h|--help)
