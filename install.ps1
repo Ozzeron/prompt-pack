@@ -178,6 +178,11 @@ $Profiles = @{
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Session-only flag: set the first time the user answers 'a' (yes to all)
+# at a directory-replace prompt. Subsequent prompts in the same install
+# behave as if -Force was passed.
+$Script:ForceAll = $false
+
 $ScriptRoot = $PSScriptRoot
 $PromptsRoot = Join-Path $ScriptRoot 'prompts'
 
@@ -628,9 +633,14 @@ function Install-Codex {
         }
 
         if (Test-Path $dest) {
-            if (-not $Force) {
-                $resp = Read-Host "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N]"
-                if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; continue }
+            if (-not $Force -and -not $Script:ForceAll) {
+                $resp = Read-Host "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a]"
+                if ($resp -match '^[aA]$') {
+                    $Script:ForceAll = $true
+                    Write-Host "  Yes to all: subsequent skills will be replaced without prompting." -ForegroundColor DarkGray
+                } elseif ($resp -notmatch '^[yY]$') {
+                    Write-Host "  Skipped." -ForegroundColor Yellow; continue
+                }
             }
             $backup = Backup-Directory -DirPath $dest
             if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
@@ -873,9 +883,14 @@ function Install-OpenClaw {
         }
 
         if (Test-Path $dest) {
-            if (-not $Force) {
-                $resp = Read-Host "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N]"
-                if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; continue }
+            if (-not $Force -and -not $Script:ForceAll) {
+                $resp = Read-Host "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a]"
+                if ($resp -match '^[aA]$') {
+                    $Script:ForceAll = $true
+                    Write-Host "  Yes to all: subsequent skills will be replaced without prompting." -ForegroundColor DarkGray
+                } elseif ($resp -notmatch '^[yY]$') {
+                    Write-Host "  Skipped." -ForegroundColor Yellow; continue
+                }
             }
             $backup = Backup-Directory -DirPath $dest
             if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
@@ -958,6 +973,8 @@ if ($existing.Count -gt 0) {
     Write-Host "Notice: agent-config already present at:" -ForegroundColor Yellow
     foreach ($p in $existing) { Write-Host "  $p" -ForegroundColor Yellow }
     Write-Host "This run will modify or replace it. Use -DryRun first if unsure." -ForegroundColor Yellow
+    Write-Host "Tip: rerun with -Force to replace silently (existing files are still backed up to .bak-<timestamp>)," -ForegroundColor DarkGray
+    Write-Host "     or answer 'a' (yes-to-all) at the first prompt to skip the rest." -ForegroundColor DarkGray
 }
 
 $gitState = Test-GitWorkingTree -ProjectPath $projectPath

@@ -53,6 +53,11 @@ DRY_RUN=0
 LIST=0
 EXPLICIT_SKILLS=()
 
+# Session-only flag: set to 1 the first time the user answers 'a' (yes to
+# all) at a directory-replace prompt. Subsequent prompts in the same install
+# behave as if --force was passed.
+FORCE_ALL=0
+
 # ---------------------------------------------------------------------------
 # Profile definitions
 # ---------------------------------------------------------------------------
@@ -690,9 +695,18 @@ install_codex() {
     fi
 
     if [[ -d "$dest" ]]; then
-      if (( FORCE == 0 )); then
-        read -r -p "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N] " resp
-        [[ "$resp" =~ ^[yY]$ ]] || { echo "  Skipped."; continue; }
+      if (( FORCE == 0 && FORCE_ALL == 0 )); then
+        read -r -p "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a] " resp
+        case "$resp" in
+          [aA])
+            FORCE_ALL=1
+            echo "  Yes to all: subsequent skills will be replaced without prompting."
+            ;;
+          [yY])
+            ;;
+          *)
+            echo "  Skipped."; continue ;;
+        esac
       fi
       local backup
       backup="$(backup_directory "$dest")"
@@ -862,9 +876,18 @@ install_openclaw() {
     fi
 
     if [[ -d "$dest" ]]; then
-      if (( FORCE == 0 )); then
-        read -r -p "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N] " resp
-        [[ "$resp" =~ ^[yY]$ ]] || { echo "  Skipped."; continue; }
+      if (( FORCE == 0 && FORCE_ALL == 0 )); then
+        read -r -p "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a] " resp
+        case "$resp" in
+          [aA])
+            FORCE_ALL=1
+            echo "  Yes to all: subsequent skills will be replaced without prompting."
+            ;;
+          [yY])
+            ;;
+          *)
+            echo "  Skipped."; continue ;;
+        esac
       fi
       local backup
       backup="$(backup_directory "$dest")"
@@ -989,6 +1012,8 @@ if [[ -n "$collision" ]]; then
   echo
   echo "Notice: agent-config already present at: $collision"
   echo "This run will modify or replace it. Use --dry-run first if unsure."
+  echo "Tip: rerun with --force to replace silently (existing files are still backed up to .bak-<timestamp>),"
+  echo "     or answer 'a' (yes-to-all) at the first prompt to skip the rest."
 fi
 
 git_state="$(git_working_tree_state "$TARGET_PATH")"
