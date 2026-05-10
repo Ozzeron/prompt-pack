@@ -456,6 +456,33 @@ install_claude_code() {
   echo "Done. Claude Code will pick up the agents on next start."
 }
 
+# Rewrite the source SKILL.md cross-skill links into a Codex-friendly form.
+# In the repo, skills cross-reference each other with markdown links like
+# `[`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)`.
+# Under the flat .agents/skills/ layout those relative paths don't resolve
+# and the `meta/` category prefix in the label is misleading. Replace each
+# such link with `$<basename>`, which is how Codex addresses skills.
+#
+# Examples:
+#   [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
+#       -> `$engineering-principles`
+#   [`postgres-supabase`](../postgres-supabase/SKILL.md)
+#       -> `$postgres-supabase`
+#
+# Implementation: extended-regex sed -E. The pattern matches the bracketed
+# label, ignores the category prefix in it, and uses the URL's last segment
+# (the basename before /SKILL.md) as the canonical skill name.
+convert_cross_links_for_codex() {
+  local file="$1"
+  local tmp
+  tmp="$(mktemp)"
+  # On BSD sed (macOS) and GNU sed (Linux), -E enables extended regex with
+  # the same syntax used here. -i differs between BSD and GNU, so we write
+  # to a temp file and move.
+  sed -E 's/\[`[^`]+`\]\([^)]*\/([A-Za-z0-9._-]+)\/SKILL\.md\)/`$\1`/g' "$file" > "$tmp"
+  mv "$tmp" "$file"
+}
+
 # Codex-native install.
 #
 # Per the official Codex skills documentation
@@ -642,6 +669,15 @@ install_codex() {
     fi
 
     cp -R "$src" "$dest"
+
+    # Rewrite cross-skill links inside the copied SKILL.md so they refer
+    # to Codex skill names ($foo) instead of relative ../meta/foo/SKILL.md
+    # paths that don't exist under the flat .agents/skills/ layout.
+    local skill_file="$dest/SKILL.md"
+    if [[ -f "$skill_file" ]]; then
+      convert_cross_links_for_codex "$skill_file"
+    fi
+
     echo "  Wrote $dest  (skill: $name)"
   done
 

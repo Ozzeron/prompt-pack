@@ -528,6 +528,31 @@ function Install-ClaudeCode {
 # multilingual routing bridge so Codex picks the right skill when the user
 # writes in Russian/Ukrainian. The full skill bodies stay in the skill
 # folders; AGENTS.md only mentions skill names + intent aliases.
+# Rewrite the source SKILL.md cross-skill links into a Codex-friendly form.
+# In the repo, skills cross-reference each other with markdown links like
+# `[`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)`.
+# Under the flat .agents/skills/ layout those relative paths don't resolve
+# and the `meta/` category prefix in the label is misleading. Replace each
+# such link with `$<basename>`, which is how Codex addresses skills.
+#
+# Examples:
+#   [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
+#       -> `$engineering-principles`
+#   [`postgres-supabase`](../postgres-supabase/SKILL.md)
+#       -> `$postgres-supabase`
+function Convert-CrossLinksForCodex {
+    param([string]$Body)
+
+    return [regex]::Replace($Body, '\[`([^`]+)`\]\([^)]*?/?([A-Za-z0-9._-]+)/SKILL\.md\)', {
+        param($m)
+        # Prefer the basename from the URL (last segment before /SKILL.md)
+        # over the bracketed label, because the label sometimes carries the
+        # legacy `category/name` form.
+        $basename = $m.Groups[2].Value
+        return '`$' + $basename + '`'
+    })
+}
+
 function Install-Codex {
     param([string[]]$SkillList, [string]$ProjectPath, [string]$Scope)
 
@@ -569,6 +594,18 @@ function Install-Codex {
         }
 
         Copy-Item -Path $src -Destination $dest -Recurse -Force
+
+        # Rewrite cross-skill links inside the copied SKILL.md so they refer
+        # to Codex skill names ($foo) instead of relative ../meta/foo/SKILL.md
+        # paths that don't exist under the flat .agents/skills/ layout.
+        $skillFile = Join-Path $dest 'SKILL.md'
+        if (Test-Path $skillFile) {
+            $body = [System.IO.File]::ReadAllText($skillFile, [System.Text.Encoding]::UTF8)
+            $body = Convert-CrossLinksForCodex -Body $body
+            $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+            [System.IO.File]::WriteAllText($skillFile, $body, $utf8NoBom)
+        }
+
         Write-Host "  Wrote $dest  (skill: $name)" -ForegroundColor Green
     }
 
