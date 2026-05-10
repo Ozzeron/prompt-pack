@@ -56,8 +56,9 @@ The discipline that does the work:
 ### What this is not
 
 - Not a `.cursorrules` collection. The pack ships a real installer with
-  five targets (Cursor, Claude Code, Codex, OpenClaw, raw paste) and
-  six profiles, plus a linter that enforces the format on every PR.
+  six targets (Cursor, Claude Code, Codex with skills, Codex legacy AGENTS.md,
+  OpenClaw, raw paste) and six profiles, plus a linter that enforces the
+  format on every PR.
 - Not a vendor-specific bundle. It runs on whatever AI coding tool you
   already use; no migration, no platform lock-in.
 - Not a benchmark or a leaderboard. It is opinionated discipline, not
@@ -154,13 +155,14 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ### Targets
 
-| Target        | What it does |
-|---------------|---|
-| `cursor`      | Copies skills into `.cursor/rules/` (frontmatter activates rules) |
-| `claude-code` | Copies skills into `.claude/agents/` (subagents) |
-| `codex`       | Builds a single `AGENTS.md` at project root (Codex CLI reads this) |
-| `openclaw`    | Copies skill directories into `<project>/skills/` (OpenClaw workspace) |
-| `raw`         | Strips frontmatter, writes bodies to `docs/ai-rules/` for paste into any AI tool |
+| Target            | What it does |
+|-------------------|---|
+| `cursor`          | Copies skills into `.cursor/rules/` (frontmatter activates rules) |
+| `claude-code`     | Copies skills into `.claude/agents/` (subagents) |
+| `codex`           | Codex-native: each skill goes to `.agents/skills/<name>/SKILL.md`, plus a compact `AGENTS.md` router/bridge. Use `--scope user` to install to `$HOME/.agents/skills/` instead. |
+| `codex-agents-md` | Legacy single-file install. Concatenates skills into one `AGENTS.md` (capped at 32 KiB). Use only if your host doesn't support `.agents/skills/`. |
+| `openclaw`        | Copies skill directories into `<project>/skills/` (OpenClaw workspace) |
+| `raw`             | Strips frontmatter, writes bodies to `docs/ai-rules/` for paste into any AI tool |
 
 ### Profiles
 

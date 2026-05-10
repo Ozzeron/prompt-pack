@@ -22,7 +22,8 @@ The installer supports five targets. Pick one based on your AI tool:
 |---------------|----------------|------|
 | `cursor`      | `<project>/.cursor/rules/` | Cursor IDE |
 | `claude-code` | `<project>/.claude/agents/` | Claude Code |
-| `codex`       | `<project>/AGENTS.md` (single merged file) | OpenAI Codex CLI |
+| `codex`           | `<project>/.agents/skills/<name>/SKILL.md` + compact `<project>/AGENTS.md` | OpenAI Codex CLI / IDE / app (native skills format) |
+| `codex-agents-md` | `<project>/AGENTS.md` (single merged file) | Legacy Codex installs without `.agents/skills/` support |
 | `openclaw`    | `<project>/skills/<name>/` (full directories) | OpenClaw workspace |
 | `raw`         | `<project>/docs/ai-rules/` (frontmatter-stripped) | ChatGPT, Claude.ai, any tool that takes a system prompt |
 
@@ -201,40 +202,90 @@ mv AGENTS.md CLAUDE.md   # if you prefer the Claude-specific name
 
 ## OpenAI Codex CLI
 
-Codex CLI reads `AGENTS.md` files in three layers and merges them:
-1. `~/.codex/AGENTS.md` — global, applies everywhere
-2. `<repo>/AGENTS.md` — per-project
-3. `<repo>/<dir>/AGENTS.md` or `AGENTS.override.md` — per-directory
+Codex has two distinct mechanisms, and prompt-pack maps to both:
 
-The installer's `codex` target builds a single merged `AGENTS.md` at the path you point
-it to. The combined file size respects Codex's 32 KB limit; skills that would push it
-over are skipped with a notice.
+1. **Skills** (`.agents/skills/<name>/SKILL.md`) — reusable workflows. Codex
+   uses *progressive disclosure*: it reads only `name` + `description` for
+   the initial list, and loads the full `SKILL.md` only when it picks the
+   skill. Lookup roots: `<repo>/.agents/skills/`, walk-up from CWD to repo
+   root, plus `$HOME/.agents/skills/` (user) and `/etc/codex/skills/`
+   (admin). See [Codex skills docs](https://developers.openai.com/codex/skills).
+2. **AGENTS.md** — project guidance chain. Codex reads `~/.codex/AGENTS.md`
+   (global), then walks from repo root down to your CWD picking up
+   `AGENTS.md` / `AGENTS.override.md` at each level, capped at 32 KiB total.
+   See [Codex AGENTS.md guide](https://developers.openai.com/codex/guides/agents-md).
 
-### Per-project (most common)
+The `codex` target writes each skill as a folder under `.agents/skills/`
+(the native format) and emits a compact `AGENTS.md` (~2 KB) at the project
+root containing the routing table and multilingual intent aliases. Skill
+bodies stay in their folders, so the AGENTS.md budget is left almost
+entirely free for project-specific guidance.
+
+### Per-project install (most common)
 
 ```bash
 cd ~/code/your-project
 ~/code/prompt-pack/install.sh --target codex --profile supabase
 ```
 
-### Global (apply to every project)
+Result:
+
+```
+your-project/
+  .agents/skills/
+    code-review/SKILL.md
+    repo-audit/SKILL.md
+    ...
+  AGENTS.md         # compact router + multilingual aliases
+```
+
+### User scope (apply to every Codex session)
+
+For skills you want available regardless of the working directory:
 
 ```bash
-mkdir -p ~/.codex
-~/code/prompt-pack/install.sh --target codex --profile minimal --path ~/.codex
+~/code/prompt-pack/install.sh --target codex --scope user --profile minimal
 ```
+
+This writes to `$HOME/.agents/skills/`. No `AGENTS.md` is written in this
+mode — user-scope `AGENTS.md` belongs at `~/.codex/AGENTS.md` and is your
+project-independent guidance, not a place for skill content.
+
+### Activating skills
+
+- **Explicit**: type `$<skill-name>` in a Codex prompt, e.g. `$code-review`.
+- **Implicit**: Codex matches the skill `description` against the task.
+  Concise, scope-bounded descriptions trigger more reliably.
+
+Restart Codex after installing so it rescans the discovery roots.
 
 ### Verify it loaded
 
 ```bash
-codex --ask-for-approval never "Summarize the current instructions."
+codex --ask-for-approval never "List the prompt-pack skills you can use."
 ```
+
+### Legacy single-file mode (codex-agents-md)
+
+Older Codex installs (or hosts that don't yet support `.agents/skills/`)
+need everything in a single `AGENTS.md`. Use the legacy target only in
+that case:
+
+```bash
+~/code/prompt-pack/install.sh --target codex-agents-md --profile minimal
+```
+
+The combined file is capped at 32 KiB (`project_doc_max_bytes` default);
+skills that would push it over are skipped with a notice. Switch to the
+native `codex` target as soon as you can — it removes the size cap because
+skills load on demand.
 
 ### Directory-specific overrides
 
-If a sub-tree of your project needs different rules (e.g. `services/payments` uses a
-different test command), add a manual `services/payments/AGENTS.override.md` with just
-the override content. Codex merges from root → cwd, with closer files winning.
+If a sub-tree of your project needs different rules (e.g. `services/payments`
+uses a different test command), add a manual
+`services/payments/AGENTS.override.md` with just the override content. Codex
+merges from root → cwd, with closer files winning.
 
 ## OpenClaw
 

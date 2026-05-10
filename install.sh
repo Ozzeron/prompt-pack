@@ -3,7 +3,18 @@
 # Install prompt-pack skills into a project directory.
 #
 # Usage:
-#   ./install.sh --target <cursor|claude-code|codex|openclaw|raw> [--profile <name>] [--path <dir>] [--force] [--list]
+#   ./install.sh --target <cursor|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--list]
+#
+# Targets:
+#   cursor          - .cursor/rules/*.mdc + alwaysApply bridge router.
+#   claude-code     - .claude/agents/*.md.
+#   codex           - Codex-native: .agents/skills/<name>/SKILL.md + a
+#                     compact AGENTS.md router/bridge. Use --scope user to
+#                     write to $HOME/.agents/skills/ instead.
+#   codex-agents-md - Legacy single-file install: concatenate skills into
+#                     one AGENTS.md (capped at 32 KiB). Prefer --target codex.
+#   openclaw        - skills/<name>/ (full SKILL.md + sidecars).
+#   raw             - docs/ai-rules/<name>.md (loose markdown bodies).
 #
 # Profiles:
 #   minimal    — 4 always-on meta skills + handoff
@@ -36,6 +47,7 @@ PROMPTS_ROOT="$SCRIPT_DIR/prompts"
 TARGET=""
 PROFILE="minimal"
 TARGET_PATH="$(pwd)"
+SCOPE="repo"
 FORCE=0
 DRY_RUN=0
 LIST=0
@@ -157,7 +169,7 @@ show_list() {
 
   echo
   echo "Available targets:"
-  for t in cursor claude-code codex openclaw raw; do
+  for t in cursor claude-code codex codex-agents-md openclaw raw; do
     echo "  $t"
   done
   echo
@@ -240,11 +252,21 @@ detect_collisions() {
   # Each branch must always exit 0 so 'set -e' doesn't terminate the caller
   # when the path simply doesn't exist (the common, expected case).
   case "$target" in
-    cursor)      [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
-    claude-code) [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' || true ;;
-    codex)       [[ -e "$TARGET_PATH/AGENTS.md" ]]      && echo 'AGENTS.md'        || true ;;
-    openclaw)    [[ -d "$TARGET_PATH/skills" ]]          && echo 'skills/'          || true ;;
-    raw)         [[ -d "$TARGET_PATH/docs/ai-rules" ]]  && echo 'docs/ai-rules/'  || true ;;
+    cursor)          [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
+    claude-code)     [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' || true ;;
+    codex)
+      if [[ "$SCOPE" == "user" ]]; then
+        [[ -d "$HOME/.agents/skills" ]] && echo '~/.agents/skills/' || true
+      else
+        local hits=()
+        [[ -d "$TARGET_PATH/.agents/skills" ]] && hits+=('.agents/skills/')
+        [[ -e "$TARGET_PATH/AGENTS.md" ]] && hits+=('AGENTS.md')
+        if (( ${#hits[@]} > 0 )); then printf '%s ' "${hits[@]}"; fi
+      fi
+      ;;
+    codex-agents-md) [[ -e "$TARGET_PATH/AGENTS.md" ]]      && echo 'AGENTS.md'        || true ;;
+    openclaw)        [[ -d "$TARGET_PATH/skills" ]]          && echo 'skills/'          || true ;;
+    raw)             [[ -d "$TARGET_PATH/docs/ai-rules" ]]  && echo 'docs/ai-rules/'  || true ;;
   esac
 }
 
@@ -434,11 +456,153 @@ install_claude_code() {
   echo "Done. Claude Code will pick up the agents on next start."
 }
 
+# Codex-native install.
+#
+# Per the official Codex skills documentation
+# (https://developers.openai.com/codex/skills), each skill is a directory
+# with a SKILL.md file under one of the discovery roots:
+#
+#   - REPO:  <project>/.agents/skills/<name>/SKILL.md
+#   - USER:  $HOME/.agents/skills/<name>/SKILL.md
+#   - ADMIN: /etc/codex/skills/<name>/SKILL.md (we don't write here)
+#
+# Codex uses progressive disclosure: it reads only `name` and `description`
+# from the frontmatter for the initial skill list (capped at ~2% of context
+# or 8000 chars), and loads the full SKILL.md when the skill is selected.
+#
+# Our SKILL.md frontmatter already carries `name` + `description`, so we
+# can copy each skill folder verbatim.
+#
+# We also write a compact AGENTS.md (~2 KB) at the repo root with the
+# multilingual routing bridge so Codex picks the right skill when the user
+# writes in Russian/Ukrainian. The full skill bodies stay in the skill
+# folders; AGENTS.md only mentions skill names + intent aliases.
+write_codex_agents_md() {
+  local dest="$1"
+  shift
+  local skill_list=("$@")
+
+  local template="$SCRIPT_DIR/templates/codex-agents-md.md"
+  if [[ ! -f "$template" ]]; then
+    echo "  Warning: AGENTS.md template not found at $template; skipping." >&2
+    return 0
+  fi
+
+  # Build the bullet list of installed skills.
+  local skill_lines=""
+  for skill in "${skill_list[@]}"; do
+    local name="${skill##*/}"
+    if [[ -n "$skill_lines" ]]; then
+      skill_lines+=$'\n'
+    fi
+    skill_lines+="- \`\$${name}\`"
+  done
+
+  # Substitute the placeholder. Use awk so we don't have to escape special
+  # characters for sed (skill_lines contains $).
+  awk -v lines="$skill_lines" '
+    /<!-- PROMPT_PACK_SKILL_LIST -->/ { print lines; next }
+    { print }
+  ' "$template" > "$dest"
+}
+
 install_codex() {
+  local skills_root
+  local scope_label
+  local write_agents_md=1
+
+  if [[ "$SCOPE" == "user" ]]; then
+    skills_root="$HOME/.agents/skills"
+    scope_label="user (~/.agents/skills/)"
+    write_agents_md=0
+  else
+    skills_root="$TARGET_PATH/.agents/skills"
+    scope_label="repo (.agents/skills/)"
+  fi
+
+  echo
+  echo "Installing Codex skills to $skills_root"
+  echo "  (scope: $scope_label; format: Codex-native skill folders with progressive disclosure)"
+  echo
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$skills_root"; fi
+
+  for skill in "${SKILLS[@]}"; do
+    local name="${skill##*/}"
+    local src="$PROMPTS_ROOT/$skill"
+    local dest="$skills_root/$name"
+
+    if [[ ! -d "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
+
+    if (( DRY_RUN == 1 )); then
+      local action='create'
+      [[ -d "$dest" ]] && action='replace (existing renamed to .bak)'
+      echo "  [dry-run] would $action $dest"
+      continue
+    fi
+
+    if [[ -d "$dest" ]]; then
+      if (( FORCE == 0 )); then
+        read -r -p "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N] " resp
+        [[ "$resp" =~ ^[yY]$ ]] || { echo "  Skipped."; continue; }
+      fi
+      local backup
+      backup="$(backup_directory "$dest")"
+      [[ -n "$backup" ]] && echo "  Backed up to $backup"
+    fi
+
+    cp -R "$src" "$dest"
+    echo "  Wrote $dest  (skill: $name)"
+  done
+
+  if (( write_agents_md == 1 )); then
+    local agents_file="$TARGET_PATH/AGENTS.md"
+    if (( DRY_RUN == 1 )); then
+      local verb='create'
+      [[ -e "$agents_file" ]] && verb='replace'
+      echo
+      echo "  [dry-run] would $verb $agents_file (compact router bridge)"
+    else
+      local write_bridge=1
+      if [[ -e "$agents_file" ]]; then
+        if (( FORCE == 0 )); then
+          read -r -p $'\n'"$agents_file exists. Overwrite with prompt-pack router bridge? [y/N] " resp
+          if [[ ! "$resp" =~ ^[yY]$ ]]; then
+            echo "  Skipped AGENTS.md."
+            write_bridge=0
+          fi
+        else
+          local backup
+          backup="$(backup_file "$agents_file")"
+          [[ -n "$backup" ]] && echo "  Backed up existing AGENTS.md to $backup"
+        fi
+      fi
+      if (( write_bridge == 1 )); then
+        write_codex_agents_md "$agents_file" "${SKILLS[@]}"
+        echo "  Wrote $agents_file  (compact router bridge)"
+      fi
+    fi
+  fi
+
+  echo
+  echo "Done. Restart Codex to pick up the new skills."
+  echo "Skills are activated via \$<skill-name> (explicit) or by Codex matching the description (implicit)."
+  if [[ "$SCOPE" == "user" ]]; then
+    echo "User-scoped skills apply to every Codex session, regardless of working directory."
+  else
+    echo "Repo-scoped skills apply when Codex is launched inside this project."
+  fi
+}
+
+# Legacy single-file Codex install. Concatenates all skills into one
+# AGENTS.md, capped at 32 KiB. Kept for hosts that do not yet support
+# `.agents/skills/` (or for users who explicitly want one big project doc).
+# Prefer `--target codex` for everything else.
+install_codex_agents_md() {
   local agents_file="$TARGET_PATH/AGENTS.md"
   local size_limit=$((32 * 1024))
   echo
-  echo "Building $agents_file from ${#SKILLS[@]} skills"
+  echo "Building $agents_file from ${#SKILLS[@]} skills (legacy single-file mode)"
   echo
 
   if (( DRY_RUN == 1 )); then
@@ -507,7 +671,7 @@ install_codex() {
     echo "Skipped (would exceed Codex 32 KB limit):"
     for s in "${skipped[@]}"; do echo "  $s"; done
     echo
-    echo "Tip: pick a smaller profile or use directory-specific AGENTS.override.md files."
+    echo "Tip: switch to '--target codex' (Codex-native, progressive disclosure) instead of dumping everything into one AGENTS.md."
   fi
 }
 
@@ -591,6 +755,7 @@ while [[ $# -gt 0 ]]; do
     --target)   TARGET="$2"; shift 2 ;;
     --profile)  PROFILE="$2"; shift 2 ;;
     --path)     TARGET_PATH="$2"; shift 2 ;;
+    --scope)    SCOPE="$2"; shift 2 ;;
     --skill)    EXPLICIT_SKILLS+=("$2"); shift 2 ;;
     --force)    FORCE=1; shift ;;
     --dry-run)  DRY_RUN=1; shift ;;
@@ -609,14 +774,19 @@ done
 if (( LIST == 1 )); then show_list; exit 0; fi
 
 if [[ -z "$TARGET" ]]; then
-  echo "Error: --target is required (cursor / claude-code / codex / openclaw / raw)." >&2
+  echo "Error: --target is required (cursor / claude-code / codex / codex-agents-md / openclaw / raw)." >&2
   echo "Run with --list to see available profiles and skills." >&2
   exit 1
 fi
 
 case "$TARGET" in
-  cursor|claude-code|codex|openclaw|raw) ;;
+  cursor|claude-code|codex|codex-agents-md|openclaw|raw) ;;
   *) echo "Error: invalid --target '$TARGET'" >&2; exit 1 ;;
+esac
+
+case "$SCOPE" in
+  repo|user) ;;
+  *) echo "Error: invalid --scope '$SCOPE' (expected: repo, user)" >&2; exit 1 ;;
 esac
 
 TARGET_PATH="$(cd "$TARGET_PATH" 2>/dev/null && pwd || { echo "Error: path does not exist: $TARGET_PATH" >&2; exit 1; })"
@@ -669,9 +839,10 @@ elif [[ "$git_state" == 'not-a-repo' ]]; then
 fi
 
 case "$TARGET" in
-  cursor)      install_cursor ;;
-  claude-code) install_claude_code ;;
-  codex)       install_codex ;;
-  openclaw)    install_openclaw ;;
-  raw)         install_raw ;;
+  cursor)          install_cursor ;;
+  claude-code)     install_claude_code ;;
+  codex)           install_codex ;;
+  codex-agents-md) install_codex_agents_md ;;
+  openclaw)        install_openclaw ;;
+  raw)             install_raw ;;
 esac

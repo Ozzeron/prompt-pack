@@ -8,7 +8,24 @@
   loose markdown for any other tool).
 
 .PARAMETER Target
-  Where to install. One of: cursor, claude-code, codex, openclaw, raw
+  Where to install. One of: cursor, claude-code, codex, codex-agents-md, openclaw, raw
+
+  - codex             : Codex-native install. Writes each skill to
+                        `.agents/skills/<name>/SKILL.md` (or to
+                        `$HOME/.agents/skills/` when -Scope user) plus a
+                        compact AGENTS.md router/bridge. This matches the
+                        official Codex skills format with progressive
+                        disclosure. Recommended for Codex CLI / IDE / app.
+  - codex-agents-md   : Legacy single-file install. Concatenates all skills
+                        into one AGENTS.md, capped at 32 KiB (Codex default
+                        project_doc_max_bytes). Use only for hosts that do
+                        not yet support `.agents/skills/`.
+
+.PARAMETER Scope
+  Codex install scope. One of: repo (default), user. Only used when
+  -Target codex. `repo` writes to `<project>/.agents/skills/`; `user`
+  writes to `$HOME/.agents/skills/` so every Codex session inherits the
+  skills regardless of the working directory.
 
 .PARAMETER Profile
   Which skill bundle to install. One of: minimal, nextjs, backend, supabase,
@@ -53,8 +70,12 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet('cursor', 'claude-code', 'codex', 'openclaw', 'raw')]
+    [ValidateSet('cursor', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw')]
     [string]$Target,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('repo', 'user')]
+    [string]$Scope = 'repo',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('minimal', 'nextjs', 'backend', 'supabase', 'fullstack', 'all')]
@@ -186,7 +207,7 @@ function Show-List {
     foreach ($s in (Get-AllSkills)) { Write-Host "  $s" -ForegroundColor Gray }
 
     Write-Host "`nAvailable targets:" -ForegroundColor Cyan
-    'cursor', 'claude-code', 'codex', 'openclaw', 'raw' | ForEach-Object {
+    'cursor', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw' | ForEach-Object {
         Write-Host "  $_" -ForegroundColor Gray
     }
 }
@@ -254,11 +275,20 @@ function Test-AgentConfigCollision {
 
     $hits = @()
     switch ($Target) {
-        'cursor'      { if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' } }
-        'claude-code' { if (Test-Path (Join-Path $ProjectPath '.claude\agents')) { $hits += '.claude/agents/' } }
-        'codex'       { if (Test-Path (Join-Path $ProjectPath 'AGENTS.md'))     { $hits += 'AGENTS.md' } }
-        'openclaw'    { if (Test-Path (Join-Path $ProjectPath 'skills'))         { $hits += 'skills/' } }
-        'raw'         { if (Test-Path (Join-Path $ProjectPath 'docs\ai-rules')) { $hits += 'docs/ai-rules/' } }
+        'cursor'          { if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' } }
+        'claude-code'     { if (Test-Path (Join-Path $ProjectPath '.claude\agents')) { $hits += '.claude/agents/' } }
+        'codex'           {
+            if ($Scope -eq 'user') {
+                $userSkills = Join-Path $env:USERPROFILE '.agents\skills'
+                if (Test-Path $userSkills) { $hits += '~/.agents/skills/' }
+            } else {
+                if (Test-Path (Join-Path $ProjectPath '.agents\skills')) { $hits += '.agents/skills/' }
+                if (Test-Path (Join-Path $ProjectPath 'AGENTS.md'))      { $hits += 'AGENTS.md' }
+            }
+        }
+        'codex-agents-md' { if (Test-Path (Join-Path $ProjectPath 'AGENTS.md'))     { $hits += 'AGENTS.md' } }
+        'openclaw'        { if (Test-Path (Join-Path $ProjectPath 'skills'))         { $hits += 'skills/' } }
+        'raw'             { if (Test-Path (Join-Path $ProjectPath 'docs\ai-rules')) { $hits += 'docs/ai-rules/' } }
     }
     return $hits
 }
@@ -475,11 +505,149 @@ function Install-ClaudeCode {
     Write-Host "`nDone. Claude Code will pick up the agents on next start." -ForegroundColor Cyan
 }
 
+# Codex-native install.
+#
+# Per the official Codex skills documentation
+# (https://developers.openai.com/codex/skills), each skill is a directory
+# with a SKILL.md file under one of the discovery roots:
+#
+#   - REPO: <project>/.agents/skills/<name>/SKILL.md
+#   - USER: $HOME/.agents/skills/<name>/SKILL.md
+#   - ADMIN: /etc/codex/skills/<name>/SKILL.md (we don't write here)
+#
+# Codex uses progressive disclosure: it reads only `name` and `description`
+# from the frontmatter for the initial skill list (capped at ~2% of context
+# or 8000 chars), and loads the full SKILL.md when the skill is selected.
+#
+# Our SKILL.md frontmatter already carries `name` + `description`, so we can
+# copy each skill folder verbatim. Extra fields (`category`, `version`,
+# `triggers`, `applies_to`) are ignored by Codex but useful as metadata, so
+# we leave them in place.
+#
+# We also write a compact AGENTS.md (~3 KB) at the repo root with the
+# multilingual routing bridge so Codex picks the right skill when the user
+# writes in Russian/Ukrainian. The full skill bodies stay in the skill
+# folders; AGENTS.md only mentions skill names + intent aliases.
 function Install-Codex {
+    param([string[]]$SkillList, [string]$ProjectPath, [string]$Scope)
+
+    if ($Scope -eq 'user') {
+        $skillsRoot = Join-Path $env:USERPROFILE '.agents\skills'
+        $scopeLabel = 'user (~/.agents/skills/)'
+        $writeAgentsMd = $false
+    } else {
+        $skillsRoot = Join-Path $ProjectPath '.agents\skills'
+        $scopeLabel = 'repo (.agents/skills/)'
+        $writeAgentsMd = $true
+    }
+
+    Write-Host "`nInstalling Codex skills to $skillsRoot" -ForegroundColor Cyan
+    Write-Host "  (scope: $scopeLabel; format: Codex-native skill folders with progressive disclosure)`n" -ForegroundColor DarkGray
+
+    if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null }
+
+    foreach ($skill in $SkillList) {
+        $name = ($skill -split '/')[-1]
+        $src = Join-Path $PromptsRoot ($skill -replace '/', '\')
+        if (-not (Test-Path $src)) { Write-Host "  Missing: $src" -ForegroundColor Red; continue }
+
+        $dest = Join-Path $skillsRoot $name
+
+        if ($DryRun) {
+            $action = if (Test-Path $dest) { 'replace (existing renamed to .bak)' } else { 'create' }
+            Write-Host "  [dry-run] would $action $dest" -ForegroundColor DarkCyan
+            continue
+        }
+
+        if (Test-Path $dest) {
+            if (-not $Force) {
+                $resp = Read-Host "  Replace $dest? Existing will be renamed to <name>.bak-<timestamp>. [y/N]"
+                if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; continue }
+            }
+            $backup = Backup-Directory -DirPath $dest
+            if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+        }
+
+        Copy-Item -Path $src -Destination $dest -Recurse -Force
+        Write-Host "  Wrote $dest  (skill: $name)" -ForegroundColor Green
+    }
+
+    if ($writeAgentsMd) {
+        $agentsFile = Join-Path $ProjectPath 'AGENTS.md'
+        if ($DryRun) {
+            $verb = if (Test-Path $agentsFile) { 'replace' } else { 'create' }
+            Write-Host "`n  [dry-run] would $verb $agentsFile (compact router bridge)" -ForegroundColor DarkCyan
+        } else {
+            $writeBridge = $true
+            if (Test-Path $agentsFile) {
+                if (-not $Force) {
+                    $resp = Read-Host "`n$agentsFile exists. Overwrite with prompt-pack router bridge? [y/N]"
+                    if ($resp -notmatch '^[yY]') {
+                        Write-Host "  Skipped AGENTS.md." -ForegroundColor Yellow
+                        $writeBridge = $false
+                    }
+                } else {
+                    $backup = Backup-File -FilePath $agentsFile
+                    if ($backup) { Write-Host "  Backed up existing AGENTS.md to $backup" -ForegroundColor DarkYellow }
+                }
+            }
+            if ($writeBridge) {
+                Write-CodexAgentsMd -DestPath $agentsFile -SkillList $SkillList
+                Write-Host "  Wrote $agentsFile  (compact router bridge)" -ForegroundColor Green
+            }
+        }
+    }
+
+    Write-Host "`nDone. Restart Codex to pick up the new skills." -ForegroundColor Cyan
+    Write-Host "Skills are activated via `$<skill-name>` (explicit) or by Codex matching the description (implicit)." -ForegroundColor DarkGray
+    if ($Scope -eq 'user') {
+        Write-Host "User-scoped skills apply to every Codex session, regardless of working directory." -ForegroundColor DarkGray
+    } else {
+        Write-Host "Repo-scoped skills apply when Codex is launched inside this project." -ForegroundColor DarkGray
+    }
+}
+
+# Emit a compact AGENTS.md (~2 KB) that names the installed skills and the
+# multilingual intent aliases. The full skill bodies live in
+# .agents/skills/<name>/SKILL.md and are loaded by Codex on demand, so this
+# file deliberately stays small to avoid eating into Codex's 32 KiB
+# project_doc_max_bytes budget.
+#
+# The template lives in `templates/codex-agents-md.md` and contains a
+# `<!-- PROMPT_PACK_SKILL_LIST -->` placeholder. We read the template as raw
+# UTF-8 bytes (PowerShell 5 mangles non-ASCII string literals embedded in
+# .ps1 sources, so the multilingual aliases must come from a separate file)
+# and substitute the skill list before writing.
+function Write-CodexAgentsMd {
+    param([string]$DestPath, [string[]]$SkillList)
+
+    $templatePath = Join-Path $PSScriptRoot 'templates\codex-agents-md.md'
+    if (-not (Test-Path $templatePath)) {
+        Write-Host "  Warning: AGENTS.md template not found at $templatePath; skipping AGENTS.md generation." -ForegroundColor Yellow
+        return
+    }
+
+    $template = [System.IO.File]::ReadAllText($templatePath, [System.Text.Encoding]::UTF8)
+    $skillLines = ($SkillList | ForEach-Object {
+        $name = ($_ -split '/')[-1]
+        "- ``$" + $name + "``"
+    }) -join "`n"
+
+    $rendered = $template.Replace('<!-- PROMPT_PACK_SKILL_LIST -->', $skillLines)
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($DestPath, $rendered, $utf8NoBom)
+}
+
+# Legacy single-file Codex install. Concatenates all skills into one
+# AGENTS.md, capped at 32 KiB. Kept for hosts that do not yet support
+# `.agents/skills/` (or for users who explicitly want one big project doc).
+# Prefer `-Target codex` for everything else.
+function Install-CodexAgentsMd {
     param([string[]]$SkillList, [string]$ProjectPath)
 
     $agentsFile = Join-Path $ProjectPath 'AGENTS.md'
-    Write-Host "`nBuilding $agentsFile from $($SkillList.Count) skills`n" -ForegroundColor Cyan
+    Write-Host "`nBuilding $agentsFile from $($SkillList.Count) skills (legacy single-file mode)`n" -ForegroundColor Cyan
 
     if ($DryRun) {
         $verb = if (Test-Path $agentsFile) { 'replace' } else { 'create' }
@@ -506,7 +674,7 @@ function Install-Codex {
     [void]$sb.AppendLine()
 
     $totalBytes = $sb.Length
-    $sizeLimit = 32 * 1024  # Codex limit
+    $sizeLimit = 32 * 1024  # Codex project_doc_max_bytes default
     $included = @()
     $skipped = @()
 
@@ -540,7 +708,7 @@ function Install-Codex {
     if ($skipped.Count -gt 0) {
         Write-Host "`nSkipped (would exceed Codex 32 KB limit):" -ForegroundColor Yellow
         foreach ($s in $skipped) { Write-Host "  $s" -ForegroundColor Yellow }
-        Write-Host "`nTip: pick a smaller profile or use directory-specific AGENTS.override.md files." -ForegroundColor DarkGray
+        Write-Host "`nTip: switch to '-Target codex' (Codex-native, progressive disclosure) instead of dumping everything into one AGENTS.md." -ForegroundColor DarkGray
     }
 }
 
@@ -664,9 +832,10 @@ elseif ($gitState -eq 'not-a-repo') {
 }
 
 switch ($Target) {
-    'cursor'      { Install-Cursor      -SkillList $skillList -ProjectPath $projectPath }
-    'claude-code' { Install-ClaudeCode  -SkillList $skillList -ProjectPath $projectPath }
-    'codex'       { Install-Codex       -SkillList $skillList -ProjectPath $projectPath }
-    'openclaw'    { Install-OpenClaw    -SkillList $skillList -ProjectPath $projectPath }
-    'raw'         { Install-Raw         -SkillList $skillList -ProjectPath $projectPath }
+    'cursor'          { Install-Cursor         -SkillList $skillList -ProjectPath $projectPath }
+    'claude-code'     { Install-ClaudeCode     -SkillList $skillList -ProjectPath $projectPath }
+    'codex'           { Install-Codex          -SkillList $skillList -ProjectPath $projectPath -Scope $Scope }
+    'codex-agents-md' { Install-CodexAgentsMd  -SkillList $skillList -ProjectPath $projectPath }
+    'openclaw'        { Install-OpenClaw       -SkillList $skillList -ProjectPath $projectPath }
+    'raw'             { Install-Raw            -SkillList $skillList -ProjectPath $projectPath }
 }
