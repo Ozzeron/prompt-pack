@@ -573,13 +573,27 @@ write_codex_agents_md() {
     done
   fi
 
-  # Substitute placeholders in the template. Use awk: it handles the dollar
-  # signs inside our replacement strings without sed-style escaping pain.
-  awk -v skills="$skill_lines" -v rules="$routing_lines" '
-    /<!-- PROMPT_PACK_SKILL_LIST -->/ { print skills; next }
-    /<!-- PROMPT_PACK_ROUTING_RULES -->/ { print rules; next }
-    { print }
-  ' "$template" > "$dest"
+  # Substitute placeholders by reading the template line-by-line. We avoided
+  # awk -v / sed -e here because both choke on multi-line replacement values:
+  # awk reports `newline in string` (replacement values contain literal \n),
+  # and sed needs every / and & escaped in the replacement, plus the dollar
+  # signs in `$<skill-name>` interact badly. Pure bash with parameter
+  # expansion is portable from bash 3.2 (macOS default) onward and side-steps
+  # the entire escaping problem.
+  : > "$dest"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      *'<!-- PROMPT_PACK_SKILL_LIST -->'*)
+        printf '%s\n' "$skill_lines" >> "$dest"
+        ;;
+      *'<!-- PROMPT_PACK_ROUTING_RULES -->'*)
+        printf '%s\n' "$routing_lines" >> "$dest"
+        ;;
+      *)
+        printf '%s\n' "$line" >> "$dest"
+        ;;
+    esac
+  done < "$template"
 }
 
 install_codex() {
