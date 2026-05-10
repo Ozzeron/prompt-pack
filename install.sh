@@ -256,7 +256,7 @@ detect_collisions() {
     claude-code)     [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' || true ;;
     codex)
       if [[ "$SCOPE" == "user" ]]; then
-        [[ -d "$HOME/.agents/skills" ]] && echo '~/.agents/skills/' || true
+        [[ -d "$HOME/.agents/skills" ]] && echo "$HOME/.agents/skills/" || true
       else
         local hits=()
         [[ -d "$TARGET_PATH/.agents/skills" ]] && hits+=('.agents/skills/')
