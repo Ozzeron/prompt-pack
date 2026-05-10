@@ -191,13 +191,17 @@ No reload needed — Claude Code reads `.claude/agents/` on each invocation.
 
 ### Repository-wide context
 
-For repo-wide context (conventions, do-not-touch zones, test commands), Claude Code reads
-`CLAUDE.md` first. To generate one from the pack, use the `codex` target — Claude Code
-also reads `AGENTS.md` if `CLAUDE.md` is absent:
+For repo-wide context (conventions, do-not-touch zones, test commands), Claude Code
+reads `CLAUDE.md` first, falling back to `AGENTS.md` when no `CLAUDE.md` is present.
+The `codex` target writes a *compact router-bridge* AGENTS.md plus a tree under
+`.agents/skills/` — useful for Codex but not what you want for Claude Code's repo
+doc. To get a single self-contained file you can rename to `CLAUDE.md`, use the
+legacy `codex-agents-md` target, which concatenates the selected skills into one
+markdown blob:
 
 ```bash
-~/code/prompt-pack/install.sh --target codex --profile minimal
-mv AGENTS.md CLAUDE.md   # if you prefer the Claude-specific name
+~/code/prompt-pack/install.sh --target codex-agents-md --profile minimal
+mv AGENTS.md CLAUDE.md   # Claude Code prefers this filename
 ```
 
 ## OpenAI Codex CLI

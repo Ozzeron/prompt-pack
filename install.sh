@@ -456,6 +456,33 @@ install_claude_code() {
   echo "Done. Claude Code will pick up the agents on next start."
 }
 
+# Skills that exist as foundation rules. In Cursor we mark them alwaysApply;
+# Codex has no inheritance, so we instead opt them out of implicit invocation
+# (Codex still lists them, the user can call `$engineering-principles`
+# explicitly, but the matcher won't auto-pick them on description match).
+is_codex_inherit_only() {
+  case "$1" in
+    meta/engineering-principles|meta/reuse-before-create|meta/token-discipline|meta/task-router)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+
+# Write a minimal agents/openai.yaml that disables implicit invocation for
+# foundation skills. Schema: developers.openai.com/codex/skills.
+write_codex_openai_yaml() {
+  local dest_dir="$1"
+  local agents_dir="$dest_dir/agents"
+  mkdir -p "$agents_dir"
+  cat > "$agents_dir/openai.yaml" <<'YAML'
+# Disable implicit invocation: this skill is foundation/inherit-only.
+# Codex will still list it; the user can call $<name> explicitly.
+policy:
+  allow_implicit_invocation: false
+YAML
+}
+
 # Rewrite the source SKILL.md cross-skill links into a Codex-friendly form.
 # In the repo, skills cross-reference each other with markdown links like
 # `[`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)`.
@@ -678,7 +705,14 @@ install_codex() {
       convert_cross_links_for_codex "$skill_file"
     fi
 
-    echo "  Wrote $dest  (skill: $name)"
+    # Mark foundation skills as explicit-only so Codex doesn't auto-select
+    # them based on description match.
+    if is_codex_inherit_only "$skill"; then
+      write_codex_openai_yaml "$dest"
+      echo "  Wrote $dest  (skill: $name, explicit-only)"
+    else
+      echo "  Wrote $dest  (skill: $name)"
+    fi
   done
 
   if (( write_agents_md == 1 )); then

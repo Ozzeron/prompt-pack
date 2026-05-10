@@ -528,6 +528,45 @@ function Install-ClaudeCode {
 # multilingual routing bridge so Codex picks the right skill when the user
 # writes in Russian/Ukrainian. The full skill bodies stay in the skill
 # folders; AGENTS.md only mentions skill names + intent aliases.
+# Skills that exist as foundation rules: Cursor marks them alwaysApply, Codex
+# has no inheritance model so we instead opt them out of implicit invocation.
+# Codex will still surface them in the skill list (so the user can explicitly
+# call `$engineering-principles` to remind themselves of the rules) but will
+# not auto-select them when matching a task description against installed
+# skill descriptions.
+#
+# This matches `triggers: [inherit-only]` in the source SKILL.md frontmatter.
+$Script:CodexInheritOnlySkills = @(
+    'meta/engineering-principles',
+    'meta/reuse-before-create',
+    'meta/token-discipline',
+    'meta/task-router'
+)
+
+function Test-CodexInheritOnly {
+    param([string]$Skill)
+    return $Script:CodexInheritOnlySkills -contains $Skill
+}
+
+# Write a minimal agents/openai.yaml that disables implicit invocation for
+# foundation skills. Schema: developers.openai.com/codex/skills.
+function Write-CodexOpenaiYaml {
+    param([string]$DestDir)
+
+    $agentsDir = Join-Path $DestDir 'agents'
+    if (-not (Test-Path $agentsDir)) { New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null }
+
+    $yaml = @(
+        '# Disable implicit invocation: this skill is foundation/inherit-only.',
+        '# Codex will still list it; the user can call $<name> explicitly.',
+        'policy:',
+        '  allow_implicit_invocation: false',
+        ''
+    ) -join "`n"
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText((Join-Path $agentsDir 'openai.yaml'), $yaml, $utf8NoBom)
+}
+
 # Rewrite the source SKILL.md cross-skill links into a Codex-friendly form.
 # In the repo, skills cross-reference each other with markdown links like
 # `[`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)`.
@@ -606,7 +645,15 @@ function Install-Codex {
             [System.IO.File]::WriteAllText($skillFile, $body, $utf8NoBom)
         }
 
-        Write-Host "  Wrote $dest  (skill: $name)" -ForegroundColor Green
+        # Mark foundation skills as explicit-only so Codex doesn't auto-select
+        # them based on description match.
+        $isInheritOnly = Test-CodexInheritOnly -Skill $skill
+        if ($isInheritOnly) {
+            Write-CodexOpenaiYaml -DestDir $dest
+            Write-Host "  Wrote $dest  (skill: $name, explicit-only)" -ForegroundColor Green
+        } else {
+            Write-Host "  Wrote $dest  (skill: $name)" -ForegroundColor Green
+        }
     }
 
     if ($writeAgentsMd) {
