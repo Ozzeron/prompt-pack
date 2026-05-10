@@ -234,9 +234,11 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 
 ## Status
 
-🟢 **v0.1.10** — current stable v0.1.x release.
-22 skills, format-locked, lint-gated, hardened across nine review rounds plus
-four empirical field tests on real Next.js / Supabase projects.
+🟢 **v0.2.0** — current stable release. Adds Codex-native skills target
+(`--target codex` writes to `.agents/skills/<name>/SKILL.md` with progressive
+disclosure, plus a compact router-bridge `AGENTS.md`); the previous monolithic
+AGENTS.md installer is preserved as `--target codex-agents-md` for hosts that
+don't yet support `.agents/skills/`. 22 skills, format-locked, lint-gated.
 Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major
