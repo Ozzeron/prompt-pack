@@ -92,3 +92,29 @@ jobs:
           cd /tmp/test-raw
           git init -q
           $GITHUB_WORKSPACE/install.sh --target raw --profile nextjs --dry-run
+
+  install-ps1-smoke:
+    name: install.ps1 smoke (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: List profiles and skills
+        shell: pwsh
+        run: .\install.ps1 -List
+
+      - name: Dry-run install (raw target, nextjs profile)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "$env:TEMP\test-raw" -Force | Out-Null
+          Set-Location "$env:TEMP\test-raw"
+          git init -q
+          & "$env:GITHUB_WORKSPACE\install.ps1" -Target raw -Profile nextjs -DryRun
+
+      - name: Assert dry-run did not write files
+        shell: pwsh
+        run: |
+          if (Test-Path "$env:TEMP\test-raw\docs\ai-rules") {
+            throw "DryRun created docs\ai-rules - safety contract violated"
+          }
+          Write-Host "OK: no files written by dry-run"

@@ -934,6 +934,12 @@ function Install-Raw {
         $body = Get-SkillBody -SrcPath $src
         $dest = Join-Path $rawDir "$name.md"
 
+        if ($DryRun) {
+            $action = if (Test-Path $dest) { 'overwrite' } else { 'create' }
+            Write-Host "  [dry-run] would $action $dest" -ForegroundColor DarkCyan
+            continue
+        }
+
         $destDirectory = Split-Path $dest -Parent
         if (-not (Test-Path $destDirectory)) { New-Item -ItemType Directory -Path $destDirectory -Force | Out-Null }
 

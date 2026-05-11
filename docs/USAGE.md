@@ -16,7 +16,7 @@ in projects where you want the latest.
 
 ## Targets
 
-The installer supports five targets. Pick one based on your AI tool:
+The installer supports six targets. Pick one based on your AI tool:
 
 | Target        | Output location | Tool |
 |---------------|----------------|------|
@@ -34,11 +34,11 @@ Don't pick skills one at a time — pick a profile and adjust later:
 | Profile     | Count | Includes |
 |-------------|-------|----------|
 | `minimal`   | 4 | `engineering-principles`, `reuse-before-create`, `token-discipline`, `handoff` |
-| `nextjs`    | 9 | `minimal` + frontend-feature, ui-designer, code-review, debugger, test-writer |
-| `backend`   | 12 | `minimal` + backend-api, database-schema, database-migrations, code-review, database-review, security-review, debugger, test-writer |
-| `supabase`  | 13 | `backend` + postgres-supabase |
-| `fullstack` | 18 | Almost every skill except niche audits |
-| `all`       | 21 | Every skill in the pack |
+| `nextjs`    | 10 | `minimal` + frontend-feature, ui-designer, code-review, repo-audit, debugger, test-writer |
+| `backend`   | 13 | `minimal` + backend-api, database-schema, database-migrations, code-review, repo-audit, database-review, security-review, debugger, test-writer |
+| `supabase`  | 14 | `backend` + postgres-supabase |
+| `fullstack` | 21 | Almost every skill except niche audits |
+| `all`       | 22 | Every skill in the pack |
 
 Custom selection works too — see "Picking specific skills" below.
 

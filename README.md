@@ -113,7 +113,7 @@ prompts/<category>/<name>/
 
 ## How to use
 
-The pack ships with an installer for each major AI tool. One command, six profiles, five
+The pack ships with an installer for each major AI tool. One command, six profiles, six
 targets. Detailed guidance lives in [`docs/USAGE.md`](docs/USAGE.md).
 
 ### Quick start
