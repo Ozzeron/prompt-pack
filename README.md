@@ -173,7 +173,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 | `backend`   | 13 | Backend APIs with relational DB |
 | `supabase`  | 14 | Backend with Postgres + Supabase RLS |
 | `fullstack` | 21 | Almost everything (includes frontend / duplication audits) |
-| `all`       | 22 | Every skill in the pack |
+| `all`       | 23 | Every skill in the pack |
 
 ### Custom selection
 
