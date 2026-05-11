@@ -750,6 +750,7 @@ $Script:CodexRoutingRules = @(
     @{ Label = 'Test writing';             Targets = @('test-writer') },
     @{ Label = 'Documentation';            Targets = @('doc-writer') },
     @{ Label = 'UI design';                Targets = @('ui-designer') },
+    @{ Label = 'Dockerfile / compose / containerize'; Targets = @('docker') },
     @{ Label = 'Handoff / wrap-up';        Targets = @('handoff') }
 )
 

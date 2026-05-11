@@ -2,7 +2,7 @@
 name: docker
 description: Write or modify Dockerfile and docker-compose. Multi-stage, pinned base, secret-safe, cache-aware, non-root.
 category: infra
-version: 0.1.0
+version: 0.1.1
 triggers: ["write Dockerfile", "edit Dockerfile", "docker-compose", "containerize", "build image"]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -36,8 +36,10 @@ mistakes. Agents that start writing first hit every one.
       **Match it.** Do not introduce a second runtime (e.g. switching `python:3.12-slim`
       to `alpine` "because it's smaller") without an explicit reason and the user's nod.
 - [ ] **Out-of-scope check.** If the request is for Kubernetes manifests, Helm charts,
-      ECS task definitions, Docker Swarm, or CI/CD pipeline wiring, stop. This skill
-      does not cover those — say so and route the work elsewhere.
+      ECS task definitions, or Docker Swarm stacks, stop — this skill does not cover those.
+      **CI/CD:** do not *edit* workflow YAML unless the user explicitly asked. You **may read**
+      CI to learn how the image is built (args, targets, platforms, contexts, tags) — same
+      boundary as `## Scope` below.
 - [ ] **Secrets path.** Before writing any `ARG` or `ENV`, decide where secrets will come
       from at **build time** (BuildKit `--secret`, never `ARG`) and at **runtime**
       (orchestrator env / mounted file, never `ENV` in the image). If you cannot answer
@@ -51,8 +53,8 @@ mistakes. Agents that start writing first hit every one.
 - Adding or fixing `.dockerignore`
 - Reviewing your own diff before committing a container change
 
-Do not invoke for Kubernetes manifests, Helm, ECS, Swarm, or CI pipeline YAML — those
-are separate concerns and out of scope (see below).
+Do not invoke for Kubernetes manifests, Helm, ECS, or Swarm. **Do not edit CI pipelines**
+unless asked; reading CI to inform Dockerfile/compose work is in scope (see below).
 
 ## Scope
 

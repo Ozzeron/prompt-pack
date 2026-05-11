@@ -576,6 +576,7 @@ CODEX_ROUTING_RULES=(
   "Test writing|test-writer"
   "Documentation|doc-writer"
   "UI design|ui-designer"
+  "Dockerfile / compose / containerize|docker"
   "Handoff / wrap-up|handoff"
 )
 

@@ -50,6 +50,7 @@ const LENGTH_MAX = 310;
 // flow is in scope before any new artifact is added. CONTRIBUTING.md reviewer
 // checklist references this same invariant.
 const CODE_CREATING_SKILLS = new Set([
+  'infra/docker',
   'architecture/backend-api',
   'architecture/frontend-feature',
   'architecture/database-schema',

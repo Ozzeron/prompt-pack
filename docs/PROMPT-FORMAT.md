@@ -13,7 +13,7 @@ Every prompt in `prompts/<category>/<name>/SKILL.md` follows this schema. The fo
 ---
 name: <kebab-case-id>
 description: <one-line, what this prompt is for; what triggers it>
-category: <architecture | review | interface | delivery | meta>
+category: <architecture | review | interface | delivery | meta | infra>
 version: 0.1.0
 triggers: [<short trigger phrases or task types>]
 applies_to: [<cursor, claude-code, openclaw, generic>]
@@ -71,7 +71,7 @@ Out of scope:
 |-------|------|----------|-------|
 | `name` | string | yes | kebab-case, must match directory name |
 | `description` | string | yes | one-line summary, **≤ 120 characters**; main agents see this |
-| `category` | enum | yes | architecture / review / interface / delivery / meta |
+| `category` | enum | yes | architecture / review / interface / delivery / meta / infra |
 | `version` | semver | yes | bump on behaviour change |
 | `triggers` | string[] | no | hints for orchestrators |
 | `applies_to` | string[] | no | which surfaces this is verified on |
