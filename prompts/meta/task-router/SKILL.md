@@ -48,6 +48,7 @@ table grows. Don't route to a skill that isn't in `prompts/`.
 | Write tests for existing code | `delivery/test-writer` | Optional | Behaviour over implementation; AAA structure |
 | Write or update docs (README, ADR, doc comments, API docs) | `delivery/doc-writer` | Optional | Grounded in actual code, never auto-publishes |
 | Write AGENTS.md / CLAUDE.md / .cursorrules / agent instructions | `delivery/ai-agent-docs` | Optional | Specialised version of doc-writer for AI-readable docs |
+| Write or modify Dockerfile / docker-compose / containerize / `.dockerignore` | `infra/docker` | Optional | Subagent if multi-service compose or multi-stage refactor |
 | Wrap up / hand off completed work | `delivery/handoff` | No | Inline at end of any coding task |
 
 ## Composed flows

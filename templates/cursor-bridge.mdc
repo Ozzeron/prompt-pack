@@ -50,6 +50,7 @@ best-effort; explicit invocation is the only guarantee.
 | Plan a refactor / migration | `@refactor-planner` |
 | Write tests for existing code | `@test-writer` |
 | Write or update docs (README, ADR, AGENTS.md, etc.) | `@doc-writer` |
+| Write or modify Dockerfile / docker-compose / containerize / `.dockerignore` ("write a Dockerfile", "containerize", "докеризуй", "напиши Dockerfile") | `@docker` |
 | Wrap up / hand off completed work | `@handoff` |
 
 ## Disambiguation rules
