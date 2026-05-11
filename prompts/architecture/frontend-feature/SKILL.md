@@ -54,10 +54,26 @@ Out of scope:
 - Read 1–2 sibling features to learn the project's data + state + form patterns. **If they
   conflict, read a canonical one or `AGENTS.md`/`README` before deciding.**
 - Read the relevant API client / data layer entry point once.
-- Read the project's form library setup (`react-hook-form`, `formik`, custom) once.
+- Read the project's form library setup (React Hook Form / Formik / vee-validate / Vuelidate / SvelteKit form actions / Angular forms / custom) once.
 - Read the design system primitives index once (delegated to `ui-designer`).
 - Do NOT read the entire `pages/` or `app/` directory.
 - Do NOT read tests of unrelated features.
+
+## Framework vocabulary
+
+Translate these concepts through the project's actual framework. React is one example, not the default.
+
+| Concept | React / Next | Vue / Nuxt | Svelte / SvelteKit | Angular |
+|---------|--------------|------------|--------------------|---------|
+| Component | `function Comp()` | SFC `<script setup>` | `.svelte` file | `@Component` class |
+| Reactivity | `useState`, `useReducer` | `ref`, `reactive`, `computed` | `$state`, `$derived` | signals, `BehaviorSubject` |
+| Side effects | `useEffect` | `watch`, `watchEffect` | `$effect` | `ngOnInit`, subscriptions |
+| Routing | Next App Router, React Router | `vue-router`, Nuxt pages | SvelteKit routes | `RouterModule` |
+| Global state | Context, Zustand, Jotai | Pinia, Vuex | Svelte stores | NgRx, services |
+| Forms | React Hook Form, Formik | vee-validate, Vuelidate | SvelteKit form actions | Reactive / Template forms |
+| Data fetching | TanStack Query, SWR, `fetch` in RSC | `useFetch`, `useAsyncData`, TanStack Query | `load()`, `+page.server.ts` | `HttpClient`, `Resolve` |
+
+**Rule:** always detect the project's actual framework before writing any component. Do not introduce another framework's idioms.
 
 ## Process
 
@@ -104,10 +120,11 @@ Before implementing, internalise these. They are not aspirational; they are the 
 ## Layer-by-layer rules
 
 ### Routing
-- Match the project's router (Next.js App Router, Pages Router, React Router, TanStack
-  Router, Remix). Don't introduce a second one.
-- Use Server Components by default in Next.js App Router; mark `'use client'` only for
-  islands that need interactivity.
+- Match the project's router (see Framework vocabulary). Don't introduce a second one.
+- Use server-rendered components by default when the framework supports them (Next.js
+  Server Components, Nuxt server components, SvelteKit `+page.server.ts`); opt into
+  client interactivity only for the islands that need it, using the framework's boundary
+  marker (`'use client'` in Next App Router, or its equivalent).
 - File-based routes follow project naming.
 
 ### Data layer
@@ -197,28 +214,26 @@ When a feature's visibility, actions, or data depend on user role, tenant, owner
 
 Not every feature needs all nine — cover the ones that apply to *this* feature.
 
+## Side-effect discipline
+
+Effects, watchers, and lifecycle hooks are for synchronizing with external systems only.
+
+**Do not:** store derived state that can be computed from props, URL params, server
+cache, or form state; mirror data between two state stores via effects / watchers;
+trigger user-facing actions from inside an effect reacting to a boolean flag.
+
+**Do:** use `useEffect` / `watch` / `$effect` / `ngOnInit` only to sync with a DOM API,
+timer, WebSocket, or third-party library; compute derived values inline in render /
+template / `computed` / `$derived`; put user-action logic in event handlers or mutation
+handlers, not in effect callbacks.
+
 ## File plan template
 
-For a typical CRUD feature, expect something like:
-
-```
-features/<feature>/
-  schema.ts             # Zod schemas, derived types
-  api.ts                # data hooks: useX, useXMutation
-  components/
-    <Feature>List.tsx
-    <Feature>Form.tsx
-    <Feature>Card.tsx
-    <Feature>EmptyState.tsx
-  pages/
-    index.tsx           # list page
-    [id].tsx            # detail page
-    new.tsx             # create page (or modal trigger)
-  __tests__/
-    <feature>.test.tsx
-```
-
-Match the project's actual conventions — this is just a shape, not a prescription.
+A typical CRUD feature has: a `schema` file (validation + derived types), a data-layer
+module (queries / mutations), feature components (list / form / card / empty state),
+route file(s) for list / detail / create, and a test file alongside. Folder layout
+follows the project's convention (`features/`, `src/lib/`, `app/`, `pages/`, `routes/`,
+…) — match it, don't invent one. See `EXAMPLES.md` for worked file plans.
 
 **Every file in the plan must be classified** as one of:
 - **Reused** — the existing artifact is imported and used as-is
@@ -282,15 +297,13 @@ Then implement. Final handoff via `delivery/handoff`, including visual consisten
 - ❌ Tests that assert internal function calls instead of user-visible behaviour
 - ❌ Adding a new component to the design system inside a feature folder
 - ❌ Building desktop-first when the project is mobile-majority
-- ❌ Marking the whole tree `'use client'` to "make things easier" in Next.js App Router
+- ❌ Opting out of server-rendering wholesale (whole tree `'use client'` in Next App
+  Router, or skipping SSR / server components in Nuxt / SvelteKit) to "make things easier"
 - ❌ Skipping lint/typecheck/test runs and declaring done
 
 ## Notes
 
-When the feature touches auth boundaries, theming, analytics, or navigation primitives,
-**reuse, never reinvent**. If the existing infrastructure is missing something, flag it as
-a separate concern in the handoff — don't extend a feature into platform work silently.
-
-When in doubt about routing/data/state choices, copy the most recent and most active
-sibling feature. Active matters: an old feature might be the abandoned style, not the
-current one.
+When the feature touches auth, theming, analytics, or navigation primitives, **reuse,
+never reinvent**. Missing infrastructure is a separate concern in the handoff — don't
+extend a feature into platform work silently. When in doubt about routing/data/state,
+copy the most recent *active* sibling feature (old ones may be the abandoned style).
