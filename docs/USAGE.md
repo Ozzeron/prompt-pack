@@ -38,7 +38,7 @@ Don't pick skills one at a time — pick a profile and adjust later:
 | `backend`   | 13 | `minimal` + backend-api, database-schema, database-migrations, code-review, repo-audit, database-review, security-review, debugger, test-writer |
 | `supabase`  | 14 | `backend` + postgres-supabase |
 | `fullstack` | 21 | Almost every skill except niche audits |
-| `all`       | 22 | Every skill in the pack |
+| `all`       | 23 | Every skill in the pack |
 
 Custom selection works too — see "Picking specific skills" below.
 
