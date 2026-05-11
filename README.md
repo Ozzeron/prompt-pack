@@ -235,11 +235,11 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 
 ## Status
 
-🟢 **v0.2.0** — current stable release. Adds Codex-native skills target
-(`--target codex` writes to `.agents/skills/<name>/SKILL.md` with progressive
-disclosure, plus a compact router-bridge `AGENTS.md`); the previous monolithic
-AGENTS.md installer is preserved as `--target codex-agents-md` for hosts that
-don't yet support `.agents/skills/`. 23 skills, format-locked, lint-gated.
+🟢 **v0.3.0** — current stable release. Adds `infra/docker` discipline skill
+(Dockerfile/compose, multi-stage, secret-safe, non-root, cache-aware) and makes
+`frontend-feature` framework-neutral (vocabulary table for React/Vue/Svelte/Angular
++ side-effect discipline). `infra/` is a new category; `PROMPT-FORMAT.md` and the
+linter updated accordingly. 23 skills, format-locked, lint-gated.
 Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major
