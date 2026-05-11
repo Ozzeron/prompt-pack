@@ -15,6 +15,9 @@ correctly, run as a non-root user, and never bake secrets into layers. You are
 stack-agnostic — the rules below apply identically to Node, Python, Go, Java, Ruby, and
 anything else that gets containerised.
 
+See [`EXAMPLES.md`](./EXAMPLES.md) for annotated Dockerfile, `.dockerignore`, secret-mount,
+and `docker-compose.yml` examples that pair with the rules in this file.
+
 ## Preflight (do this before writing or editing any container file)
 
 The rules in this skill close concrete AI failure modes (unpinned `latest`, secrets in
@@ -67,8 +70,10 @@ Out of scope:
 - Kubernetes manifests, Helm charts, Kustomize overlays
 - ECS task definitions, Fargate config
 - Docker Swarm stacks and services
-- CI/CD pipeline configuration (GitHub Actions, GitLab CI, etc.) — even when the pipeline
-  builds the image
+- CI/CD pipeline files (GitHub Actions, GitLab CI, etc.). Do not edit them unless
+  explicitly requested. Existing CI build commands **may** be inspected to discover build
+  args, targets, platforms, build contexts, and registry / tag conventions — those are
+  inputs to the Dockerfile decision. Editing the pipeline itself stays out of scope.
 - Registry mirroring, image signing infrastructure (cosign keys, Notary servers) — flag
   the gap, route to ops
 - Host-level Docker daemon hardening, rootless Docker setup
@@ -84,11 +89,16 @@ Out of scope:
 
 Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additionally:
 
-- Read **one** of: existing `Dockerfile`, `docker-compose.yml`, `.dockerignore`. Read the
-  others only if the first does not answer your convention question.
-- Do not read application source unless you need the entrypoint, the listening port, or
-  the dependency manifest. Even then, read **one file**: the manifest (`package.json`,
-  `pyproject.toml`, `go.mod`, `pom.xml`, `Gemfile`) — not the source tree.
+- **Dockerfile and `.dockerignore` are read together** — they are inseparable, because
+  the ignore file determines what `COPY . .` actually copies. Reading one without the
+  other gives an incomplete picture of the build context. Preflight reads both.
+- Read **`docker-compose.yml` / `compose.yml`, dependency manifest, and CI build
+  commands only when they affect the change**: build context, entrypoint, exposed ports,
+  build args, build targets, multi-arch platforms, or runtime env contract. If none of
+  those are in scope for the current edit, skip them.
+- Read the dependency manifest (`package.json`, `pyproject.toml`, `go.mod`, `pom.xml`,
+  `Gemfile`) only when you need the entrypoint command or to confirm install steps. Do
+  not read application source files — the manifest is enough.
 - Do not read the build cache, `node_modules/`, `.venv/`, `target/`, `build/`, or any
   output directory. They are not inputs to a Dockerfile decision.
 - For base image research, do not browse Docker Hub. Use the version already in the
@@ -117,24 +127,10 @@ A single-stage image ships your compiler, dev dependencies, package manager cach
 source tree to production. Use multi-stage for any compiled or built artifact (TypeScript,
 Go, Java, Rust, bundled frontends, native modules).
 
-```dockerfile
-# Build stage — has toolchain, dev deps, source
-FROM node:20.11.1-bookworm-slim AS build
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-# Runtime stage — only what's needed to run
-FROM node:20.11.1-bookworm-slim AS runtime
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-COPY --from=build /app/dist ./dist
-USER node
-CMD ["node", "dist/server.js"]
-```
+Shape: `FROM ... AS build` installs deps and produces the artifact; `FROM ... AS runtime`
+re-installs prod-only deps, copies the artifact from `build` via `COPY --from=build`,
+switches to a non-root `USER`, and runs with exec-form `CMD`. See **EXAMPLES.md** for the
+annotated full file.
 
 If the project already uses multi-stage, match its stage names. Do not rename `build` to
 `builder` or vice versa just because.
@@ -157,12 +153,8 @@ Same pattern for `pyproject.toml` / `poetry.lock`, `requirements.txt`, `go.mod` 
 - ❌ `ARG NPM_TOKEN=...` — the value is recorded in `docker history`, even if unset at runtime.
 - ❌ `ENV API_KEY=hardcoded` — visible in `docker inspect` and every layer below it.
 - ❌ `COPY .env .env` — bakes the file into the image; rebases of the image carry it forward.
-- ✅ Build-time secrets: BuildKit `--secret` mounts.
-  ```dockerfile
-  # syntax=docker/dockerfile:1.7
-  RUN --mount=type=secret,id=npm_token \
-      NPM_TOKEN=$(cat /run/secrets/npm_token) npm ci
-  ```
+- ✅ Build-time secrets: BuildKit `--mount=type=secret` (see EXAMPLES.md for the full
+  `RUN --mount` shape and the matching `docker build --secret` invocation).
 - ✅ Runtime secrets: injected by the orchestrator (`docker run --env-file`, compose
   `secrets:`, K8s `Secret`). The image declares the *name* it expects, not the value.
 
@@ -172,28 +164,14 @@ before continuing — the value is already in the registry layers.
 ### 5. `.dockerignore` exists and is not empty
 
 Without `.dockerignore`, `COPY . .` ships `.git/`, `.env`, `node_modules/`, build output,
-editor configs, and anything else in the working tree into the build context. Minimum
-contents (extend, do not shrink, for the project's stack):
-
-```
-.git
-.gitignore
-.env
-.env.*
-node_modules
-.venv
-__pycache__
-target
-build
-dist
-*.log
-.DS_Store
-.idea
-.vscode
-Dockerfile
-docker-compose*.yml
-README.md
-```
+editor configs, and anything else in the working tree into the build context. Patterns
+commonly excluded when not needed in the build context: `.git`, `.env` and `.env.*`,
+dependency caches (`node_modules`, `.venv`, `__pycache__`), build output (`target`,
+`build`, `dist`), logs, editor metadata (`.idea`, `.vscode`), `.DS_Store`, the Dockerfile
+and `docker-compose*.yml` themselves, and `README.md`. **Re-include with `!path` when a
+file actually belongs in the build context** — e.g. `README.md` consumed by a packaging
+step, or a Dockerfile copied into the image for a metadata layer. See EXAMPLES.md for a
+starter `.dockerignore`.
 
 The build context is rebuilt every time you run `docker build`; an unfiltered context
 makes builds slower and leaks history into images.
@@ -205,11 +183,8 @@ The final stage runs the application. It must not be root.
 - ❌ Final stage with no `USER` directive — defaults to root.
 - ❌ `USER root` left in the final stage from an earlier copy or chown step.
 - ✅ Use the runtime image's built-in user where it exists (`USER node`, `USER nobody`),
-  or create one explicitly:
-  ```dockerfile
-  RUN groupadd --system app && useradd --system --gid app --home /app app
-  USER app
-  ```
+  or create one explicitly with `groupadd --system` + `useradd --system` in a single
+  `RUN` layer before the final `USER` switch (see EXAMPLES.md).
 
 Any `chown`, `chmod`, or `apt-get install` belongs **before** the final `USER` switch,
 not after.

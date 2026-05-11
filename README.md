@@ -24,7 +24,7 @@ that was fine. Bigger catalogues do not fix this; they multiply the
 surface where it can happen.
 
 prompt-pack picks the opposite trade-off: **fewer skills, stronger
-behaviour**. 22 curated skills, lint-gated, one orchestrator, explicit
+behaviour**. 23 curated skills, lint-gated, one orchestrator, explicit
 inheritance, hardened across nine external review rounds **plus four
 empirical field tests** — the pack ran on real codebases and we patched
 what dropped, including the encoding and Cursor-format issues a
@@ -94,6 +94,7 @@ prompts/
                      #  duplication-audit, debugger
   interface/         # ui-designer
   delivery/          # handoff, test-writer, doc-writer, ai-agent-docs
+  infra/             # docker
   meta/              # task-router, engineering-principles, reuse-before-create,
                      #  token-discipline
 docs/
@@ -238,7 +239,7 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 (`--target codex` writes to `.agents/skills/<name>/SKILL.md` with progressive
 disclosure, plus a compact router-bridge `AGENTS.md`); the previous monolithic
 AGENTS.md installer is preserved as `--target codex-agents-md` for hosts that
-don't yet support `.agents/skills/`. 22 skills, format-locked, lint-gated.
+don't yet support `.agents/skills/`. 23 skills, format-locked, lint-gated.
 Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major
