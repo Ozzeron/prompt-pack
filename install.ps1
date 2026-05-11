@@ -104,12 +104,14 @@ $Profiles = @{
         'meta/engineering-principles',
         'meta/reuse-before-create',
         'meta/token-discipline',
+        'meta/artifact-hygiene',
         'delivery/handoff'
     )
     'nextjs'    = @(
         'meta/engineering-principles',
         'meta/reuse-before-create',
         'meta/token-discipline',
+        'meta/artifact-hygiene',
         'delivery/handoff',
         'architecture/frontend-feature',
         'interface/ui-designer',
@@ -122,6 +124,7 @@ $Profiles = @{
         'meta/engineering-principles',
         'meta/reuse-before-create',
         'meta/token-discipline',
+        'meta/artifact-hygiene',
         'delivery/handoff',
         'architecture/backend-api',
         'architecture/database-schema',
@@ -137,6 +140,7 @@ $Profiles = @{
         'meta/engineering-principles',
         'meta/reuse-before-create',
         'meta/token-discipline',
+        'meta/artifact-hygiene',
         'delivery/handoff',
         'architecture/backend-api',
         'architecture/database-schema',
@@ -153,6 +157,7 @@ $Profiles = @{
         'meta/engineering-principles',
         'meta/reuse-before-create',
         'meta/token-discipline',
+        'meta/artifact-hygiene',
         'meta/task-router',
         'architecture/backend-api',
         'architecture/frontend-feature',

@@ -24,7 +24,7 @@ that was fine. Bigger catalogues do not fix this; they multiply the
 surface where it can happen.
 
 prompt-pack picks the opposite trade-off: **fewer skills, stronger
-behaviour**. 23 curated skills, lint-gated, one orchestrator, explicit
+behaviour**. 24 curated skills, lint-gated, one orchestrator, explicit
 inheritance, hardened across nine external review rounds **plus four
 empirical field tests** — the pack ran on real codebases and we patched
 what dropped, including the encoding and Cursor-format issues a
@@ -169,12 +169,12 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 | Profile     | Skills | Use case |
 |-------------|--------|---|
-| `minimal`   | 4 | Core baseline pulled in via `## Inherits` by other skills (engineering principles + reuse + token discipline) plus `delivery/handoff` for end-of-task summaries |
-| `nextjs`    | 10 | Next.js / React frontend work |
-| `backend`   | 13 | Backend APIs with relational DB |
-| `supabase`  | 14 | Backend with Postgres + Supabase RLS |
-| `fullstack` | 21 | Almost everything (includes frontend / duplication audits) |
-| `all`       | 23 | Every skill in the pack |
+| `minimal`   | 5 | Core baseline pulled in via `## Inherits` by other skills (engineering principles + reuse + token discipline + artifact hygiene) plus `delivery/handoff` for end-of-task summaries |
+| `nextjs`    | 11 | Next.js / React frontend work |
+| `backend`   | 14 | Backend APIs with relational DB |
+| `supabase`  | 15 | Backend with Postgres + Supabase RLS |
+| `fullstack` | 22 | Almost everything (includes frontend / duplication audits) |
+| `all`       | 24 | Every skill in the pack |
 
 ### Custom selection
 
@@ -239,7 +239,7 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 (Dockerfile/compose, multi-stage, secret-safe, non-root, cache-aware) and makes
 `frontend-feature` framework-neutral (vocabulary table for React/Vue/Svelte/Angular
 + side-effect discipline). `infra/` is a new category; `PROMPT-FORMAT.md` and the
-linter updated accordingly. 23 skills, format-locked, lint-gated.
+linter updated accordingly. 24 skills, format-locked, lint-gated.
 Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major

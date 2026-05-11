@@ -33,12 +33,12 @@ Don't pick skills one at a time — pick a profile and adjust later:
 
 | Profile     | Count | Includes |
 |-------------|-------|----------|
-| `minimal`   | 4 | `engineering-principles`, `reuse-before-create`, `token-discipline`, `handoff` |
-| `nextjs`    | 10 | `minimal` + frontend-feature, ui-designer, code-review, repo-audit, debugger, test-writer |
-| `backend`   | 13 | `minimal` + backend-api, database-schema, database-migrations, code-review, repo-audit, database-review, security-review, debugger, test-writer |
-| `supabase`  | 14 | `backend` + postgres-supabase |
-| `fullstack` | 21 | Almost every skill except niche audits |
-| `all`       | 23 | Every skill in the pack |
+| `minimal`   | 5 | `engineering-principles`, `reuse-before-create`, `token-discipline`, `artifact-hygiene`, `handoff` |
+| `nextjs`    | 11 | `minimal` + frontend-feature, ui-designer, code-review, repo-audit, debugger, test-writer |
+| `backend`   | 14 | `minimal` + backend-api, database-schema, database-migrations, code-review, repo-audit, database-review, security-review, debugger, test-writer |
+| `supabase`  | 15 | `backend` + postgres-supabase |
+| `fullstack` | 22 | Almost every skill except niche audits |
+| `all`       | 24 | Every skill in the pack |
 
 Custom selection works too — see "Picking specific skills" below.
 
@@ -141,7 +141,7 @@ debugging "why isn't my rule firing".
 
 ```bash
 # 1. Count generated rule files (skills + 1 bridge router).
-#    On `fullstack` profile, expect 22 (21 skills + bridge).
+#    On `fullstack` profile, expect 23 (22 skills + bridge).
 ls .cursor/rules/*.mdc | wc -l
 
 # 2. Count alwaysApply: true rules. Should be 5 on fullstack:

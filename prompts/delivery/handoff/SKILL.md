@@ -40,6 +40,7 @@ Out of scope:
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — used implicitly: if the work violates these, the handoff must call it out under Risks or Suggestions.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — build the handoff from working memory, not by re-reading files.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — source of the conditional Workspace hygiene block in the output template; include only when artifacts were produced.
 
 ## Token discipline (specific)
 
@@ -67,6 +68,17 @@ Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additio
 - ✅ <what was actually tested, automated or manual>
 - ⚠️ <what was assumed, not verified>
 
+## Workspace hygiene
+<Include only when files, logs, generated data, debug scripts, backups, caches, or
+temporary artifacts were created during the task. See `meta/artifact-hygiene`.>
+
+- Intentional artifacts: <files kept on purpose>
+- Temporary artifacts removed: <self-created temp files cleaned up>
+- Left for user review: <unknown files not deleted; user decides>
+- Debug logs/statements: <removed | kept intentionally as logging>
+- Generated data / storage effects: <DB rows, files, caches written>
+- Cleanup recommendation: <none | run command X | delete path Y after verification>
+
 ## Risks / edge cases
 - <Edge case considered and how it's handled, or why it's acceptable>
 
@@ -82,7 +94,8 @@ Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additio
 ```
 
 Drop sections that are empty. If there are no risks, no out-of-scope items, or no
-suggestions — omit those headings rather than writing "none".
+suggestions — omit those headings rather than writing "none". Omit Workspace hygiene
+entirely when the task did not create, modify, or generate any artifacts.
 
 ## Anti-patterns
 

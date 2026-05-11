@@ -86,6 +86,7 @@ Out of scope:
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — DRY, file size, naming, modern standards. Non-negotiable.
 - [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before adding a new stage, base image, or compose service, check for an existing one that fits or extends. Never write a parallel `Dockerfile.<thing>` if the existing one can take an `ARG` or a build target.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the container files and `.dockerignore`, not the entire app source.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — do not leave `Dockerfile.new`, `Dockerfile.bak`, or scratch compose files in the tree; clean them up before handoff.
 
 ## Token discipline (specific)
 

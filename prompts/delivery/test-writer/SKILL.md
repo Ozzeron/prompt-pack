@@ -46,6 +46,7 @@ Out of scope:
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, file size, single responsibility apply to tests too.
 - [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before writing a new fixture, factory, mock, or test helper, search for an existing one in the test tree; tests duplicate setup more than any other code.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the unit under test and 1–2 sibling tests for style; not the whole test suite.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — test scaffolding and fixture experiments need cleanup classification before handoff.
 ## Token discipline (specific)
 
 - Read the **unit under test** and its direct dependencies. Don't recursively read the

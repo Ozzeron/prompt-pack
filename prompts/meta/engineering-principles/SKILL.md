@@ -172,6 +172,14 @@ worth raising.
 
 If any answer is uncomfortable, fix it before handing off.
 
+## 12. Workspace hygiene gate
+
+After file-generating work, run a workspace hygiene check before the final response:
+classify new and untracked artifacts, remove only clearly safe self-created temporary
+files, and list uncertain cleanup candidates. See [`meta/artifact-hygiene`](../artifact-hygiene/SKILL.md)
+for full rules. Never use broad destructive commands (`rm -rf`, glob deletes without
+scoped paths) as part of cleanup.
+
 ## Anti-patterns summary
 
 - ❌ New component when a prop on the existing one would do

@@ -47,6 +47,7 @@ Out of scope:
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
 - [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before writing a new RLS policy, helper function, or auth predicate, check existing policies and `auth.*` helpers for one to reuse or extend.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md)
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — RLS experiments and seed dumps can clutter the workspace.
 ## Token discipline (specific)
 
 - Read the project's `supabase/migrations/` directory — last 3–5 files only.

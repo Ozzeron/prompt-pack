@@ -49,6 +49,7 @@ Out of scope:
 - [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — the DRY decision flow; every "new" entry in your file plan must satisfy this skill's checks.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample, don't read everything.
 - [`interface/ui-designer`](../../interface/ui-designer/SKILL.md) — for the UI portion: creativity calibration, restraint, visual consistency.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — feature work spawns scratch components, debug logs, and mock data drafts.
 ## Token discipline (specific)
 
 - Read 1–2 sibling features to learn the project's data + state + form patterns. **If they
@@ -297,8 +298,7 @@ Then implement. Final handoff via `delivery/handoff`, including visual consisten
 - ❌ Tests that assert internal function calls instead of user-visible behaviour
 - ❌ Adding a new component to the design system inside a feature folder
 - ❌ Building desktop-first when the project is mobile-majority
-- ❌ Opting out of server-rendering wholesale (whole tree `'use client'` in Next App
-  Router, or skipping SSR / server components in Nuxt / SvelteKit) to "make things easier"
+- ❌ Opting out of server-rendering wholesale (whole tree `'use client'` in Next App Router, or skipping SSR / server components in Nuxt / SvelteKit) to "make things easier"
 - ❌ Skipping lint/typecheck/test runs and declaring done
 
 ## Notes

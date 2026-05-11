@@ -37,14 +37,14 @@ In scope:
 Out of scope:
 - Backend/API design (use `architecture/backend-api`)
 - Brand identity, logo work, illustration
-- Full design system creation from scratch — this skill assumes one exists or shadcn-class
-  primitives are available
+- Full design system creation from scratch — this skill assumes one exists or shadcn-class primitives are available
 
 ## Inherits
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — file size, naming, modern standards.
 - [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — reuse design system primitives before building new ones; the rule applies to UI work especially strictly.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — sample the design system once, don't re-read on every component.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — design experiments often leave stub components and screenshot files that must be classified before handoff.
 ## Token discipline (specific)
 
 - Read the design system entry point once: `components/ui/`, `components.json`, theme/tokens

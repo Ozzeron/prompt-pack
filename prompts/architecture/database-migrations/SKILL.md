@@ -42,6 +42,7 @@ Out of scope:
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
 - [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before introducing a new migration helper, naming convention, or backfill pattern, check the most recent migrations for an established one and follow it.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the most recent migrations only, not the whole history.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — migration drafts and rollback scratch should not stay in the tree.
 ## Token discipline (specific)
 
 - Read the most recent **5–10 migration files** to learn naming, style, tooling.

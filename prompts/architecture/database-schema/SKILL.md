@@ -42,6 +42,7 @@ Out of scope:
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, single responsibility, modern standards apply to schemas too.
 - [`meta/reuse-before-create`](../../meta/reuse-before-create/SKILL.md) — before adding a new table, enum, or join table, look for an existing entity that already covers the shape or that should be extended instead.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read existing migrations and one or two adjacent schemas, not the whole history.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — schema work may leave migration drafts and seed scratch files that must be classified before handoff.
 ## Token discipline (specific)
 
 - Read the project's existing migrations directory **only the most recent 5–10 files** to

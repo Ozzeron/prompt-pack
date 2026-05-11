@@ -48,6 +48,7 @@ Out of scope:
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — naming, no `any`, no silent try/except, modern standards as the rubric for the fix.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the failure first, expand context only when evidence demands it.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — debugging produces scratch repros, dumps, and instrumentation that must be classified before handoff.
 
 ## Token discipline (specific)
 

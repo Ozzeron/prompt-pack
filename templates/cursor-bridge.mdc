@@ -24,6 +24,12 @@ it explicitly with `@<rule-name>` before responding.
   findings.
 - **Security review** of changes or a module — you **must** invoke
   `@security-review`.
+- **Cleanup / artifact hygiene** — when the user explicitly asks for
+  cleanup ("cleanup", "почисти артефакты", "убери мусор", "workspace
+  clutter", "artifact hygiene"), or you are about to hand off work that
+  created or modified files in the tree, you **must** invoke
+  `@artifact-hygiene` before the final response. It is the pre-handoff
+  gate; answering ad-hoc skips classification.
 
 For every other intent in the table below, prefer explicit `@<rule-name>`
 invocation when the request is high-stakes (refactor planning, schema
@@ -51,6 +57,7 @@ best-effort; explicit invocation is the only guarantee.
 | Write tests for existing code | `@test-writer` |
 | Write or update docs (README, ADR, AGENTS.md, etc.) | `@doc-writer` |
 | Write or modify Dockerfile / docker-compose / containerize / `.dockerignore` ("write a Dockerfile", "containerize", "докеризуй", "напиши Dockerfile") | `@docker` |
+| Cleanup / temp files / debug logs / backups / generated artifacts ("cleanup", "почисти артефакты", "убери мусор", "workspace clutter", "artifact hygiene") | `@artifact-hygiene` |
 | Wrap up / hand off completed work | `@handoff` |
 
 ## Disambiguation rules

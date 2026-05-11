@@ -72,6 +72,7 @@ profile_skills() {
 meta/engineering-principles
 meta/reuse-before-create
 meta/token-discipline
+meta/artifact-hygiene
 delivery/handoff
 EOF
       ;;
@@ -80,6 +81,7 @@ EOF
 meta/engineering-principles
 meta/reuse-before-create
 meta/token-discipline
+meta/artifact-hygiene
 delivery/handoff
 architecture/frontend-feature
 interface/ui-designer
@@ -94,6 +96,7 @@ EOF
 meta/engineering-principles
 meta/reuse-before-create
 meta/token-discipline
+meta/artifact-hygiene
 delivery/handoff
 architecture/backend-api
 architecture/database-schema
@@ -111,6 +114,7 @@ EOF
 meta/engineering-principles
 meta/reuse-before-create
 meta/token-discipline
+meta/artifact-hygiene
 delivery/handoff
 architecture/backend-api
 architecture/database-schema
@@ -129,6 +133,7 @@ EOF
 meta/engineering-principles
 meta/reuse-before-create
 meta/token-discipline
+meta/artifact-hygiene
 meta/task-router
 architecture/backend-api
 architecture/frontend-feature

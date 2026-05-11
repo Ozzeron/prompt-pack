@@ -71,6 +71,7 @@ Out of scope:
 
 - [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md) — use as the rubric for finding DRY violations, oversized files, unsafe types, naming issues.
 - [`meta/token-discipline`](../../meta/token-discipline/SKILL.md) — read the diff first, surrounding files only when needed.
+- [`meta/artifact-hygiene`](../../meta/artifact-hygiene/SKILL.md) — flag stray scratch files, debug prints, and backups left behind in the diff.
 
 ## Token discipline (specific)
 
