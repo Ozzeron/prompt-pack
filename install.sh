@@ -572,7 +572,7 @@ write_agent_skill_frontmatter() {
 #     token-discipline) go to .cursor/rules/*.mdc with alwaysApply: true.
 #     Skills are agent-requested by default; foundation rules need to be in
 #     scope on every turn.
-#   - Every other skill (including task-router) goes to
+#   - Every non-foundation skill except task-router goes to
 #     .cursor/skills/<name>/SKILL.md as a Cursor Agent Skill folder.
 #
 # The legacy prompt-pack-router.mdc bridge is dropped: Skills discovery
@@ -855,7 +855,7 @@ install_agents() {
   echo
   echo "Done. Restart your AI tool to pick up the new skills."
   echo "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot)."
-  echo "Need always-on foundation rules? Layer --target cursor on top of this install."
+  echo "Need always-on foundation rules? Layer --target cursor-foundation on top of this install."
 }
 
 # The Cursor bridge router. Always-on, kept short by design. Maps the most
@@ -1484,3 +1484,4 @@ case "$TARGET" in
   openclaw)          install_openclaw ;;
   raw)               install_raw ;;
 esac
+

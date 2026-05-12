@@ -909,7 +909,7 @@ function Install-Agents {
 
     Write-Host "`nDone. Restart your AI tool to pick up the new skills." -ForegroundColor Cyan
     Write-Host "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot)." -ForegroundColor DarkGray
-    Write-Host "Need always-on foundation rules? Layer `-Target cursor` on top of this install." -ForegroundColor DarkGray
+    Write-Host "Need always-on foundation rules? Layer `-Target cursor-foundation` on top of this install." -ForegroundColor DarkGray
 }
 
 function Write-CursorBridgeRule {
@@ -1445,3 +1445,4 @@ switch ($Target) {
     'openclaw'          { Install-OpenClaw         -SkillList $skillList -ProjectPath $projectPath }
     'raw'               { Install-Raw              -SkillList $skillList -ProjectPath $projectPath }
 }
+
