@@ -241,6 +241,20 @@ Pick one of the following layouts:
   (3 alwaysApply `.cursor/rules/*.mdc` files only, no `.cursor/skills/`).
   The two trees do not overlap, so no duplication.
 
+> **`codex` + `cursor` in the same repo (Cursor as IDE):** The `codex`
+> target writes to `.agents/skills/`; the `cursor` target writes to
+> `.cursor/skills/`. Cursor 2.4+ reads **both** trees, so every skill
+> appears twice. If you need both Codex CLI and Cursor support, use
+> `--target agents` (+ optionally `cursor-foundation`) instead of mixing
+> `codex` and `cursor`.
+> If you intentionally keep both targets, add `.cursor/skills/` to
+> `.gitignore` so only `.agents/skills/` is tracked as the source of truth.
+>
+> **For AI agents:** if `.agents/skills/` already exists in this repo
+> (from a `codex` install), do **not** run `--target cursor` — it creates
+> duplicate skill roots that Cursor reads simultaneously. Preferred combo:
+> `--target agents` + `--target cursor-foundation`.
+
 ```bash
 # Layered combo: skills + always-on Cursor foundation rules.
 ~/code/prompt-pack/install.sh --target agents            --profile fullstack
