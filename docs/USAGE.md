@@ -112,9 +112,12 @@ is the `/migrate-to-skills` step. You have two options:
 - **Agent Skills** (`.cursor/skills/<name>/SKILL.md`) are picked up by
   Cursor's native skill matcher based on the `description` frontmatter
   field. Concise, scope-bounded descriptions trigger more reliably.
-- **Manual invocation** still works: `@<skill-name>` in chat explicitly
-  loads the named skill. Prefer this for critical workflows (code review,
-  security review, audits).
+- **Manual invocation** still works: type `/` in Agent chat and search
+  for the skill name (e.g. `/code-review`, `/security-review`). Prefer
+  this for critical workflows. Note: `@<rule-name>` belongs to the legacy
+  `cursor-rules` flow — for Skills-native `cursor` target use `/skill-name`.
+- **Legacy cursor-rules**: use `@<rule-name>` for explicit invocation
+  (agent-requested rules). Security review, audits).
 
 ### Recommended usage in chat
 
