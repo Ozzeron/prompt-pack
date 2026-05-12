@@ -3,10 +3,17 @@
 # Install prompt-pack skills into a project directory.
 #
 # Usage:
-#   ./install.sh --target <cursor|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--no-backup] [--list]
+#   ./install.sh --target <cursor|cursor-rules|agents|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--no-backup] [--list]
 #
 # Targets:
-#   cursor          - .cursor/rules/*.mdc + alwaysApply bridge router.
+#   cursor          - Cursor 2.4+ Skills-native. Foundation rules go to
+#                     .cursor/rules/*.mdc (alwaysApply: true); every other
+#                     skill goes to .cursor/skills/<name>/SKILL.md.
+#   cursor-rules    - Legacy Cursor target: every skill in .cursor/rules/*.mdc
+#                     plus a prompt-pack-router.mdc bridge. Use only for
+#                     Cursor builds older than 2.4.
+#   agents          - Universal Agent Skills: .agents/skills/<name>/SKILL.md
+#                     only. Works in Cursor 2.4+, Codex CLI, GitHub Copilot.
 #   claude-code     - .claude/agents/*.md.
 #   codex           - Codex-native: .agents/skills/<name>/SKILL.md + a
 #                     compact AGENTS.md router/bridge. Use --scope user to
@@ -177,7 +184,7 @@ show_list() {
 
   echo
   echo "Available targets:"
-  for t in cursor claude-code codex codex-agents-md openclaw raw; do
+  for t in cursor cursor-rules agents claude-code codex codex-agents-md openclaw raw; do
     echo "  $t"
   done
   echo
@@ -273,7 +280,14 @@ detect_collisions() {
   # Each branch must always exit 0 so 'set -e' doesn't terminate the caller
   # when the path simply doesn't exist (the common, expected case).
   case "$target" in
-    cursor)          [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
+    cursor)
+      local hits=()
+      [[ -d "$TARGET_PATH/.cursor/skills" ]] && hits+=('.cursor/skills/')
+      [[ -d "$TARGET_PATH/.cursor/rules" ]]  && hits+=('.cursor/rules/')
+      if (( ${#hits[@]} > 0 )); then printf '%s ' "${hits[@]}"; fi
+      ;;
+    cursor-rules)    [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
+    agents)          [[ -d "$TARGET_PATH/.agents/skills" ]] && echo '.agents/skills/' || true ;;
     claude-code)     [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' || true ;;
     codex)
       if [[ "$SCOPE" == "user" ]]; then
@@ -313,14 +327,22 @@ git_working_tree_state() {
 # Installers
 # ---------------------------------------------------------------------------
 
-# Skills that should ship as Cursor `alwaysApply: true` rules: the meta layer
-# (foundation rules that the pack is designed to inherit) plus the orchestrator
-# router. Every other skill ships as `alwaysApply: false` and is reachable via
-# `@<skill-name>` (Manual mode) or by Cursor's Agent Requested mode using the
-# rule's description. Cursor does not read our generic `triggers:` field, so the
-# only way these rules surface automatically is through these three Cursor-
-# native frontmatter fields.
+# Foundation rules that ship as Cursor `alwaysApply: true` .mdc files even in
+# the new Skills-native `cursor` target. They need to be in scope on every
+# turn, and Cursor Agent Skills are agent-requested by default — there is no
+# alwaysApply equivalent inside `.cursor/skills/`. The legacy `cursor-rules`
+# target ALSO marks `meta/task-router` as alwaysApply because in rules-only
+# mode the router has to be the entry point (no Skills discovery).
 is_cursor_always_apply() {
+  case "$1" in
+    meta/engineering-principles|meta/reuse-before-create|meta/token-discipline)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+
+is_cursor_rules_always_apply() {
   case "$1" in
     meta/engineering-principles|meta/reuse-before-create|meta/token-discipline|meta/task-router)
       return 0 ;;
@@ -343,9 +365,10 @@ write_cursor_mdc() {
   local src="$1"
   local dest="$2"
   local skill="$3"
+  local always_check="${4:-is_cursor_always_apply}"
 
   local always_apply="false"
-  if is_cursor_always_apply "$skill"; then
+  if "$always_check" "$skill"; then
     always_apply="true"
   fi
 
@@ -381,11 +404,152 @@ write_cursor_mdc() {
   } > "$dest"
 }
 
+# Rewrite a SKILL.md frontmatter into the Agent Skills schema (just
+# name + description). Body is preserved verbatim, including cross-skill
+# links (the names are stable across the Skills layout).
+write_agent_skill_frontmatter() {
+  local src="$1"
+  local dest="$2"
+
+  local name
+  name=$(awk '
+    /^---$/ { in_fm = !in_fm; next }
+    in_fm && /^name:/ {
+      sub(/^name: */, "")
+      print
+      exit
+    }
+  ' "$src")
+
+  local description
+  description=$(awk '
+    /^---$/ { in_fm = !in_fm; next }
+    in_fm && /^description:/ {
+      sub(/^description: */, "")
+      print
+      exit
+    }
+  ' "$src")
+
+  local body
+  body=$(awk '
+    BEGIN { fm_count = 0 }
+    /^---$/ { fm_count++; if (fm_count <= 2) next }
+    fm_count >= 2 { print }
+  ' "$src")
+
+  {
+    echo "---"
+    echo "name: $name"
+    echo "description: $description"
+    echo "---"
+    echo "$body"
+  } > "$dest"
+}
+
+# Cursor 2.4+ Skills-native install.
+#
+# Cursor 2.4 ships native Agent Skills discovery at .cursor/skills/<name>/SKILL.md
+# (and .agents/skills/<name>/SKILL.md as a fallback). Cursor reads only the
+# name + description frontmatter to populate the skill list, then loads the
+# body on demand — same progressive-disclosure model as Codex.
+#
+# Split install:
+#   - Three foundation rules (engineering-principles, reuse-before-create,
+#     token-discipline) go to .cursor/rules/*.mdc with alwaysApply: true.
+#     Skills are agent-requested by default; foundation rules need to be in
+#     scope on every turn.
+#   - Every other skill (including task-router) goes to
+#     .cursor/skills/<name>/SKILL.md as a Cursor Agent Skill folder.
+#
+# The legacy prompt-pack-router.mdc bridge is dropped: Skills discovery
+# replaces it natively.
 install_cursor() {
+  local skills_dir="$TARGET_PATH/.cursor/skills"
+  local rules_dir="$TARGET_PATH/.cursor/rules"
+  echo
+  echo "Installing to $TARGET_PATH/.cursor/"
+  echo "  Skills-native (Cursor 2.4+): foundation rules -> .cursor/rules/*.mdc, every other skill -> .cursor/skills/<name>/SKILL.md"
+  echo
+
+  if (( DRY_RUN == 0 )); then
+    mkdir -p "$skills_dir" "$rules_dir"
+  fi
+
+  for skill in "${SKILLS[@]}"; do
+    local name="${skill##*/}"
+    local src_dir="$PROMPTS_ROOT/$skill"
+    local src="$src_dir/SKILL.md"
+
+    if [[ ! -f "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
+
+    if is_cursor_always_apply "$skill"; then
+      # Foundation rule — stays as legacy alwaysApply .mdc.
+      local dest="$rules_dir/$name.mdc"
+
+      if (( DRY_RUN == 1 )); then
+        echo "  [dry-run] would write $dest  (alwaysApply: true)"
+        continue
+      fi
+
+      handle_existing_file "$dest" || { echo "  Skipped."; continue; }
+      write_cursor_mdc "$src" "$dest" "$skill" is_cursor_always_apply
+      echo "  Wrote $dest  (alwaysApply: true)"
+    else
+      # Regular skill — ships as Cursor Agent Skill folder.
+      local dest_dir="$skills_dir/$name"
+
+      if (( DRY_RUN == 1 )); then
+        local action='create'
+        [[ -d "$dest_dir" ]] && action='replace (existing renamed to .bak)'
+        echo "  [dry-run] would $action $dest_dir  (Cursor Agent Skill)"
+        continue
+      fi
+
+      if [[ -d "$dest_dir" ]]; then
+        if (( FORCE == 0 && FORCE_ALL == 0 )); then
+          read -r -p "  Replace $dest_dir? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a] " resp
+          case "$resp" in
+            [aA])
+              FORCE_ALL=1
+              echo "  Yes to all: subsequent skills will be replaced without prompting."
+              ;;
+            [yY])
+              ;;
+            *)
+              echo "  Skipped."; continue ;;
+          esac
+        fi
+        local backup
+        backup="$(backup_directory "$dest_dir")"
+        [[ -n "$backup" ]] && echo "  Backed up to $backup"
+      fi
+
+      cp -R "$src_dir" "$dest_dir"
+
+      # Rewrite SKILL.md frontmatter to the Agent Skills schema.
+      local skill_file="$dest_dir/SKILL.md"
+      if [[ -f "$skill_file" ]]; then
+        write_agent_skill_frontmatter "$src" "$skill_file"
+      fi
+      echo "  Wrote $dest_dir  (Cursor Agent Skill: $name)"
+    fi
+  done
+
+  echo
+  echo "Done. Reload your Cursor window to pick up the new skills."
+  echo "Foundation rules in .cursor/rules/ load on every turn; specialised skills in .cursor/skills/"
+  echo "are picked up via Cursor's native skill discovery (name + description match)."
+}
+
+# Legacy Cursor target. Writes every skill to .cursor/rules/<name>.mdc plus a
+# prompt-pack-router.mdc bridge. Kept for Cursor builds older than 2.4 or
+# users who prefer the rules-only flow over Skills discovery.
+install_cursor_rules() {
   local rules_dir="$TARGET_PATH/.cursor/rules"
   echo
   echo "Installing to $rules_dir"
-  echo "  (Cursor target: writing .mdc Project Rules with Cursor-native frontmatter)"
+  echo "  (cursor-rules legacy target: writing .mdc Project Rules + bridge router)"
   echo
 
   if (( DRY_RUN == 0 )); then mkdir -p "$rules_dir"; fi
@@ -399,14 +563,14 @@ install_cursor() {
 
     if (( DRY_RUN == 1 )); then
       local mode="agent-requested"
-      if is_cursor_always_apply "$skill"; then mode="always-apply"; fi
+      if is_cursor_rules_always_apply "$skill"; then mode="always-apply"; fi
       echo "  [dry-run] would write $dest  ($mode)"
       continue
     fi
 
     handle_existing_file "$dest" || { echo "  Skipped."; continue; }
-    write_cursor_mdc "$src" "$dest" "$skill"
-    if is_cursor_always_apply "$skill"; then
+    write_cursor_mdc "$src" "$dest" "$skill" is_cursor_rules_always_apply
+    if is_cursor_rules_always_apply "$skill"; then
       echo "  Wrote $dest  (alwaysApply: true)"
     else
       echo "  Wrote $dest  (agent-requested; invoke with @${name} for explicit use)"
@@ -414,9 +578,7 @@ install_cursor() {
   done
 
   # Also drop the bridge router so the agent learns the routing table without
-  # needing to load every skill into context. The bridge is alwaysApply by
-  # design - it is small and cheap, and it is what makes specialised rules
-  # discoverable on Cursor where our generic triggers field is invisible.
+  # needing to load every skill into context.
   if (( DRY_RUN == 0 )); then
     write_cursor_bridge "$rules_dir/prompt-pack-router.mdc"
     echo "  Wrote $rules_dir/prompt-pack-router.mdc  (always-apply bridge)"
@@ -428,6 +590,73 @@ install_cursor() {
   echo "Done. Reload your Cursor window to pick up the new rules."
   echo "Specialised rules are agent-requested; for critical workflows invoke them"
   echo "explicitly with @code-review, @security-review, @repo-audit, etc."
+}
+
+# Universal Agent Skills target. Writes every skill to .agents/skills/<name>/
+# without any AGENTS.md bridge. Compatible with Cursor 2.4+, Codex CLI, and
+# GitHub Copilot from a single install.
+#
+# No always-apply rules: .agents/skills/ is a skill-only layout, and adding a
+# .cursor/rules/ side-channel would couple this target to Cursor. Users who
+# need always-on foundation rules should layer the `cursor` target on top, or
+# inline the engineering-principles content into their AGENTS.md manually.
+install_agents() {
+  local skills_root="$TARGET_PATH/.agents/skills"
+  echo
+  echo "Installing Agent Skills to $skills_root"
+  echo "  (universal target: works in Cursor 2.4+, Codex CLI, and GitHub Copilot)"
+  echo
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$skills_root"; fi
+
+  for skill in "${SKILLS[@]}"; do
+    local name="${skill##*/}"
+    local src_dir="$PROMPTS_ROOT/$skill"
+    local src="$src_dir/SKILL.md"
+    local dest_dir="$skills_root/$name"
+
+    if [[ ! -d "$src_dir" ]]; then echo "  Missing: $src_dir" >&2; continue; fi
+
+    if (( DRY_RUN == 1 )); then
+      local action='create'
+      [[ -d "$dest_dir" ]] && action='replace (existing renamed to .bak)'
+      echo "  [dry-run] would $action $dest_dir"
+      continue
+    fi
+
+    if [[ -d "$dest_dir" ]]; then
+      if (( FORCE == 0 && FORCE_ALL == 0 )); then
+        read -r -p "  Replace $dest_dir? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a] " resp
+        case "$resp" in
+          [aA])
+            FORCE_ALL=1
+            echo "  Yes to all: subsequent skills will be replaced without prompting."
+            ;;
+          [yY])
+            ;;
+          *)
+            echo "  Skipped."; continue ;;
+        esac
+      fi
+      local backup
+      backup="$(backup_directory "$dest_dir")"
+      [[ -n "$backup" ]] && echo "  Backed up to $backup"
+    fi
+
+    cp -R "$src_dir" "$dest_dir"
+
+    # Rewrite frontmatter to the Agent Skills schema.
+    local skill_file="$dest_dir/SKILL.md"
+    if [[ -f "$skill_file" ]]; then
+      write_agent_skill_frontmatter "$src" "$skill_file"
+    fi
+    echo "  Wrote $dest_dir  (Agent Skill: $name)"
+  done
+
+  echo
+  echo "Done. Restart your AI tool to pick up the new skills."
+  echo "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot)."
+  echo "Need always-on foundation rules? Layer --target cursor on top of this install."
 }
 
 # The Cursor bridge router. Always-on, kept short by design. Maps the most
@@ -979,13 +1208,13 @@ done
 if (( LIST == 1 )); then show_list; exit 0; fi
 
 if [[ -z "$TARGET" ]]; then
-  echo "Error: --target is required (cursor / claude-code / codex / codex-agents-md / openclaw / raw)." >&2
+  echo "Error: --target is required (cursor / cursor-rules / agents / claude-code / codex / codex-agents-md / openclaw / raw)." >&2
   echo "Run with --list to see available profiles and skills." >&2
   exit 1
 fi
 
 case "$TARGET" in
-  cursor|claude-code|codex|codex-agents-md|openclaw|raw) ;;
+  cursor|cursor-rules|agents|claude-code|codex|codex-agents-md|openclaw|raw) ;;
   *) echo "Error: invalid --target '$TARGET'" >&2; exit 1 ;;
 esac
 
@@ -1047,6 +1276,8 @@ fi
 
 case "$TARGET" in
   cursor)          install_cursor ;;
+  cursor-rules)    install_cursor_rules ;;
+  agents)          install_agents ;;
   claude-code)     install_claude_code ;;
   codex)           install_codex ;;
   codex-agents-md) install_codex_agents_md ;;

@@ -1,9 +1,11 @@
 # prompt-pack
 
-A curated, opinionated collection of system prompts and agent roles for AI coding assistants.
+A curated, opinionated **Agent Skills library** for AI coding assistants.
 Built to be **simple to use**, **token-aware**, and **stack-agnostic**.
 
-> One source of truth → multiple ways to consume: OpenClaw skills, Cursor rules, Claude Code subagents, plain copy-paste.
+> One source of truth → multiple ways to consume: Cursor 2.4+ Skills, the
+> universal `.agents/skills/` layout (Cursor + Codex + GitHub Copilot),
+> OpenClaw skills, Claude Code subagents, plain copy-paste.
 
 ## Why not another prompt list?
 
@@ -56,7 +58,8 @@ The discipline that does the work:
 ### What this is not
 
 - Not a `.cursorrules` collection. The pack ships a real installer with
-  six targets (Cursor, Claude Code, Codex with skills, Codex legacy AGENTS.md,
+  eight targets (Cursor 2.4+ Skills, Cursor legacy rules, universal
+  `.agents/skills/`, Claude Code, Codex skills, Codex legacy AGENTS.md,
   OpenClaw, raw paste) and six profiles, plus a linter that enforces the
   format on every PR.
 - Not a vendor-specific bundle. It runs on whatever AI coding tool you
@@ -114,7 +117,7 @@ prompts/<category>/<name>/
 
 ## How to use
 
-The pack ships with an installer for each major AI tool. One command, six profiles, six
+The pack ships with an installer for each major AI tool. One command, six profiles, eight
 targets. Detailed guidance lives in [`docs/USAGE.md`](docs/USAGE.md).
 
 ### Quick start
@@ -158,7 +161,9 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 | Target            | What it does |
 |-------------------|---|
-| `cursor`          | Copies skills into `.cursor/rules/` (frontmatter activates rules) |
+| `cursor`          | Cursor 2.4+ Skills-native. Foundation rules go to `.cursor/rules/*.mdc` (alwaysApply); every other skill becomes a Cursor Agent Skill at `.cursor/skills/<name>/SKILL.md`. |
+| `cursor-rules`    | Legacy Cursor target. Every skill in `.cursor/rules/*.mdc` plus a `prompt-pack-router.mdc` bridge. Use only for Cursor builds older than 2.4. |
+| `agents`          | Universal Agent Skills. Writes every skill to `.agents/skills/<name>/SKILL.md` — works in Cursor 2.4+, Codex CLI, and GitHub Copilot from one install. No AGENTS.md. |
 | `claude-code`     | Copies skills into `.claude/agents/` (subagents) |
 | `codex`           | Codex-native: each skill goes to `.agents/skills/<name>/SKILL.md`, plus a compact `AGENTS.md` router/bridge. Use `--scope user` to install to `$HOME/.agents/skills/` instead. |
 | `codex-agents-md` | Legacy single-file install. Concatenates skills into one `AGENTS.md` (capped at 32 KiB). Use only if your host doesn't support `.agents/skills/`. |
