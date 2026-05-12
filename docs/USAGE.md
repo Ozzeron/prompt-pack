@@ -16,11 +16,12 @@ in projects where you want the latest.
 
 ## Targets
 
-The installer supports eight targets. Pick one based on your AI tool:
+The installer supports nine targets. Pick one based on your AI tool:
 
 | Target            | Output location | Tool |
 |-------------------|----------------|------|
 | `cursor`          | `<project>/.cursor/skills/<name>/SKILL.md` (most skills) + `<project>/.cursor/rules/*.mdc` (foundation rules) | Cursor 2.4+ (Skills-native) |
+| `cursor-foundation` | `<project>/.cursor/rules/*.mdc` (three foundation rules only, no `.cursor/skills/`) | Cursor 2.4+ — pair with `agents` to avoid duplicate skill roots |
 | `cursor-rules`    | `<project>/.cursor/rules/*.mdc` (every skill + bridge router) | Cursor builds older than 2.4 / rules-only flow |
 | `agents`          | `<project>/.agents/skills/<name>/SKILL.md` (no AGENTS.md) | Cursor 2.4+, Codex CLI, GitHub Copilot — one install for all three |
 | `claude-code`     | `<project>/.claude/agents/` | Claude Code |
@@ -119,7 +120,7 @@ is the `/migrate-to-skills` step. You have two options:
   this for critical workflows. Note: `@<rule-name>` belongs to the legacy
   `cursor-rules` flow — for Skills-native `cursor` target use `/skill-name`.
 - **Legacy cursor-rules**: use `@<rule-name>` for explicit invocation
-  (agent-requested rules). Security review, audits).
+  (agent-requested rules via `@rule-name`).
 
 ### Recommended usage in chat
 

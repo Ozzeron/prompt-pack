@@ -26,7 +26,8 @@ that was fine. Bigger catalogues do not fix this; they multiply the
 surface where it can happen.
 
 prompt-pack picks the opposite trade-off: **fewer skills, stronger
-behaviour**. 23 curated skills, lint-gated, one orchestrator, explicit
+behaviour**. 23 curated skills, lint-gated, native skill discovery
+(with `task-router` for legacy/orchestrated flows), explicit
 inheritance, hardened across nine external review rounds **plus four
 empirical field tests** — the pack ran on real codebases and we patched
 what dropped, including the encoding and Cursor-format issues a
