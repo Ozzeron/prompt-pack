@@ -3,10 +3,29 @@
 # Install prompt-pack skills into a project directory.
 #
 # Usage:
-#   ./install.sh --target <cursor|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--no-backup] [--list]
+#   ./install.sh --target <cursor|cursor-foundation|cursor-rules|agents|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--no-backup] [--list]
 #
 # Targets:
-#   cursor          - .cursor/rules/*.mdc + alwaysApply bridge router.
+#   cursor             - Cursor 2.4+ Skills-native. Foundation rules go to
+#                        .cursor/rules/*.mdc (alwaysApply: true); every other
+#                        non-foundation skill except meta/task-router goes to
+#                        .cursor/skills/<name>/SKILL.md (task-router is filtered —
+#                        it duplicates Cursor's native skill matcher).
+#   cursor-foundation  - Foundation-only Cursor install. Writes ONLY the three
+#                        foundation rules (engineering-principles,
+#                        reuse-before-create, token-discipline) to
+#                        .cursor/rules/*.mdc. No .cursor/skills/ writes, so
+#                        this target safely layers on top of --target agents
+#                        without producing duplicate Cursor skill roots.
+#   cursor-rules       - Legacy Cursor target: every skill in .cursor/rules/*.mdc
+#                        plus a prompt-pack-router.mdc bridge. Use only for
+#                        Cursor builds older than 2.4.
+#   agents             - Universal Agent Skills: .agents/skills/<name>/SKILL.md
+#                        only. Works in Cursor 2.4+, Codex CLI, GitHub Copilot.
+#                        meta/task-router is filtered out. Do NOT also run
+#                        --target cursor against the same repo (you'd get
+#                        duplicates). Layer --target cursor-foundation for
+#                        always-on rules without the duplication.
 #   claude-code     - .claude/agents/*.md.
 #   codex           - Codex-native: .agents/skills/<name>/SKILL.md + a
 #                     compact AGENTS.md router/bridge. Use --scope user to
@@ -177,7 +196,7 @@ show_list() {
 
   echo
   echo "Available targets:"
-  for t in cursor claude-code codex codex-agents-md openclaw raw; do
+  for t in cursor cursor-foundation cursor-rules agents claude-code codex codex-agents-md openclaw raw; do
     echo "  $t"
   done
   echo
@@ -273,7 +292,15 @@ detect_collisions() {
   # Each branch must always exit 0 so 'set -e' doesn't terminate the caller
   # when the path simply doesn't exist (the common, expected case).
   case "$target" in
-    cursor)          [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
+    cursor)
+      local hits=()
+      [[ -d "$TARGET_PATH/.cursor/skills" ]] && hits+=('.cursor/skills/')
+      [[ -d "$TARGET_PATH/.cursor/rules" ]]  && hits+=('.cursor/rules/')
+      if (( ${#hits[@]} > 0 )); then printf '%s ' "${hits[@]}"; fi
+      ;;
+    cursor-foundation) [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
+    cursor-rules)    [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
+    agents)          [[ -d "$TARGET_PATH/.agents/skills" ]] && echo '.agents/skills/' || true ;;
     claude-code)     [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' || true ;;
     codex)
       if [[ "$SCOPE" == "user" ]]; then
@@ -313,20 +340,62 @@ git_working_tree_state() {
 # Installers
 # ---------------------------------------------------------------------------
 
-# Skills that should ship as Cursor `alwaysApply: true` rules: the meta layer
-# (foundation rules that the pack is designed to inherit) plus the orchestrator
-# router. Every other skill ships as `alwaysApply: false` and is reachable via
-# `@<skill-name>` (Manual mode) or by Cursor's Agent Requested mode using the
-# rule's description. Cursor does not read our generic `triggers:` field, so the
-# only way these rules surface automatically is through these three Cursor-
-# native frontmatter fields.
+# Foundation rules that ship as Cursor `alwaysApply: true` .mdc files even in
+# the new Skills-native `cursor` target. They need to be in scope on every
+# turn, and Cursor Agent Skills are agent-requested by default — there is no
+# alwaysApply equivalent inside `.cursor/skills/`. The legacy `cursor-rules`
+# target ALSO marks `meta/task-router` as alwaysApply because in rules-only
+# mode the router has to be the entry point (no Skills discovery).
 is_cursor_always_apply() {
+  case "$1" in
+    meta/engineering-principles|meta/reuse-before-create|meta/token-discipline)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+
+is_cursor_rules_always_apply() {
   case "$1" in
     meta/engineering-principles|meta/reuse-before-create|meta/token-discipline|meta/task-router)
       return 0 ;;
     *)
       return 1 ;;
   esac
+}
+
+# Skills that should NOT be installed by the `cursor` or `agents` targets even
+# if a profile (e.g. fullstack) includes them. meta/task-router is written for
+# the OpenClaw / Claude Code subagent-orchestration model; under Cursor's and
+# Codex's native Skills matchers it duplicates and fights the host's routing
+# logic. The legacy cursor-rules and OpenClaw / Claude Code / Codex targets
+# keep it because that's where it actually belongs.
+is_cursor_or_agents_filtered_skill() {
+  case "$1" in
+    meta/task-router) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Echoes the filtered skill list (one per line), and prints a notice on stderr
+# when any skill was dropped. Caller reads with a read loop to preserve bash
+# 3.2 compatibility.
+filter_skills_for_cursor_or_agents() {
+  local removed=()
+  for s in "$@"; do
+    if is_cursor_or_agents_filtered_skill "$s"; then
+      removed+=("$s")
+    else
+      printf '%s\n' "$s"
+    fi
+  done
+  if (( ${#removed[@]} > 0 )); then
+    # `printf '%s, '` then trim the trailing ', ' for a clean join.
+    local joined
+    joined=$(printf '%s, ' "${removed[@]}")
+    joined="${joined%, }"
+    echo "  Filtered out (incompatible with native Skills matcher): $joined" >&2
+  fi
 }
 
 # Transform a generic SKILL.md into a Cursor-native .mdc rule.
@@ -343,9 +412,10 @@ write_cursor_mdc() {
   local src="$1"
   local dest="$2"
   local skill="$3"
+  local always_check="${4:-is_cursor_always_apply}"
 
   local always_apply="false"
-  if is_cursor_always_apply "$skill"; then
+  if "$always_check" "$skill"; then
     always_apply="true"
   fi
 
@@ -381,11 +451,296 @@ write_cursor_mdc() {
   } > "$dest"
 }
 
+# Rewrite SKILL.md cross-skill links to a flat-install friendly form.
+#
+# In the source repo skills cross-reference each other with markdown links
+# like `[`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)`.
+# After install under a flat .cursor/skills/<name>/ or .agents/skills/<name>/
+# layout, those relative paths no longer resolve (the category directory is
+# gone). Strip the link entirely and keep only the basename inside backticks,
+# which is still recognisable as a skill reference.
+#
+# Examples:
+#   [`meta/engineering-principles`](../../meta/engineering-principles/SKILL.md)
+#       -> `engineering-principles`
+#   [`postgres-supabase`](../../architecture/postgres-supabase/SKILL.md)
+#       -> `postgres-supabase`
+convert_cross_links_for_flat_install() {
+  local file="$1"
+  local tmp
+  tmp="$(mktemp)"
+  # Match `[`<anything>`](<path>/<basename>/SKILL.md)`, keep only `<basename>` in
+  # backticks. The regex intentionally captures the LAST path segment before
+  # `/SKILL.md` so cross-category references (`meta/foo` / `architecture/bar`)
+  # collapse to just `foo` / `bar`.
+  sed -E 's|\[`[^`]+`\]\([^)]*/([A-Za-z0-9._-]+)/SKILL\.md\)|`\1`|g' "$file" > "$tmp"
+  mv "$tmp" "$file"
+}
+
+# Normalize a raw YAML description value into a safely double-quoted string.
+# Source SKILL.md files use a mix of plain scalars (most) and double-quoted
+# scalars (e.g. when the description starts with a colon-bearing label).
+# Writing the captured value verbatim breaks if the original was plain but
+# contains characters that change meaning at the start of a YAML value once
+# we re-emit it (`:`, `#`, leading quote). Always-quote with backslash-escaped
+# inner quotes is the safe lowest-common-denominator form.
+format_yaml_double_quoted() {
+  # First arg is the raw value as captured by the awk extractor (which may
+  # carry surrounding double or single quotes from the source frontmatter).
+  local value="$1"
+  local len=${#value}
+
+  if (( len >= 2 )) && [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
+    value="${value:1:len-2}"
+    # Reverse YAML double-quoted escapes: \" -> " and \\ -> \.
+    # Order matters: undo \" first, otherwise the \\ pass would re-create
+    # an escaped quote out of a legitimate backslash-quote sequence.
+    value="${value//\\\"/\"}"
+    value="${value//\\\\/\\}"
+  elif (( len >= 2 )) && [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
+    value="${value:1:len-2}"
+    # Reverse YAML single-quoted escape: '' -> '.
+    value="${value//''/'\'}"
+  fi
+
+  # Escape backslash first, then double quote, for safe double-quoted YAML.
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
+# Rewrite a SKILL.md frontmatter into the Agent Skills schema (just
+# name + description). Body cross-skill links are also rewritten to text-only
+# basenames so the flat .cursor/skills/<name>/ / .agents/skills/<name>/
+# layout doesn't leave broken ../../meta/foo/SKILL.md paths behind.
+write_agent_skill_frontmatter() {
+  local src="$1"
+  local dest="$2"
+
+  local name
+  name=$(awk '
+    /^---$/ { in_fm = !in_fm; next }
+    in_fm && /^name:/ {
+      sub(/^name: */, "")
+      print
+      exit
+    }
+  ' "$src")
+
+  local description_raw
+  description_raw=$(awk '
+    /^---$/ { in_fm = !in_fm; next }
+    in_fm && /^description:/ {
+      sub(/^description: */, "")
+      print
+      exit
+    }
+  ' "$src")
+
+  local body
+  body=$(awk '
+    BEGIN { fm_count = 0 }
+    /^---$/ { fm_count++; if (fm_count <= 2) next }
+    fm_count >= 2 { print }
+  ' "$src")
+
+  local quoted_description
+  quoted_description=$(format_yaml_double_quoted "$description_raw")
+
+  {
+    echo "---"
+    echo "name: $name"
+    echo "description: $quoted_description"
+    echo "---"
+    echo "$body"
+  } > "$dest"
+
+  # Rewrite cross-skill links in the freshly-written file so the flat install
+  # doesn't leave behind broken relative paths.
+  convert_cross_links_for_flat_install "$dest"
+}
+
+# Cursor 2.4+ Skills-native install.
+#
+# Cursor 2.4 ships native Agent Skills discovery at .cursor/skills/<name>/SKILL.md
+# (and .agents/skills/<name>/SKILL.md as a fallback). Cursor reads only the
+# name + description frontmatter to populate the skill list, then loads the
+# body on demand — same progressive-disclosure model as Codex.
+#
+# Split install:
+#   - Three foundation rules (engineering-principles, reuse-before-create,
+#     token-discipline) go to .cursor/rules/*.mdc with alwaysApply: true.
+#     Skills are agent-requested by default; foundation rules need to be in
+#     scope on every turn.
+#   - Every non-foundation skill except task-router goes to
+#     .cursor/skills/<name>/SKILL.md as a Cursor Agent Skill folder.
+#
+# The legacy prompt-pack-router.mdc bridge is dropped: Skills discovery
+# replaces it natively.
 install_cursor() {
+  local skills_dir="$TARGET_PATH/.cursor/skills"
+  local rules_dir="$TARGET_PATH/.cursor/rules"
+  echo
+  echo "Installing to $TARGET_PATH/.cursor/"
+  echo "  Skills-native (Cursor 2.4+): foundation rules -> .cursor/rules/*.mdc, every other skill -> .cursor/skills/<name>/SKILL.md"
+  echo
+
+  if (( DRY_RUN == 0 )); then
+    mkdir -p "$skills_dir" "$rules_dir"
+  fi
+
+  # Drop incompatible skills (meta/task-router conflicts with Cursor's native
+  # skill matcher). bash 3.2 has no mapfile, hence the read loop.
+  local filtered=()
+  while IFS= read -r _line; do
+    [[ -n "$_line" ]] && filtered+=("$_line")
+  done < <(filter_skills_for_cursor_or_agents "${SKILLS[@]}")
+  SKILLS=("${filtered[@]}")
+
+  for skill in "${SKILLS[@]}"; do
+    local name="${skill##*/}"
+    local src_dir="$PROMPTS_ROOT/$skill"
+    local src="$src_dir/SKILL.md"
+
+    if [[ ! -f "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
+
+    if is_cursor_always_apply "$skill"; then
+      # Foundation rule — stays as legacy alwaysApply .mdc.
+      local dest="$rules_dir/$name.mdc"
+
+      if (( DRY_RUN == 1 )); then
+        echo "  [dry-run] would write $dest  (alwaysApply: true)"
+        continue
+      fi
+
+      handle_existing_file "$dest" || { echo "  Skipped."; continue; }
+      write_cursor_mdc "$src" "$dest" "$skill" is_cursor_always_apply
+      echo "  Wrote $dest  (alwaysApply: true)"
+    else
+      # Regular skill — ships as Cursor Agent Skill folder.
+      local dest_dir="$skills_dir/$name"
+
+      if (( DRY_RUN == 1 )); then
+        local action='create'
+        [[ -d "$dest_dir" ]] && action='replace (existing renamed to .bak)'
+        echo "  [dry-run] would $action $dest_dir  (Cursor Agent Skill)"
+        continue
+      fi
+
+      if [[ -d "$dest_dir" ]]; then
+        if (( FORCE == 0 && FORCE_ALL == 0 )); then
+          read -r -p "  Replace $dest_dir? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a] " resp
+          case "$resp" in
+            [aA])
+              FORCE_ALL=1
+              echo "  Yes to all: subsequent skills will be replaced without prompting."
+              ;;
+            [yY])
+              ;;
+            *)
+              echo "  Skipped."; continue ;;
+          esac
+        fi
+        local backup
+        backup="$(backup_directory "$dest_dir")"
+        [[ -n "$backup" ]] && echo "  Backed up to $backup"
+      fi
+
+      cp -R "$src_dir" "$dest_dir"
+
+      # Rewrite SKILL.md frontmatter to the Agent Skills schema.
+      local skill_file="$dest_dir/SKILL.md"
+      if [[ -f "$skill_file" ]]; then
+        write_agent_skill_frontmatter "$src" "$skill_file"
+      fi
+      echo "  Wrote $dest_dir  (Cursor Agent Skill: $name)"
+    fi
+  done
+
+  echo
+  echo "Done. Reload your Cursor window to pick up the new skills."
+  echo "Foundation rules in .cursor/rules/ load on every turn; specialised skills in .cursor/skills/"
+  echo "are picked up via Cursor's native skill discovery (name + description match)."
+}
+
+# Foundation-only Cursor install. Writes ONLY the three foundation rules
+# (engineering-principles, reuse-before-create, token-discipline) to
+# .cursor/rules/*.mdc with alwaysApply: true. No .cursor/skills/ writes.
+# The intent is to layer this on top of --target agents (universal Skills
+# install) so Cursor gets always-on foundation rules without producing a
+# duplicate .cursor/skills/ tree alongside .agents/skills/.
+#
+# Any non-foundation skills in $SKILLS are silently dropped: this target is
+# foundation-only by definition. The caller usually still passes a full
+# profile because the same skill list is meant to feed --target agents in
+# the layered combo.
+install_cursor_foundation() {
+  local rules_dir="$TARGET_PATH/.cursor/rules"
+  echo
+  echo "Installing foundation-only Cursor rules to $rules_dir"
+  echo "  (cursor-foundation: only the 3 alwaysApply rules; layer on top of --target agents)"
+  echo
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$rules_dir"; fi
+
+  # Filter the input list to the foundation set; collect anything else as a
+  # 'skipped' notice so the user sees what the target dropped.
+  local foundation=()
+  local dropped=()
+  for skill in "${SKILLS[@]}"; do
+    if is_cursor_always_apply "$skill"; then
+      foundation+=("$skill")
+    else
+      dropped+=("$skill")
+    fi
+  done
+
+  if (( ${#foundation[@]} == 0 )); then
+    # Profile didn't include foundation rules; install the canonical set so
+    # this target is still useful in combo with --target agents.
+    foundation=(meta/engineering-principles meta/reuse-before-create meta/token-discipline)
+    echo "  Profile didn't include foundation rules; installing the canonical set instead."
+  fi
+
+  if (( ${#dropped[@]} > 0 )); then
+    local joined
+    joined=$(printf '%s, ' "${dropped[@]}")
+    joined="${joined%, }"
+    echo "  Skipping (not foundation rules): $joined"
+  fi
+
+  for skill in "${foundation[@]}"; do
+    local name="${skill##*/}"
+    local src="$PROMPTS_ROOT/$skill/SKILL.md"
+    local dest="$rules_dir/$name.mdc"
+
+    if [[ ! -f "$src" ]]; then echo "  Missing: $src" >&2; continue; fi
+
+    if (( DRY_RUN == 1 )); then
+      echo "  [dry-run] would write $dest  (alwaysApply: true)"
+      continue
+    fi
+
+    handle_existing_file "$dest" || { echo "  Skipped."; continue; }
+    write_cursor_mdc "$src" "$dest" "$skill" is_cursor_always_apply
+    echo "  Wrote $dest  (alwaysApply: true)"
+  done
+
+  echo
+  echo "Done. Reload your Cursor window to pick up the new rules."
+  echo "This target writes ONLY foundation rules. For the specialised skills, run"
+  echo "--target agents against the same project (universal Skills layout that"
+  echo "Cursor 2.4+, Codex CLI, and GitHub Copilot all read)."
+}
+
+# Legacy Cursor target. Writes every skill to .cursor/rules/<name>.mdc plus a
+# prompt-pack-router.mdc bridge. Kept for Cursor builds older than 2.4 or
+# users who prefer the rules-only flow over Skills discovery.
+install_cursor_rules() {
   local rules_dir="$TARGET_PATH/.cursor/rules"
   echo
   echo "Installing to $rules_dir"
-  echo "  (Cursor target: writing .mdc Project Rules with Cursor-native frontmatter)"
+  echo "  (cursor-rules legacy target: writing .mdc Project Rules + bridge router)"
   echo
 
   if (( DRY_RUN == 0 )); then mkdir -p "$rules_dir"; fi
@@ -399,14 +754,14 @@ install_cursor() {
 
     if (( DRY_RUN == 1 )); then
       local mode="agent-requested"
-      if is_cursor_always_apply "$skill"; then mode="always-apply"; fi
+      if is_cursor_rules_always_apply "$skill"; then mode="always-apply"; fi
       echo "  [dry-run] would write $dest  ($mode)"
       continue
     fi
 
     handle_existing_file "$dest" || { echo "  Skipped."; continue; }
-    write_cursor_mdc "$src" "$dest" "$skill"
-    if is_cursor_always_apply "$skill"; then
+    write_cursor_mdc "$src" "$dest" "$skill" is_cursor_rules_always_apply
+    if is_cursor_rules_always_apply "$skill"; then
       echo "  Wrote $dest  (alwaysApply: true)"
     else
       echo "  Wrote $dest  (agent-requested; invoke with @${name} for explicit use)"
@@ -414,9 +769,7 @@ install_cursor() {
   done
 
   # Also drop the bridge router so the agent learns the routing table without
-  # needing to load every skill into context. The bridge is alwaysApply by
-  # design - it is small and cheap, and it is what makes specialised rules
-  # discoverable on Cursor where our generic triggers field is invisible.
+  # needing to load every skill into context.
   if (( DRY_RUN == 0 )); then
     write_cursor_bridge "$rules_dir/prompt-pack-router.mdc"
     echo "  Wrote $rules_dir/prompt-pack-router.mdc  (always-apply bridge)"
@@ -428,6 +781,81 @@ install_cursor() {
   echo "Done. Reload your Cursor window to pick up the new rules."
   echo "Specialised rules are agent-requested; for critical workflows invoke them"
   echo "explicitly with @code-review, @security-review, @repo-audit, etc."
+}
+
+# Universal Agent Skills target. Writes every skill to .agents/skills/<name>/
+# without any AGENTS.md bridge. Compatible with Cursor 2.4+, Codex CLI, and
+# GitHub Copilot from a single install.
+#
+# No always-apply rules: .agents/skills/ is a skill-only layout, and adding a
+# .cursor/rules/ side-channel would couple this target to Cursor. Users who
+# need always-on foundation rules should layer the `cursor` target on top, or
+# inline the engineering-principles content into their AGENTS.md manually.
+install_agents() {
+  local skills_root="$TARGET_PATH/.agents/skills"
+  echo
+  echo "Installing Agent Skills to $skills_root"
+  echo "  (universal target: works in Cursor 2.4+, Codex CLI, and GitHub Copilot)"
+  echo
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$skills_root"; fi
+
+  # Drop incompatible skills (meta/task-router conflicts with native Skills
+  # matchers). bash 3.2 has no mapfile, hence the read loop.
+  local filtered=()
+  while IFS= read -r _line; do
+    [[ -n "$_line" ]] && filtered+=("$_line")
+  done < <(filter_skills_for_cursor_or_agents "${SKILLS[@]}")
+  SKILLS=("${filtered[@]}")
+
+  for skill in "${SKILLS[@]}"; do
+    local name="${skill##*/}"
+    local src_dir="$PROMPTS_ROOT/$skill"
+    local src="$src_dir/SKILL.md"
+    local dest_dir="$skills_root/$name"
+
+    if [[ ! -d "$src_dir" ]]; then echo "  Missing: $src_dir" >&2; continue; fi
+
+    if (( DRY_RUN == 1 )); then
+      local action='create'
+      [[ -d "$dest_dir" ]] && action='replace (existing renamed to .bak)'
+      echo "  [dry-run] would $action $dest_dir"
+      continue
+    fi
+
+    if [[ -d "$dest_dir" ]]; then
+      if (( FORCE == 0 && FORCE_ALL == 0 )); then
+        read -r -p "  Replace $dest_dir? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a] " resp
+        case "$resp" in
+          [aA])
+            FORCE_ALL=1
+            echo "  Yes to all: subsequent skills will be replaced without prompting."
+            ;;
+          [yY])
+            ;;
+          *)
+            echo "  Skipped."; continue ;;
+        esac
+      fi
+      local backup
+      backup="$(backup_directory "$dest_dir")"
+      [[ -n "$backup" ]] && echo "  Backed up to $backup"
+    fi
+
+    cp -R "$src_dir" "$dest_dir"
+
+    # Rewrite frontmatter to the Agent Skills schema.
+    local skill_file="$dest_dir/SKILL.md"
+    if [[ -f "$skill_file" ]]; then
+      write_agent_skill_frontmatter "$src" "$skill_file"
+    fi
+    echo "  Wrote $dest_dir  (Agent Skill: $name)"
+  done
+
+  echo
+  echo "Done. Restart your AI tool to pick up the new skills."
+  echo "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot)."
+  echo "Need always-on foundation rules? Layer --target cursor-foundation on top of this install."
 }
 
 # The Cursor bridge router. Always-on, kept short by design. Maps the most
@@ -979,13 +1407,13 @@ done
 if (( LIST == 1 )); then show_list; exit 0; fi
 
 if [[ -z "$TARGET" ]]; then
-  echo "Error: --target is required (cursor / claude-code / codex / codex-agents-md / openclaw / raw)." >&2
+  echo "Error: --target is required (cursor / cursor-foundation / cursor-rules / agents / claude-code / codex / codex-agents-md / openclaw / raw)." >&2
   echo "Run with --list to see available profiles and skills." >&2
   exit 1
 fi
 
 case "$TARGET" in
-  cursor|claude-code|codex|codex-agents-md|openclaw|raw) ;;
+  cursor|cursor-foundation|cursor-rules|agents|claude-code|codex|codex-agents-md|openclaw|raw) ;;
   *) echo "Error: invalid --target '$TARGET'" >&2; exit 1 ;;
 esac
 
@@ -1046,10 +1474,14 @@ elif [[ "$git_state" == 'not-a-repo' ]]; then
 fi
 
 case "$TARGET" in
-  cursor)          install_cursor ;;
-  claude-code)     install_claude_code ;;
-  codex)           install_codex ;;
-  codex-agents-md) install_codex_agents_md ;;
-  openclaw)        install_openclaw ;;
-  raw)             install_raw ;;
+  cursor)            install_cursor ;;
+  cursor-foundation) install_cursor_foundation ;;
+  cursor-rules)      install_cursor_rules ;;
+  agents)            install_agents ;;
+  claude-code)       install_claude_code ;;
+  codex)             install_codex ;;
+  codex-agents-md)   install_codex_agents_md ;;
+  openclaw)          install_openclaw ;;
+  raw)               install_raw ;;
 esac
+

@@ -65,6 +65,20 @@ jobs:
           git init -q
           $GITHUB_WORKSPACE/install.sh --target cursor --profile minimal --dry-run
 
+      - name: Dry-run install (agents / minimal) into temp dir
+        run: |
+          mkdir -p /tmp/test-agents
+          cd /tmp/test-agents
+          git init -q
+          $GITHUB_WORKSPACE/install.sh --target agents --profile minimal --dry-run
+
+      - name: Dry-run install (cursor-foundation / minimal) into temp dir
+        run: |
+          mkdir -p /tmp/test-cursor-foundation
+          cd /tmp/test-cursor-foundation
+          git init -q
+          $GITHUB_WORKSPACE/install.sh --target cursor-foundation --profile minimal --dry-run
+
       - name: Dry-run install (codex / supabase) into temp dir
         run: |
           mkdir -p /tmp/test-codex
@@ -110,6 +124,22 @@ jobs:
           Set-Location "$env:TEMP\test-raw"
           git init -q
           & "$env:GITHUB_WORKSPACE\install.ps1" -Target raw -Profile nextjs -DryRun
+
+      - name: Dry-run install (agents / minimal, Windows)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "$env:TEMP\test-agents" -Force | Out-Null
+          Set-Location "$env:TEMP\test-agents"
+          git init -q
+          & "$env:GITHUB_WORKSPACE\install.ps1" -Target agents -Profile minimal -DryRun
+
+      - name: Dry-run install (cursor / minimal, Windows)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "$env:TEMP\test-cursor" -Force | Out-Null
+          Set-Location "$env:TEMP\test-cursor"
+          git init -q
+          & "$env:GITHUB_WORKSPACE\install.ps1" -Target cursor -Profile minimal -DryRun
 
       - name: Assert dry-run did not write files
         shell: pwsh

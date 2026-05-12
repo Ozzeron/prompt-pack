@@ -16,16 +16,19 @@ in projects where you want the latest.
 
 ## Targets
 
-The installer supports six targets. Pick one based on your AI tool:
+The installer supports nine targets. Pick one based on your AI tool:
 
-| Target        | Output location | Tool |
-|---------------|----------------|------|
-| `cursor`      | `<project>/.cursor/rules/` | Cursor IDE |
-| `claude-code` | `<project>/.claude/agents/` | Claude Code |
+| Target            | Output location | Tool |
+|-------------------|----------------|------|
+| `cursor`          | `<project>/.cursor/skills/<name>/SKILL.md` (most skills) + `<project>/.cursor/rules/*.mdc` (foundation rules) | Cursor 2.4+ (Skills-native) |
+| `cursor-foundation` | `<project>/.cursor/rules/*.mdc` (three foundation rules only, no `.cursor/skills/`) | Cursor 2.4+ — pair with `agents` to avoid duplicate skill roots |
+| `cursor-rules`    | `<project>/.cursor/rules/*.mdc` (every skill + bridge router) | Cursor builds older than 2.4 / rules-only flow |
+| `agents`          | `<project>/.agents/skills/<name>/SKILL.md` (no AGENTS.md) | Cursor 2.4+, Codex CLI, GitHub Copilot — one install for all three |
+| `claude-code`     | `<project>/.claude/agents/` | Claude Code |
 | `codex`           | `<project>/.agents/skills/<name>/SKILL.md` + compact `<project>/AGENTS.md` | OpenAI Codex CLI / IDE / app (native skills format) |
 | `codex-agents-md` | `<project>/AGENTS.md` (single merged file) | Legacy Codex installs without `.agents/skills/` support |
-| `openclaw`    | `<project>/skills/<name>/` (full directories) | OpenClaw workspace |
-| `raw`         | `<project>/docs/ai-rules/` (frontmatter-stripped) | ChatGPT, Claude.ai, any tool that takes a system prompt |
+| `openclaw`        | `<project>/skills/<name>/` (full directories) | OpenClaw workspace |
+| `raw`             | `<project>/docs/ai-rules/` (frontmatter-stripped) | ChatGPT, Claude.ai, any tool that takes a system prompt |
 
 ## Profiles
 
@@ -42,12 +45,27 @@ Don't pick skills one at a time — pick a profile and adjust later:
 
 Custom selection works too — see "Picking specific skills" below.
 
-## Cursor
+## Cursor 2.4+
 
-Cursor reads project-local rules from `.cursor/rules/*.mdc`. The installer
-generates these as proper Cursor Project Rules with the Cursor-native
-frontmatter fields (`description`, `globs`, `alwaysApply`); your generic
-`triggers` and `applies_to` are not read by Cursor.
+The `cursor` target is **Skills-native** for Cursor 2.4 and newer. Cursor 2.4
+added first-class Agent Skills discovery at `.cursor/skills/<name>/SKILL.md`
+(and `.agents/skills/<name>/SKILL.md` as a fallback). Cursor reads only the
+`name` + `description` frontmatter to populate its skill list, then loads
+the body on demand — same progressive-disclosure model as Codex.
+
+The installer splits the install:
+
+- **Foundation rules** (`engineering-principles`, `reuse-before-create`,
+  `token-discipline`) go to `.cursor/rules/*.mdc` with `alwaysApply: true`.
+  These need to be in scope on every turn, and Cursor Agent Skills are
+  agent-requested by default — there is no `alwaysApply` for Skills.
+- **Every non-foundation skill except `meta/task-router`** goes to
+  `.cursor/skills/<name>/SKILL.md` as a Cursor Agent Skill folder.
+  `meta/task-router` is filtered out — native Cursor Skills discovery
+  replaces the routing role it played in the legacy rules flow.
+
+The legacy `prompt-pack-router.mdc` bridge file is **not installed** by the
+Skills-native target — native Skills discovery replaces it.
 
 ```bash
 cd ~/code/your-project
@@ -60,117 +78,197 @@ cd ~\code\your-project
 ```
 
 Reload the Cursor window (`Cmd/Ctrl+Shift+P` → `Reload Window`) to pick up
-the new rules.
+the new skills.
 
-### How rules activate on Cursor
+### Migrating from the legacy rules-only install
 
-The installer assigns activation modes automatically. Cursor supports four
-modes; the installer maps them like this:
+If you previously installed with the rules-only flow (everything in
+`.cursor/rules/*.mdc`, including the `prompt-pack-router.mdc` bridge),
+the new `cursor` target is a one-shot migration: re-running the installer
+is the `/migrate-to-skills` step. You have two options:
 
-- **Always Apply (`alwaysApply: true`)** — the meta layer that the pack
-  inherits everywhere: `engineering-principles`, `reuse-before-create`,
-  `token-discipline`, `task-router`. Plus a small `prompt-pack-router.mdc`
-  bridge file that names the routing table and multilingual aliases. These
-  load on every turn. Keep this set small — anything else here eats context
-  unnecessarily.
-- **Agent Requested** (`alwaysApply: false`, no `globs`) — every other skill.
-  Cursor decides whether to load the rule based on the `description` field
-  matching the user's request. This is best-effort and **not guaranteed**
-  to fire on every relevant request. For critical workflows, invoke the
-  rule explicitly.
-- **Auto Attached** (`globs:`) — not used by the installer by default. Add
-  globs manually if you want a rule to load whenever certain files are in
-  context (e.g. set `globs: ["**/*.tsx", "**/*.ts"]` on `frontend-feature`
-  for a TypeScript codebase).
-- **Manual** — invoke any rule explicitly with `@<rule-name>` in chat. This
-  is the **most reliable** mode; prefer it for code review, security review,
-  audit, and other workflows where you want the discipline to actually run.
+1. **Clean migrate (recommended).** Move the old generated `.mdc` files
+   to a backup folder, then re-run with the new target:
+
+   ```bash
+   # WARNING: only run this if .cursor/rules/ contains ONLY prompt-pack
+   # generated files. If you have hand-written project rules in there,
+   # move them out first, or skip this step entirely and let the installer
+   # interactively prompt on each overwrite.
+   mkdir -p .cursor/rules.bak && mv .cursor/rules/*.mdc .cursor/rules.bak/
+   ~/code/prompt-pack/install.sh --target cursor --profile <your-profile>
+   ```
+
+   The installer keeps the three foundation rules in `.cursor/rules/` and
+   moves everything else to `.cursor/skills/`. If you had hand-edited any
+   rule, copy those changes over before re-running. `mv` to a backup
+   folder (vs. `rm -rf`) means a mistake here is recoverable.
+
+2. **Stay on the rules-only flow.** Use the legacy `cursor-rules` target
+   instead (see below). Functionally identical to the pre-v0.4 `cursor`
+   target, including the `prompt-pack-router.mdc` bridge.
+
+### How skills activate on Cursor 2.4+
+
+- **Foundation rules** (`.cursor/rules/*.mdc`, `alwaysApply: true`) load on
+  every turn. Keep this set small — anything else here eats context.
+- **Agent Skills** (`.cursor/skills/<name>/SKILL.md`) are picked up by
+  Cursor's native skill matcher based on the `description` frontmatter
+  field. Concise, scope-bounded descriptions trigger more reliably.
+- **Manual invocation** still works: type `/` in Agent chat and search
+  for the skill name (e.g. `/code-review`, `/security-review`). Prefer
+  this for critical workflows. Note: `@<rule-name>` belongs to the legacy
+  `cursor-rules` flow — for Skills-native `cursor` target use `/skill-name`.
+- **Legacy cursor-rules**: use `@<rule-name>` for explicit invocation
+  (agent-requested rules via `@rule-name`).
 
 ### Recommended usage in chat
 
-For critical work, invoke explicitly:
+For critical work, invoke explicitly via the slash menu (`/` in Agent chat):
 
 ```
-@code-review review the diff in PR #42
-@security-review audit the new upload endpoint
-@repo-audit check the whole project
-@frontend-feature build a settings page for user preferences
+/code-review review the diff in PR #42
+/security-review audit the new upload endpoint
+/repo-audit check the whole project
+/frontend-feature build a settings page for user preferences
 ```
 
-The `prompt-pack-router.mdc` bridge file (always loaded) gives the agent
-the routing table and recognises Russian and Ukrainian intent aliases
-("проревьюй весь проект" → `@repo-audit`, etc.). It improves
-auto-routing but does not replace explicit `@<rule-name>` for critical
-workflows.
+> **Note:** `@skill-name` invocation belongs to the legacy `cursor-rules` flow.
+> For the Skills-native `cursor` target, use `/skill-name` or the slash menu.
 
-### Customising activation
+### Recommended `.gitignore` for the Cursor target
 
-If you want a rule to behave differently — for example, make
-`code-review` always-on instead of agent-requested — open the generated
-`.cursor/rules/<name>.mdc` and edit the frontmatter:
-
-```yaml
----
-description: Review a diff or pull request...
-globs: ["**/*.ts", "**/*.tsx"]    # optional: load when these files in context
-alwaysApply: false                # change to true for always-on
----
-```
-
-Reinstalling with `--force` will overwrite your edits and back up the
-prior version with a `.bak-<timestamp>` suffix.
-
-### Recommended `.gitignore` for Cursor target
-
-The `--force` reinstall path leaves `<rule>.mdc.bak-<timestamp>` files
-behind so your customisations are recoverable. They accumulate in
-`.cursor/rules/` and pollute the directory listing in your editor and
-in diffs. Add the following to your project's `.gitignore` (the pack
-does not commit a `.gitignore` into your project on install):
+The `--force` reinstall path leaves backups behind so your customisations
+are recoverable. Add the following to your project's `.gitignore`:
 
 ```gitignore
 # prompt-pack reinstall backups (created by install.{sh,ps1} --force)
 .cursor/rules/*.bak-*
+.cursor/skills/*.bak-*
 ```
 
 ### Verification checklist (post-install sanity check)
 
-After a Cursor install you can confirm the rules landed correctly with
-three quick checks. Useful when contributing a new skill or when
-debugging "why isn't my rule firing".
+After installing `cursor`, you can confirm the layout with:
 
 ```bash
-# 1. Count generated rule files (skills + 1 bridge router).
-#    On `fullstack` profile, expect 22 (21 skills + bridge).
+# 1. Foundation rules in .cursor/rules/ — expect exactly 3 (engineering-principles,
+#    reuse-before-create, token-discipline). No prompt-pack-router.mdc here.
 ls .cursor/rules/*.mdc | wc -l
 
-# 2. Count alwaysApply: true rules. Should be 5 on fullstack:
-#    engineering-principles, reuse-before-create, token-discipline,
-#    task-router, and the prompt-pack-router bridge.
-grep -l 'alwaysApply: true' .cursor/rules/*.mdc | wc -l
+# 2. Skills in .cursor/skills/ — count = (profile size) - 3 foundation rules.
+ls -d .cursor/skills/*/ | wc -l
 
-# 3. Confirm the Mandatory routes section is present in the bridge.
-grep -c '^## Mandatory routes' .cursor/rules/prompt-pack-router.mdc
-# (or its English variant)
-grep -c 'Mandatory routes' .cursor/rules/prompt-pack-router.mdc
+# 3. No legacy bridge file.
+test -f .cursor/rules/prompt-pack-router.mdc && echo 'WARN: legacy bridge still present'
 ```
 
 PowerShell equivalents:
 
 ```powershell
-# 1. File count
-(Get-ChildItem .cursor/rules/*.mdc).Count
-
-# 2. Always-apply count
-(Select-String -Path .cursor/rules/*.mdc -Pattern 'alwaysApply: true' -List).Count
-
-# 3. Mandatory routes presence
-(Select-String -Path .cursor/rules/prompt-pack-router.mdc -Pattern 'Mandatory routes').Count
+(Get-ChildItem .cursor/rules/*.mdc).Count             # 3
+(Get-ChildItem .cursor/skills -Directory).Count       # profile size - 3
+Test-Path .cursor/rules/prompt-pack-router.mdc        # False
 ```
 
-If any of the three returns an unexpected number, reinstall with
-`--force` to refresh. If the counts stay wrong after a fresh install,
-file an issue with the profile name and the actual numbers.
+## Cursor (legacy: `cursor-rules`)
+
+For Cursor builds older than 2.4, or if you specifically prefer the
+rules-only flow, use the `cursor-rules` target. This is the pre-v0.4
+behaviour: every skill becomes a `.cursor/rules/<name>.mdc` Project Rule,
+and a `prompt-pack-router.mdc` bridge file is added as an always-apply
+rule.
+
+```bash
+~/code/prompt-pack/install.sh --target cursor-rules --profile nextjs
+```
+
+```powershell
+& ~\code\prompt-pack\install.ps1 -Target cursor-rules -Profile nextjs
+```
+
+In this mode the `meta/task-router` skill is also marked `alwaysApply: true`
+because the rules-only flow has no Skills discovery to fall back on.
+
+## Universal Agent Skills (`agents`)
+
+The `agents` target writes every skill to `.agents/skills/<name>/SKILL.md`
+with no AGENTS.md bridge. This layout is read by Cursor 2.4+, Codex CLI,
+and GitHub Copilot — one install for all three.
+
+```bash
+~/code/prompt-pack/install.sh --target agents --profile fullstack
+```
+
+```powershell
+& ~\code\prompt-pack\install.ps1 -Target agents -Profile fullstack
+```
+
+**No always-apply rules** are installed in this mode, on purpose:
+`.agents/skills/` is a skill-only layout, and adding a `.cursor/rules/`
+side-channel would couple the target to Cursor. If you need always-on
+foundation rules in Cursor, layer the **`cursor-foundation`** target on
+top — see [Layering for Cursor users](#layering-for-cursor-users) below.
+For Codex, inline the engineering-principles content into your `AGENTS.md`
+manually.
+
+Use `agents` when you want Codex + Cursor + Copilot all activated from a
+single install with no AGENTS.md noise. Use `codex` when you specifically
+want the Codex AGENTS.md router (multilingual aliases, routing table).
+
+`meta/task-router` is filtered out of this target's skill list: it's
+written for the OpenClaw / Claude Code subagent-orchestration model and
+fights Codex / Cursor / Copilot's native skill matchers. The legacy
+`cursor-rules` and OpenClaw / Claude Code / Codex targets keep it.
+
+### Layering for Cursor users
+
+Do **not** install `agents` and `cursor` together in the same repo. Cursor
+reads both `.agents/skills/` and `.cursor/skills/`, so each skill would
+show up twice in the skill list (once from each tree), and Cursor's
+matcher would have to break the tie at runtime. That's noise you don't
+want.
+
+Pick one of the following layouts:
+
+- **Cursor-only project**: use `--target cursor`. Writes to
+  `.cursor/skills/` for most skills + `.cursor/rules/*.mdc` for the three
+  foundation rules.
+- **Universal (Cursor + Codex + Copilot)**: use `--target agents`. Writes
+  only `.agents/skills/`. No always-apply foundation rules anywhere.
+- **Universal + always-on foundation rules in Cursor**: combine
+  `--target agents` (specialised skills) with `--target cursor-foundation`
+  (3 alwaysApply `.cursor/rules/*.mdc` files only, no `.cursor/skills/`).
+  The two trees do not overlap, so no duplication.
+
+> **`codex` + `cursor` in the same repo (Cursor as IDE):** The `codex`
+> target writes to `.agents/skills/`; the `cursor` target writes to
+> `.cursor/skills/`. Cursor 2.4+ reads **both** trees, so every skill
+> appears twice. If you need both Codex CLI and Cursor support, use
+> `--target agents` (+ optionally `cursor-foundation`) instead of mixing
+> `codex` and `cursor`.
+> If you intentionally keep both targets, add `.cursor/skills/` to
+> `.gitignore` so only `.agents/skills/` is tracked as the source of truth.
+>
+> **For AI agents:** if `.agents/skills/` already exists in this repo
+> (from a `codex` install), do **not** run `--target cursor` — it creates
+> duplicate skill roots that Cursor reads simultaneously. Preferred combo:
+> `--target agents` + `--target cursor-foundation`.
+
+```bash
+# Layered combo: skills + always-on Cursor foundation rules.
+~/code/prompt-pack/install.sh --target agents            --profile fullstack
+~/code/prompt-pack/install.sh --target cursor-foundation --profile fullstack
+```
+
+```powershell
+& ~\code\prompt-pack\install.ps1 -Target agents            -Profile fullstack
+& ~\code\prompt-pack\install.ps1 -Target cursor-foundation -Profile fullstack
+```
+
+The `cursor-foundation` target ignores any non-foundation skills in the
+profile, so you can pass the same `--profile fullstack` to both commands
+and each writes only what belongs in its tree.
 
 ## Claude Code
 

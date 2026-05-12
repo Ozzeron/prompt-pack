@@ -8,8 +8,41 @@
   loose markdown for any other tool).
 
 .PARAMETER Target
-  Where to install. One of: cursor, claude-code, codex, codex-agents-md, openclaw, raw
+  Where to install. One of: cursor, cursor-foundation, cursor-rules, agents, claude-code, codex, codex-agents-md, openclaw, raw
 
+  - cursor            : Cursor 2.4+ Skills-native install. Writes most skills
+                        to `.cursor/skills/<name>/SKILL.md` (Agent Skills
+                        format, picked up natively by Cursor 2.4+). The three
+                        foundation rules (`engineering-principles`,
+                        `reuse-before-create`, `token-discipline`) stay as
+                        `.cursor/rules/*.mdc` with `alwaysApply: true` because
+                        they need to be in scope on every turn and Skills are
+                        agent-requested by default. `meta/task-router` is
+                        filtered out — it duplicates Cursor's native skill
+                        matcher.
+  - cursor-foundation : Foundation-only Cursor install. Writes ONLY the three
+                        foundation rules (engineering-principles,
+                        reuse-before-create, token-discipline) to
+                        `.cursor/rules/*.mdc` with `alwaysApply: true`. No
+                        `.cursor/skills/` writes, so this target safely layers
+                        on top of `-Target agents` (universal Skills install)
+                        without producing duplicate Cursor skill roots.
+  - cursor-rules      : Legacy Cursor target. Writes every skill to
+                        `.cursor/rules/<name>.mdc` plus a `prompt-pack-router.mdc`
+                        bridge. Use only for Cursor builds older than 2.4 or
+                        if you prefer the rules-only flow.
+  - agents            : Universal Agent Skills target. Writes each skill to
+                        `.agents/skills/<name>/SKILL.md` only — no AGENTS.md
+                        bridge. Works in Cursor 2.4+, Codex CLI, and GitHub
+                        Copilot from one install. Prefer `-Target codex` if
+                        you specifically want the Codex AGENTS.md router.
+                        `meta/task-router` is filtered out — Codex / native
+                        Skills matchers conflict with it. Do NOT also run
+                        `-Target cursor` against the same repo (Cursor reads
+                        both .agents/skills/ and .cursor/skills/, you'd get
+                        duplicates). For Cursor users who want always-on
+                        foundation rules, layer `-Target cursor-foundation`
+                        instead.
   - codex             : Codex-native install. Writes each skill to
                         `.agents/skills/<name>/SKILL.md` (or to
                         `$HOME/.agents/skills/` when -Scope user) plus a
@@ -70,7 +103,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet('cursor', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw')]
+    [ValidateSet('cursor', 'cursor-foundation', 'cursor-rules', 'agents', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw')]
     [string]$Target,
 
     [Parameter(Mandatory = $false)]
@@ -213,7 +246,7 @@ function Show-List {
     foreach ($s in (Get-AllSkills)) { Write-Host "  $s" -ForegroundColor Gray }
 
     Write-Host "`nAvailable targets:" -ForegroundColor Cyan
-    'cursor', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw' | ForEach-Object {
+    'cursor', 'cursor-foundation', 'cursor-rules', 'agents', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw' | ForEach-Object {
         Write-Host "  $_" -ForegroundColor Gray
     }
 }
@@ -294,7 +327,13 @@ function Test-AgentConfigCollision {
 
     $hits = @()
     switch ($Target) {
-        'cursor'          { if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' } }
+        'cursor'          {
+            if (Test-Path (Join-Path $ProjectPath '.cursor\skills')) { $hits += '.cursor/skills/' }
+            if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' }
+        }
+        'cursor-foundation' { if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' } }
+        'cursor-rules'    { if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' } }
+        'agents'          { if (Test-Path (Join-Path $ProjectPath '.agents\skills')) { $hits += '.agents/skills/' } }
         'claude-code'     { if (Test-Path (Join-Path $ProjectPath '.claude\agents')) { $hits += '.claude/agents/' } }
         'codex'           {
             if ($Scope -eq 'user') {
@@ -340,13 +379,22 @@ function Get-SkillBody {
     return $content
 }
 
-# Skills that should ship as Cursor `alwaysApply: true` rules: the meta layer
-# (foundation rules the pack inherits) plus the orchestrator router. Every
-# other skill ships as `alwaysApply: false` and is reachable via `@<name>`
-# (Manual mode) or Cursor's Agent Requested mode using the rule's description.
-# Cursor does not read our generic `triggers:` field, so these three Cursor-
-# native frontmatter fields are the only way the rules surface automatically.
+# Foundation rules that ship as Cursor `alwaysApply: true` .mdc files even in
+# the Skills-native `cursor` target. They need to be in scope on every turn,
+# and Cursor Agent Skills are agent-requested by default — there is no
+# alwaysApply equivalent inside `.cursor/skills/`. The legacy `cursor-rules`
+# target also adds `meta/task-router` to this set (rules-only flow needs the
+# router always on); the new `cursor` target lets task-router ship as a
+# regular Skill alongside the others.
 $Script:CursorAlwaysApplySkills = @(
+    'meta/engineering-principles',
+    'meta/reuse-before-create',
+    'meta/token-discipline'
+)
+
+# Legacy cursor-rules target ALSO marks task-router as alwaysApply because in
+# rules-only mode the router has to be the entry point (no Skills discovery).
+$Script:CursorRulesAlwaysApplySkills = @(
     'meta/engineering-principles',
     'meta/reuse-before-create',
     'meta/token-discipline',
@@ -356,6 +404,39 @@ $Script:CursorAlwaysApplySkills = @(
 function Test-CursorAlwaysApply {
     param([string]$Skill)
     return $Script:CursorAlwaysApplySkills -contains $Skill
+}
+
+# Skills that should NOT be installed by the `cursor` or `agents` targets even
+# if a profile (e.g. fullstack) includes them. `meta/task-router` is written
+# for the OpenClaw / Claude Code subagent-orchestration model; under Cursor's
+# and Codex's native Skills matchers it duplicates and fights the host's
+# routing logic. The legacy `cursor-rules` and OpenClaw / Claude Code / Codex
+# targets keep it because that's where it actually belongs.
+$Script:CursorAgentsFilterSkills = @(
+    'meta/task-router'
+)
+
+function Select-SkillsForCursorOrAgents {
+    param([string[]]$SkillList)
+
+    $filtered = @()
+    $removed = @()
+    foreach ($skill in $SkillList) {
+        if ($Script:CursorAgentsFilterSkills -contains $skill) {
+            $removed += $skill
+        } else {
+            $filtered += $skill
+        }
+    }
+    if ($removed.Count -gt 0) {
+        Write-Host "  Filtered out (incompatible with native Skills matcher): $($removed -join ', ')" -ForegroundColor DarkYellow
+    }
+    return ,$filtered
+}
+
+function Test-CursorRulesAlwaysApply {
+    param([string]$Skill)
+    return $Script:CursorRulesAlwaysApplySkills -contains $Skill
 }
 
 # Transform a generic SKILL.md into a Cursor-native .mdc rule.
@@ -372,10 +453,16 @@ function Write-CursorMdc {
     param(
         [string]$SrcPath,
         [string]$DestPath,
-        [string]$Skill
+        [string]$Skill,
+        [switch]$UseRulesAlwaysApply
     )
 
-    $alwaysApply = if (Test-CursorAlwaysApply -Skill $Skill) { 'true' } else { 'false' }
+    $isAlways = if ($UseRulesAlwaysApply) {
+        Test-CursorRulesAlwaysApply -Skill $Skill
+    } else {
+        Test-CursorAlwaysApply -Skill $Skill
+    }
+    $alwaysApply = if ($isAlways) { 'true' } else { 'false' }
 
     # PowerShell 5's `Get-Content -Raw` reads as ANSI/cp1252 by default, which
     # corrupts every non-ASCII character in the source SKILL.md (em-dashes,
@@ -413,12 +500,286 @@ function Write-CursorMdc {
     [System.IO.File]::WriteAllText($DestPath, ($newFrontmatter + $body), $utf8NoBom)
 }
 
+# Cursor 2.4+ Skills-native install.
+#
+# Cursor 2.4 ships native Agent Skills discovery at `.cursor/skills/<name>/SKILL.md`
+# (and `.agents/skills/<name>/SKILL.md` as a fallback). Cursor reads only the
+# `name` + `description` frontmatter to populate the skill list, then loads the
+# body on demand — same progressive-disclosure model as Codex.
+#
+# We split the install:
+#   - Three foundation rules (engineering-principles, reuse-before-create,
+#     token-discipline) go to `.cursor/rules/*.mdc` with `alwaysApply: true`.
+#     Skills are agent-requested by default and Cursor has no "alwaysApply"
+#     for Skills, so we keep these as legacy rules.
+#   - Every other skill (including `task-router`) goes to `.cursor/skills/<name>/SKILL.md`
+#     as a Cursor Agent Skill folder. The frontmatter is rewritten to the
+#     Agent Skills schema (just `name` + `description`).
+#
+# The legacy `prompt-pack-router.mdc` bridge is dropped: Skills discovery
+# replaces it natively.
 function Install-Cursor {
+    param([string[]]$SkillList, [string]$ProjectPath)
+
+    $skillsDir = Join-Path $ProjectPath '.cursor\skills'
+    $rulesDir  = Join-Path $ProjectPath '.cursor\rules'
+
+    Write-Host "`nInstalling to $ProjectPath\.cursor\" -ForegroundColor Cyan
+    Write-Host "  Skills-native (Cursor 2.4+): foundation rules -> .cursor/rules/*.mdc, every other skill -> .cursor/skills/<name>/SKILL.md`n" -ForegroundColor DarkGray
+
+    $SkillList = Select-SkillsForCursorOrAgents -SkillList $SkillList
+
+    if (-not $DryRun) {
+        New-Item -ItemType Directory -Force -Path $skillsDir | Out-Null
+        New-Item -ItemType Directory -Force -Path $rulesDir  | Out-Null
+    }
+
+    foreach ($skill in $SkillList) {
+        $name = ($skill -split '/')[-1]
+        $srcDir = Join-Path $PromptsRoot ($skill -replace '/', '\')
+        $src    = Join-Path $srcDir 'SKILL.md'
+        if (-not (Test-Path $src)) { Write-Host "  Missing: $src" -ForegroundColor Red; continue }
+
+        if (Test-CursorAlwaysApply -Skill $skill) {
+            # Foundation rule — stays as legacy alwaysApply .mdc.
+            $dest = Join-Path $rulesDir "$name.mdc"
+
+            if ($DryRun) {
+                Write-Host "  [dry-run] would write $dest  (alwaysApply: true)"
+                continue
+            }
+
+            if (Test-Path $dest) {
+                if (-not $Force) {
+                    $resp = Read-Host "  Overwrite $dest? [y/N]"
+                    if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; continue }
+                }
+                else {
+                    $backup = Backup-File -FilePath $dest
+                    if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+                }
+            }
+
+            Write-CursorMdc -SrcPath $src -DestPath $dest -Skill $skill
+            Write-Host "  Wrote $dest  (alwaysApply: true)"
+        }
+        else {
+            # Regular skill — ships as Cursor Agent Skill folder.
+            $destDir = Join-Path $skillsDir $name
+
+            if ($DryRun) {
+                $action = if (Test-Path $destDir) { 'replace (existing renamed to .bak)' } else { 'create' }
+                Write-Host "  [dry-run] would $action $destDir  (Cursor Agent Skill)" -ForegroundColor DarkCyan
+                continue
+            }
+
+            if (Test-Path $destDir) {
+                if (-not $Force -and -not $Script:ForceAll) {
+                    $resp = Read-Host "  Replace $destDir? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a]"
+                    if ($resp -match '^[aA]$') {
+                        $Script:ForceAll = $true
+                        Write-Host "  Yes to all: subsequent skills will be replaced without prompting." -ForegroundColor DarkGray
+                    } elseif ($resp -notmatch '^[yY]$') {
+                        Write-Host "  Skipped." -ForegroundColor Yellow; continue
+                    }
+                }
+                $backup = Backup-Directory -DirPath $destDir
+                if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+            }
+
+            Copy-Item -Path $srcDir -Destination $destDir -Recurse -Force
+
+            # Rewrite SKILL.md frontmatter to Agent Skills schema (name + description only).
+            $skillFile = Join-Path $destDir 'SKILL.md'
+            if (Test-Path $skillFile) {
+                Write-AgentSkillFrontmatter -SrcPath $src -DestPath $skillFile
+            }
+
+            Write-Host "  Wrote $destDir  (Cursor Agent Skill: $name)" -ForegroundColor Green
+        }
+    }
+
+    Write-Host "`nDone. Reload your Cursor window to pick up the new skills." -ForegroundColor Cyan
+    Write-Host "Foundation rules in .cursor/rules/ load on every turn; specialised skills in .cursor/skills/" -ForegroundColor DarkGray
+    Write-Host "are picked up via Cursor's native skill discovery (name + description match)." -ForegroundColor DarkGray
+}
+
+# Normalize a raw YAML description value into a safely double-quoted string.
+# Source SKILL.md files use a mix of plain scalars (most) and double-quoted
+# scalars (e.g. when the description starts with a colon-bearing label).
+# Writing the captured value verbatim breaks if the original was plain but
+# contains characters that change meaning at the start of a YAML value once
+# we re-emit it (`:`, `#`, leading quote). Always-quote with backslash-escaped
+# inner quotes is the safe lowest-common-denominator form.
+function Format-YamlDoubleQuoted {
+    param([string]$RawValue)
+
+    $value = $RawValue
+    # Strip a single layer of YAML quoting if the captured raw value carries it
+    # (the captured string includes surrounding quotes when the source frontmatter
+    # used a quoted scalar).
+    if ($value.Length -ge 2 -and $value.StartsWith('"') -and $value.EndsWith('"')) {
+        $value = $value.Substring(1, $value.Length - 2)
+        # Reverse YAML's `\"` and `\\` escapes inside double-quoted strings.
+        # In PowerShell `-replace`, the pattern is a regex (so `'\\"'` is regex
+        # `\"`, matching one literal quote) and the replacement is a literal
+        # string (`$` is the only special char). Order matters: undo `\"` first,
+        # then `\\`, otherwise we'd convert an escaped backslash into a real
+        # escape sequence on the next pass.
+        $value = $value -replace '\\"', '"'
+        $value = $value -replace '\\\\', '\\'
+    } elseif ($value.Length -ge 2 -and $value.StartsWith("'") -and $value.EndsWith("'")) {
+        $value = $value.Substring(1, $value.Length - 2)
+        # Reverse YAML's `''` escape inside single-quoted strings.
+        $value = $value -replace "''", "'"
+    }
+
+    # Escape backslash first, then double quote, for safe double-quoted YAML.
+    # `-replace '\\', '\\'`  : regex `\\` matches one backslash; replacement string
+    #                          `\\` is two literal backslashes.
+    # `-replace '"', '\\"'`   : regex `"` matches a quote; replacement `\"` writes
+    #                          backslash + quote.
+    $escaped = $value -replace '\\', '\\' -replace '"', '\"'
+    return '"' + $escaped + '"'
+}
+
+# Rewrite SKILL.md cross-skill links to a flat-install friendly form.
+#
+# In the source repo skills cross-reference each other with markdown links
+# like `[``meta/engineering-principles``](../../meta/engineering-principles/SKILL.md)`.
+# After install under a flat `.cursor/skills/<name>/` or `.agents/skills/<name>/`
+# layout, those relative paths no longer resolve (the category directory is
+# gone). Strip the link entirely and keep only the basename inside backticks,
+# which is still recognisable as a skill reference.
+#
+# Examples:
+#   [``meta/engineering-principles``](../../meta/engineering-principles/SKILL.md)
+#       -> ``engineering-principles``
+#   [``postgres-supabase``](../../architecture/postgres-supabase/SKILL.md)
+#       -> ``postgres-supabase``
+function Convert-CrossLinksForFlatInstall {
+    param([string]$Body)
+
+    return [regex]::Replace($Body, '\[`[^`]+`\]\([^)]*?/?([A-Za-z0-9._-]+)/SKILL\.md\)', {
+        param($m)
+        $basename = $m.Groups[1].Value
+        return '`' + $basename + '`'
+    })
+}
+
+# Rewrite a source SKILL.md frontmatter into the Agent Skills schema (name +
+# description only). Body cross-skill links are also rewritten to text-only
+# basenames so the flat `.cursor/skills/<name>/` / `.agents/skills/<name>/`
+# layout doesn't leave broken `../../meta/foo/SKILL.md` paths behind.
+function Write-AgentSkillFrontmatter {
+    param([string]$SrcPath, [string]$DestPath)
+
+    $raw = [System.IO.File]::ReadAllText($SrcPath, [System.Text.Encoding]::UTF8)
+
+    $name = ''
+    $description = ''
+    if ($raw -match '^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n') {
+        $fm = $Matches[1]
+        if ($fm -match '(?m)^name:\s*(.+)$')        { $name = $Matches[1].Trim() }
+        if ($fm -match '(?m)^description:\s*(.+)$') { $description = $Matches[1].Trim() }
+    }
+    $body = $raw -replace '(?s)^---\s*\r?\n.*?\r?\n---\s*\r?\n', ''
+    $body = Convert-CrossLinksForFlatInstall -Body $body
+
+    $quotedDescription = Format-YamlDoubleQuoted -RawValue $description
+
+    $newFrontmatter = @(
+        '---',
+        "name: $name",
+        "description: $quotedDescription",
+        '---',
+        ''
+    ) -join "`n"
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($DestPath, ($newFrontmatter + $body), $utf8NoBom)
+}
+
+# Foundation-only Cursor install. Writes ONLY the three foundation rules
+# (engineering-principles, reuse-before-create, token-discipline) to
+# `.cursor/rules/*.mdc` with `alwaysApply: true`. No `.cursor/skills/`
+# writes. The intent is to layer this on top of `-Target agents` (universal
+# Skills install) so Cursor gets always-on foundation rules without
+# producing a duplicate `.cursor/skills/` tree alongside `.agents/skills/`.
+#
+# Any non-foundation skills in $SkillList are silently dropped: this target
+# is foundation-only by definition. The caller usually still passes a full
+# profile because the same skill list is meant to feed `-Target agents` in
+# the layered combo.
+function Install-CursorFoundation {
+    param([string[]]$SkillList, [string]$ProjectPath)
+
+    $rulesDir = Join-Path $ProjectPath '.cursor\rules'
+
+    Write-Host "`nInstalling foundation-only Cursor rules to $rulesDir" -ForegroundColor Cyan
+    Write-Host "  (cursor-foundation: only the 3 alwaysApply rules; layer on top of -Target agents)`n" -ForegroundColor DarkGray
+
+    if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $rulesDir | Out-Null }
+
+    # Restrict the input list to the foundation set, preserving order and
+    # ignoring anything else the profile happened to include.
+    $foundation = @($SkillList | Where-Object { Test-CursorAlwaysApply -Skill $_ })
+    if ($foundation.Count -eq 0) {
+        # Caller passed a profile that didn't include the foundation rules.
+        # Fall back to the full canonical set so the target is still useful
+        # in combo with `-Target agents`.
+        $foundation = $Script:CursorAlwaysApplySkills
+        Write-Host "  Profile didn't include foundation rules; installing the canonical set instead." -ForegroundColor DarkGray
+    }
+
+    $dropped = @($SkillList | Where-Object { -not (Test-CursorAlwaysApply -Skill $_) })
+    if ($dropped.Count -gt 0) {
+        Write-Host "  Skipping (not foundation rules): $($dropped -join ', ')" -ForegroundColor DarkYellow
+    }
+
+    foreach ($skill in $foundation) {
+        $name = ($skill -split '/')[-1]
+        $srcDir = Join-Path $PromptsRoot ($skill -replace '/', '\')
+        $src    = Join-Path $srcDir 'SKILL.md'
+        if (-not (Test-Path $src)) { Write-Host "  Missing: $src" -ForegroundColor Red; continue }
+
+        $dest = Join-Path $rulesDir "$name.mdc"
+
+        if ($DryRun) {
+            Write-Host "  [dry-run] would write $dest  (alwaysApply: true)" -ForegroundColor DarkCyan
+            continue
+        }
+
+        if (Test-Path $dest) {
+            if (-not $Force) {
+                $resp = Read-Host "  Overwrite $dest? [y/N]"
+                if ($resp -notmatch '^[yY]') { Write-Host "  Skipped." -ForegroundColor Yellow; continue }
+            }
+            else {
+                $backup = Backup-File -FilePath $dest
+                if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+            }
+        }
+
+        Write-CursorMdc -SrcPath $src -DestPath $dest -Skill $skill
+        Write-Host "  Wrote $dest  (alwaysApply: true)" -ForegroundColor Green
+    }
+
+    Write-Host "`nDone. Reload your Cursor window to pick up the new rules." -ForegroundColor Cyan
+    Write-Host "This target writes ONLY foundation rules. For the specialised skills, run" -ForegroundColor DarkGray
+    Write-Host "`-Target agents` against the same project (universal Skills layout that" -ForegroundColor DarkGray
+    Write-Host "Cursor 2.4+, Codex CLI, and GitHub Copilot all read)." -ForegroundColor DarkGray
+}
+
+# Legacy Cursor target. Writes every skill to .cursor/rules/<name>.mdc plus a
+# prompt-pack-router.mdc bridge. Kept for Cursor builds older than 2.4 or
+# users who prefer the rules-only flow over Skills discovery.
+function Install-CursorRules {
     param([string[]]$SkillList, [string]$ProjectPath)
 
     $rulesDir = Join-Path $ProjectPath '.cursor\rules'
     Write-Host "`nInstalling to $rulesDir" -ForegroundColor Cyan
-    Write-Host "  (Cursor target: writing .mdc Project Rules with Cursor-native frontmatter)`n" -ForegroundColor DarkGray
+    Write-Host "  (cursor-rules legacy target: writing .mdc Project Rules + bridge router)`n" -ForegroundColor DarkGray
 
     if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $rulesDir | Out-Null }
 
@@ -428,7 +789,7 @@ function Install-Cursor {
         if (-not (Test-Path $src)) { Write-Host "  Missing: $src" -ForegroundColor Red; continue }
 
         $dest = Join-Path $rulesDir "$name.mdc"
-        $alwaysApply = Test-CursorAlwaysApply -Skill $skill
+        $alwaysApply = Test-CursorRulesAlwaysApply -Skill $skill
         $mode = if ($alwaysApply) { 'always-apply' } else { 'agent-requested' }
 
         if ($DryRun) {
@@ -447,7 +808,7 @@ function Install-Cursor {
             }
         }
 
-        Write-CursorMdc -SrcPath $src -DestPath $dest -Skill $skill
+        Write-CursorMdc -SrcPath $src -DestPath $dest -Skill $skill -UseRulesAlwaysApply
         if ($alwaysApply) {
             Write-Host "  Wrote $dest  (alwaysApply: true)"
         } else {
@@ -486,6 +847,69 @@ function Install-Cursor {
     Write-Host "`nDone. Reload your Cursor window to pick up the new rules." -ForegroundColor Cyan
     Write-Host "Specialised rules are agent-requested; for critical workflows invoke them" -ForegroundColor DarkGray
     Write-Host "explicitly with @code-review, @security-review, @repo-audit, etc." -ForegroundColor DarkGray
+}
+
+# Universal Agent Skills target. Writes every skill to `.agents/skills/<name>/`
+# without any AGENTS.md bridge. Compatible with Cursor 2.4+, Codex CLI, and
+# GitHub Copilot from a single install.
+#
+# No always-apply rules: `.agents/skills/` is a skill-only layout, and adding
+# a .cursor/rules/ side-channel would couple this target to Cursor. Users who
+# need always-on foundation rules should layer the `cursor` target on top, or
+# inline the engineering-principles content into their AGENTS.md manually.
+function Install-Agents {
+    param([string[]]$SkillList, [string]$ProjectPath)
+
+    $skillsRoot = Join-Path $ProjectPath '.agents\skills'
+    Write-Host "`nInstalling Agent Skills to $skillsRoot" -ForegroundColor Cyan
+    Write-Host "  (universal target: works in Cursor 2.4+, Codex CLI, and GitHub Copilot)`n" -ForegroundColor DarkGray
+
+    $SkillList = Select-SkillsForCursorOrAgents -SkillList $SkillList
+
+    if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null }
+
+    foreach ($skill in $SkillList) {
+        $name = ($skill -split '/')[-1]
+        $srcDir = Join-Path $PromptsRoot ($skill -replace '/', '\')
+        $src    = Join-Path $srcDir 'SKILL.md'
+        if (-not (Test-Path $srcDir)) { Write-Host "  Missing: $srcDir" -ForegroundColor Red; continue }
+
+        $destDir = Join-Path $skillsRoot $name
+
+        if ($DryRun) {
+            $action = if (Test-Path $destDir) { 'replace (existing renamed to .bak)' } else { 'create' }
+            Write-Host "  [dry-run] would $action $destDir" -ForegroundColor DarkCyan
+            continue
+        }
+
+        if (Test-Path $destDir) {
+            if (-not $Force -and -not $Script:ForceAll) {
+                $resp = Read-Host "  Replace $destDir? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a]"
+                if ($resp -match '^[aA]$') {
+                    $Script:ForceAll = $true
+                    Write-Host "  Yes to all: subsequent skills will be replaced without prompting." -ForegroundColor DarkGray
+                } elseif ($resp -notmatch '^[yY]$') {
+                    Write-Host "  Skipped." -ForegroundColor Yellow; continue
+                }
+            }
+            $backup = Backup-Directory -DirPath $destDir
+            if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+        }
+
+        Copy-Item -Path $srcDir -Destination $destDir -Recurse -Force
+
+        # Rewrite frontmatter to Agent Skills schema (name + description only).
+        $skillFile = Join-Path $destDir 'SKILL.md'
+        if (Test-Path $skillFile) {
+            Write-AgentSkillFrontmatter -SrcPath $src -DestPath $skillFile
+        }
+
+        Write-Host "  Wrote $destDir  (Agent Skill: $name)" -ForegroundColor Green
+    }
+
+    Write-Host "`nDone. Restart your AI tool to pick up the new skills." -ForegroundColor Cyan
+    Write-Host "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot)." -ForegroundColor DarkGray
+    Write-Host "Need always-on foundation rules? Layer `-Target cursor-foundation` on top of this install." -ForegroundColor DarkGray
 }
 
 function Write-CursorBridgeRule {
@@ -963,7 +1387,7 @@ function Install-Raw {
 if ($List) { Show-List; exit 0 }
 
 if (-not $Target) {
-    Write-Host "Error: -Target is required (cursor / claude-code / codex / openclaw / raw)." -ForegroundColor Red
+    Write-Host "Error: -Target is required (cursor / cursor-foundation / cursor-rules / agents / claude-code / codex / codex-agents-md / openclaw / raw)." -ForegroundColor Red
     Write-Host "Run with -List to see available profiles and skills."
     exit 1
 }
@@ -1011,10 +1435,14 @@ elseif ($gitState -eq 'not-a-repo') {
 }
 
 switch ($Target) {
-    'cursor'          { Install-Cursor         -SkillList $skillList -ProjectPath $projectPath }
-    'claude-code'     { Install-ClaudeCode     -SkillList $skillList -ProjectPath $projectPath }
-    'codex'           { Install-Codex          -SkillList $skillList -ProjectPath $projectPath -Scope $Scope }
-    'codex-agents-md' { Install-CodexAgentsMd  -SkillList $skillList -ProjectPath $projectPath }
-    'openclaw'        { Install-OpenClaw       -SkillList $skillList -ProjectPath $projectPath }
-    'raw'             { Install-Raw            -SkillList $skillList -ProjectPath $projectPath }
+    'cursor'            { Install-Cursor           -SkillList $skillList -ProjectPath $projectPath }
+    'cursor-foundation' { Install-CursorFoundation -SkillList $skillList -ProjectPath $projectPath }
+    'cursor-rules'      { Install-CursorRules      -SkillList $skillList -ProjectPath $projectPath }
+    'agents'            { Install-Agents           -SkillList $skillList -ProjectPath $projectPath }
+    'claude-code'       { Install-ClaudeCode       -SkillList $skillList -ProjectPath $projectPath }
+    'codex'             { Install-Codex            -SkillList $skillList -ProjectPath $projectPath -Scope $Scope }
+    'codex-agents-md'   { Install-CodexAgentsMd    -SkillList $skillList -ProjectPath $projectPath }
+    'openclaw'          { Install-OpenClaw         -SkillList $skillList -ProjectPath $projectPath }
+    'raw'               { Install-Raw              -SkillList $skillList -ProjectPath $projectPath }
 }
+
