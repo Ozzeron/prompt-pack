@@ -8,9 +8,9 @@
 # Targets:
 #   cursor             - Cursor 2.4+ Skills-native. Foundation rules go to
 #                        .cursor/rules/*.mdc (alwaysApply: true); every other
-#                        skill goes to .cursor/skills/<name>/SKILL.md.
-#                        meta/task-router is filtered out (duplicates
-#                        Cursor's native skill matcher).
+#                        non-foundation skill except meta/task-router goes to
+#                        .cursor/skills/<name>/SKILL.md (task-router is filtered —
+#                        it duplicates Cursor's native skill matcher).
 #   cursor-foundation  - Foundation-only Cursor install. Writes ONLY the three
 #                        foundation rules (engineering-principles,
 #                        reuse-before-create, token-discipline) to

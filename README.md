@@ -249,11 +249,15 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 
 ## Status
 
-🟢 **v0.3.0** — current stable release. Adds `infra/docker` discipline skill
-(Dockerfile/compose, multi-stage, secret-safe, non-root, cache-aware) and makes
-`frontend-feature` framework-neutral (vocabulary table for React/Vue/Svelte/Angular
-+ side-effect discipline). `infra/` is a new category; `PROMPT-FORMAT.md` and the
-linter updated accordingly. 23 skills, format-locked, lint-gated.
+🟢 **v0.4.0** — current stable release. Installer gains **nine targets**: Skills-native
+`cursor` (`.cursor/skills/` + three always-on `.mdc` rules), `cursor-foundation` (layer on
+`agents` without duplicate skill roots), legacy `cursor-rules`, universal `agents`
+(`.agents/skills/` for Cursor 2.4+, Codex CLI, Copilot), plus unchanged Claude Code, Codex,
+OpenClaw, and raw paths. `meta/task-router` is excluded from `cursor` / `agents` so it does
+not fight host skill matchers; docs cover layering and **Cursor IDE** duplicate discovery when
+**`codex` + `cursor`** both install skills into the same repo. Still **23 skills**, format-locked,
+lint-gated. (v0.3.0 brought `infra/docker` and framework-neutral `frontend-feature`.)
+
 Use it.
 
 Future breaking changes will go through deprecation in `## Notes` first, then a major
@@ -261,7 +265,7 @@ bump (v1.0.0) when the format itself changes.
 
 ## Contributing
 
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md). The format is stable for the v0.1.x line
+See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md). The format is stable for the v0.x line
 (schema in [`docs/PROMPT-FORMAT.md`](docs/PROMPT-FORMAT.md), enforced by `npm run lint`); the
 reviewer checklist in CONTRIBUTING is the gate for every PR. New skills, fixes, and content
 contributions are welcome — open an issue first for new skills.

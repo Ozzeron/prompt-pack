@@ -8,7 +8,7 @@
   loose markdown for any other tool).
 
 .PARAMETER Target
-  Where to install. One of: cursor, cursor-rules, agents, claude-code, codex, codex-agents-md, openclaw, raw
+  Where to install. One of: cursor, cursor-foundation, cursor-rules, agents, claude-code, codex, codex-agents-md, openclaw, raw
 
   - cursor            : Cursor 2.4+ Skills-native install. Writes most skills
                         to `.cursor/skills/<name>/SKILL.md` (Agent Skills
