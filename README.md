@@ -49,18 +49,20 @@ The discipline that does the work:
    an *attention budget* and a window stuffed with low-signal files
    makes the model worse — even at unlimited cost. Bigger context is
    not smarter context.
-4. **Orchestrator-first.** A `task-router` maps user intents to specific
-   roles, including composed flows (PR review = code-review →
-   security-review), so users don't memorise the catalog.
+4. **Orchestrator-aware.** For legacy rules, OpenClaw, and Claude Code
+   subagent flows, `task-router` maps user intents to specific roles,
+   including composed flows (PR review = code-review → security-review).
+   For native Agent Skills targets (`cursor`, `agents`), host skill
+   discovery is the router — descriptions are the primary activation surface.
 5. **Curated, not exhaustive.** Each prompt earns its place.
    No 200 variants of "you are a senior X".
 
 ### What this is not
 
 - Not a `.cursorrules` collection. The pack ships a real installer with
-  eight targets (Cursor 2.4+ Skills, Cursor legacy rules, universal
-  `.agents/skills/`, Claude Code, Codex skills, Codex legacy AGENTS.md,
-  OpenClaw, raw paste) and six profiles, plus a linter that enforces the
+  nine targets (Cursor 2.4+ Skills, Cursor foundation-only, Cursor legacy
+  rules, universal `.agents/skills/`, Claude Code, Codex skills, Codex
+  legacy AGENTS.md, OpenClaw, raw paste) and six profiles, plus a linter that enforces the
   format on every PR.
 - Not a vendor-specific bundle. It runs on whatever AI coding tool you
   already use; no migration, no platform lock-in.
@@ -162,6 +164,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 | Target            | What it does |
 |-------------------|---|
 | `cursor`          | Cursor 2.4+ Skills-native. Foundation rules go to `.cursor/rules/*.mdc` (alwaysApply); every other skill becomes a Cursor Agent Skill at `.cursor/skills/<name>/SKILL.md`. |
+| `cursor-foundation` | Foundation-only Cursor install. Writes only the three always-on rules to `.cursor/rules/*.mdc`; no `.cursor/skills/`. Pair with `agents` to avoid duplicate skill roots in Cursor. |
 | `cursor-rules`    | Legacy Cursor target. Every skill in `.cursor/rules/*.mdc` plus a `prompt-pack-router.mdc` bridge. Use only for Cursor builds older than 2.4. |
 | `agents`          | Universal Agent Skills. Writes every skill to `.agents/skills/<name>/SKILL.md` — works in Cursor 2.4+, Codex CLI, and GitHub Copilot from one install. No AGENTS.md. |
 | `claude-code`     | Copies skills into `.claude/agents/` (subagents) |
@@ -216,11 +219,16 @@ Every prompt follows the schema in [`docs/PROMPT-FORMAT.md`](docs/PROMPT-FORMAT.
 
 ## Orchestration
 
-[`prompts/meta/task-router/SKILL.md`](prompts/meta/task-router/SKILL.md) is the entry
-point for orchestrator agents. It maps user intents to specific prompts and decides
+[`prompts/meta/task-router/SKILL.md`](prompts/meta/task-router/SKILL.md) is the
+orchestrator for **legacy rules, OpenClaw, Claude Code subagent flows, and the
+Codex AGENTS.md bridge**. It maps user intents to specific skills and decides
 when to spawn subagents.
 
-A typical flow:
+For **native Agent Skills targets** (`cursor`, `agents`), the host tool's own
+skill discovery is the router — `task-router` is intentionally excluded from
+those targets. Descriptions are the primary activation surface.
+
+A typical flow (legacy / rules mode):
 
 ```
 user request

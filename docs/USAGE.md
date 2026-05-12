@@ -58,8 +58,10 @@ The installer splits the install:
   `token-discipline`) go to `.cursor/rules/*.mdc` with `alwaysApply: true`.
   These need to be in scope on every turn, and Cursor Agent Skills are
   agent-requested by default — there is no `alwaysApply` for Skills.
-- **Every other skill** (including `task-router`) goes to
+- **Every non-foundation skill except `meta/task-router`** goes to
   `.cursor/skills/<name>/SKILL.md` as a Cursor Agent Skill folder.
+  `meta/task-router` is filtered out — native Cursor Skills discovery
+  replaces the routing role it played in the legacy rules flow.
 
 The legacy `prompt-pack-router.mdc` bridge file is **not installed** by the
 Skills-native target — native Skills discovery replaces it.
@@ -121,14 +123,17 @@ is the `/migrate-to-skills` step. You have two options:
 
 ### Recommended usage in chat
 
-For critical work, invoke explicitly:
+For critical work, invoke explicitly via the slash menu (`/` in Agent chat):
 
 ```
-@code-review review the diff in PR #42
-@security-review audit the new upload endpoint
-@repo-audit check the whole project
-@frontend-feature build a settings page for user preferences
+/code-review review the diff in PR #42
+/security-review audit the new upload endpoint
+/repo-audit check the whole project
+/frontend-feature build a settings page for user preferences
 ```
+
+> **Note:** `@skill-name` invocation belongs to the legacy `cursor-rules` flow.
+> For the Skills-native `cursor` target, use `/skill-name` or the slash menu.
 
 ### Recommended `.gitignore` for the Cursor target
 
