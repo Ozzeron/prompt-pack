@@ -84,17 +84,22 @@ If you previously installed with the rules-only flow (everything in
 the new `cursor` target is a one-shot migration: re-running the installer
 is the `/migrate-to-skills` step. You have two options:
 
-1. **Clean migrate (recommended).** Delete the old generated files and
-   re-run with the new target:
+1. **Clean migrate (recommended).** Move the old generated `.mdc` files
+   to a backup folder, then re-run with the new target:
 
    ```bash
-   rm -rf .cursor/rules/*.mdc
+   # WARNING: only run this if .cursor/rules/ contains ONLY prompt-pack
+   # generated files. If you have hand-written project rules in there,
+   # move them out first, or skip this step entirely and let the installer
+   # interactively prompt on each overwrite.
+   mkdir -p .cursor/rules.bak && mv .cursor/rules/*.mdc .cursor/rules.bak/
    ~/code/prompt-pack/install.sh --target cursor --profile <your-profile>
    ```
 
    The installer keeps the three foundation rules in `.cursor/rules/` and
    moves everything else to `.cursor/skills/`. If you had hand-edited any
-   rule, copy those changes over before deleting.
+   rule, copy those changes over before re-running. `mv` to a backup
+   folder (vs. `rm -rf`) means a mistake here is recoverable.
 
 2. **Stay on the rules-only flow.** Use the legacy `cursor-rules` target
    instead (see below). Functionally identical to the pre-v0.4 `cursor`
@@ -193,14 +198,54 @@ and GitHub Copilot — one install for all three.
 **No always-apply rules** are installed in this mode, on purpose:
 `.agents/skills/` is a skill-only layout, and adding a `.cursor/rules/`
 side-channel would couple the target to Cursor. If you need always-on
-foundation rules in Cursor, layer the `cursor` target on top of this
-install (it adds the three foundation rules without disturbing the
-`.agents/skills/` tree). For Codex, inline the engineering-principles
-content into your `AGENTS.md` manually.
+foundation rules in Cursor, layer the **`cursor-foundation`** target on
+top — see [Layering for Cursor users](#layering-for-cursor-users) below.
+For Codex, inline the engineering-principles content into your `AGENTS.md`
+manually.
 
 Use `agents` when you want Codex + Cursor + Copilot all activated from a
 single install with no AGENTS.md noise. Use `codex` when you specifically
 want the Codex AGENTS.md router (multilingual aliases, routing table).
+
+`meta/task-router` is filtered out of this target's skill list: it's
+written for the OpenClaw / Claude Code subagent-orchestration model and
+fights Codex / Cursor / Copilot's native skill matchers. The legacy
+`cursor-rules` and OpenClaw / Claude Code / Codex targets keep it.
+
+### Layering for Cursor users
+
+Do **not** install `agents` and `cursor` together in the same repo. Cursor
+reads both `.agents/skills/` and `.cursor/skills/`, so each skill would
+show up twice in the skill list (once from each tree), and Cursor's
+matcher would have to break the tie at runtime. That's noise you don't
+want.
+
+Pick one of the following layouts:
+
+- **Cursor-only project**: use `--target cursor`. Writes to
+  `.cursor/skills/` for most skills + `.cursor/rules/*.mdc` for the three
+  foundation rules.
+- **Universal (Cursor + Codex + Copilot)**: use `--target agents`. Writes
+  only `.agents/skills/`. No always-apply foundation rules anywhere.
+- **Universal + always-on foundation rules in Cursor**: combine
+  `--target agents` (specialised skills) with `--target cursor-foundation`
+  (3 alwaysApply `.cursor/rules/*.mdc` files only, no `.cursor/skills/`).
+  The two trees do not overlap, so no duplication.
+
+```bash
+# Layered combo: skills + always-on Cursor foundation rules.
+~/code/prompt-pack/install.sh --target agents            --profile fullstack
+~/code/prompt-pack/install.sh --target cursor-foundation --profile fullstack
+```
+
+```powershell
+& ~\code\prompt-pack\install.ps1 -Target agents            -Profile fullstack
+& ~\code\prompt-pack\install.ps1 -Target cursor-foundation -Profile fullstack
+```
+
+The `cursor-foundation` target ignores any non-foundation skills in the
+profile, so you can pass the same `--profile fullstack` to both commands
+and each writes only what belongs in its tree.
 
 ## Claude Code
 
