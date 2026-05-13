@@ -918,18 +918,23 @@ is_codex_inherit_only() {
   esac
 }
 
-# Write a minimal agents/openai.yaml that disables implicit invocation for
-# foundation skills. Schema: developers.openai.com/codex/skills.
+# Write a minimal agents/openai.yaml for foundation skills.
+# Schema: developers.openai.com/codex/skills.
 write_codex_openai_yaml() {
   local dest_dir="$1"
+  local allow_implicit="${2:-false}"
   local agents_dir="$dest_dir/agents"
   mkdir -p "$agents_dir"
-  cat > "$agents_dir/openai.yaml" <<'YAML'
-# Disable implicit invocation: this skill is foundation/inherit-only.
-# Codex will still list it; the user can call $<name> explicitly.
-policy:
-  allow_implicit_invocation: false
-YAML
+  if [[ "$allow_implicit" == "true" ]]; then
+    echo '# Allow implicit invocation: task-router applies disambiguation rules.' > "$agents_dir/openai.yaml"
+  else
+    echo '# Disable implicit invocation: this skill is foundation/inherit-only.' > "$agents_dir/openai.yaml"
+  fi
+  {
+    echo '# Codex will still list it; the user can call $<name> explicitly.'
+    echo 'policy:'
+    echo "  allow_implicit_invocation: $allow_implicit"
+  } >> "$agents_dir/openai.yaml"
 }
 
 # Rewrite the source SKILL.md cross-skill links into a Codex-friendly form.
@@ -1245,10 +1250,17 @@ install_codex() {
     fi
 
     # Mark foundation skills as explicit-only so Codex doesn't auto-select
-    # them based on description match.
+    # them based on description match. task-router is the exception: it may
+    # be selected implicitly to enforce disambiguation rules.
     if is_codex_inherit_only "$skill"; then
-      write_codex_openai_yaml "$dest"
-      echo "  Wrote $dest  (skill: $name, explicit-only)"
+      local allow_implicit='false'
+      local policy_label='explicit-only'
+      if [[ "$skill" == "meta/task-router" ]]; then
+        allow_implicit='true'
+        policy_label='implicit-router'
+      fi
+      write_codex_openai_yaml "$dest" "$allow_implicit"
+      echo "  Wrote $dest  (skill: $name, $policy_label)"
     else
       echo "  Wrote $dest  (skill: $name)"
     fi

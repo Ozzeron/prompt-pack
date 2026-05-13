@@ -14,6 +14,17 @@ when the task matches, or you can invoke explicitly with `$<skill-name>`.
 
 <!-- PROMPT_PACK_SKILL_LIST -->
 
+### Routing discipline
+
+- If the user asks to fix a bug without a failing test, error message, repro
+  steps, or observed failure, ask one clarifying question for that failure
+  signal before selecting `$debugger`.
+- If the user asks for a review, check, or look at code without a diff, PR,
+  branch range, or specific changed files, prefer `$repo-audit` when installed;
+  otherwise ask whether they want a diff review or a repository audit.
+- If "migrate" could mean either a database schema migration or an application
+  framework/pattern migration, ask one clarifying question before routing.
+
 ### Routing rules
 
 Map the user's intent to a `$<skill-name>` from the list above. Only skills

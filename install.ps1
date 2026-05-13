@@ -991,19 +991,25 @@ function Test-CodexInheritOnly {
     return $Script:CodexInheritOnlySkills -contains $Skill
 }
 
-# Write a minimal agents/openai.yaml that disables implicit invocation for
-# foundation skills. Schema: developers.openai.com/codex/skills.
+# Write a minimal agents/openai.yaml for foundation skills.
+# Schema: developers.openai.com/codex/skills.
 function Write-CodexOpenaiYaml {
-    param([string]$DestDir)
+    param([string]$DestDir, [bool]$AllowImplicitInvocation = $false)
 
     $agentsDir = Join-Path $DestDir 'agents'
     if (-not (Test-Path $agentsDir)) { New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null }
 
+    $allowValue = if ($AllowImplicitInvocation) { 'true' } else { 'false' }
+    $comment = if ($AllowImplicitInvocation) {
+        '# Allow implicit invocation: task-router applies disambiguation rules.'
+    } else {
+        '# Disable implicit invocation: this skill is foundation/inherit-only.'
+    }
     $yaml = @(
-        '# Disable implicit invocation: this skill is foundation/inherit-only.',
+        $comment,
         '# Codex will still list it; the user can call $<name> explicitly.',
         'policy:',
-        '  allow_implicit_invocation: false',
+        "  allow_implicit_invocation: $allowValue",
         ''
     ) -join "`n"
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -1106,11 +1112,14 @@ function Install-Codex {
         }
 
         # Mark foundation skills as explicit-only so Codex doesn't auto-select
-        # them based on description match.
+        # them based on description match. task-router is the exception: it
+        # may be selected implicitly to enforce disambiguation rules.
         $isInheritOnly = Test-CodexInheritOnly -Skill $skill
         if ($isInheritOnly) {
-            Write-CodexOpenaiYaml -DestDir $dest
-            Write-Host "  Wrote $dest  (skill: $name, explicit-only)" -ForegroundColor Green
+            $allowImplicit = ($skill -eq 'meta/task-router')
+            Write-CodexOpenaiYaml -DestDir $dest -AllowImplicitInvocation $allowImplicit
+            $policyLabel = if ($allowImplicit) { 'implicit-router' } else { 'explicit-only' }
+            Write-Host "  Wrote $dest  (skill: $name, $policyLabel)" -ForegroundColor Green
         } else {
             Write-Host "  Wrote $dest  (skill: $name)" -ForegroundColor Green
         }
