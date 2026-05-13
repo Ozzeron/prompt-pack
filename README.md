@@ -249,7 +249,9 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 
 ## Status
 
-🟢 **v0.4.0** — current stable release. Installer gains **nine targets**: Skills-native
+🟢 **v0.4.1** — current stable release. Codex installs now include profile-aware
+cross-skill links, composed-flow routing, and stricter disambiguation for bugfix,
+review, and migration requests. Installer supports **nine targets**: Skills-native
 `cursor` (`.cursor/skills/` + three always-on `.mdc` rules), `cursor-foundation` (layer on
 `agents` without duplicate skill roots), legacy `cursor-rules`, universal `agents`
 (`.agents/skills/` for Cursor 2.4+, Codex CLI, Copilot), plus unchanged Claude Code, Codex,
