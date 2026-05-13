@@ -1186,6 +1186,12 @@ $Script:CodexRoutingRules = @(
     @{ Label = 'Handoff / wrap-up';        Targets = @('handoff') }
 )
 
+$Script:CodexComposedFlowRules = @(
+    @{ Label = 'Full PR review';    Targets = @('code-review', 'security-review') },
+    @{ Label = 'Schema change PR';  Targets = @('database-review', 'code-review', 'security-review') },
+    @{ Label = 'Refactor execution'; Targets = @('refactor-planner', 'duplication-audit') }
+)
+
 function Write-CodexAgentsMd {
     param([string]$DestPath, [string[]]$SkillList)
 
@@ -1230,8 +1236,27 @@ function Write-CodexAgentsMd {
         }) -join "`n"
     }
 
+    $maxFlowLabel = 0
+    $emittedFlows = @()
+    foreach ($rule in $Script:CodexComposedFlowRules) {
+        $availableTargets = @($rule.Targets | Where-Object { $installedSet.ContainsKey($_) })
+        if ($availableTargets.Count -ne $rule.Targets.Count) { continue }
+        $emittedFlows += [pscustomobject]@{ Label = $rule.Label; Targets = $availableTargets }
+        if ($rule.Label.Length -gt $maxFlowLabel) { $maxFlowLabel = $rule.Label.Length }
+    }
+    $composedFlowLines = if ($emittedFlows.Count -eq 0) {
+        '_(No complete composed flows available for this profile.)_'
+    } else {
+        ($emittedFlows | ForEach-Object {
+            $labelPadded = $_.Label.PadRight($maxFlowLabel)
+            $targetStr = ($_.Targets | ForEach-Object { "``" + '$' + $_ + "``" }) -join ' then '
+            "- $labelPadded -> $targetStr"
+        }) -join "`n"
+    }
+
     $rendered = $template.Replace('<!-- PROMPT_PACK_SKILL_LIST -->', $skillLines)
     $rendered = $rendered.Replace('<!-- PROMPT_PACK_ROUTING_RULES -->', $routingLines)
+    $rendered = $rendered.Replace('<!-- PROMPT_PACK_COMPOSED_FLOW_RULES -->', $composedFlowLines)
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($DestPath, $rendered, $utf8NoBom)

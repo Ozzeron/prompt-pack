@@ -1026,6 +1026,12 @@ CODEX_ROUTING_RULES=(
   "Handoff / wrap-up|handoff"
 )
 
+CODEX_COMPOSED_FLOW_RULES=(
+  "Full PR review|code-review,security-review"
+  "Schema change PR|database-review,code-review,security-review"
+  "Refactor execution|refactor-planner,duplication-audit"
+)
+
 write_codex_agents_md() {
   local dest="$1"
   shift
@@ -1099,6 +1105,50 @@ write_codex_agents_md() {
     done
   fi
 
+  local emitted_flow_labels=()
+  local emitted_flow_targets=()
+  local max_flow_label=0
+  for rule in "${CODEX_COMPOSED_FLOW_RULES[@]}"; do
+    local label="${rule%%|*}"
+    local targets_csv="${rule#*|}"
+    local available_targets=""
+    local targets_arr
+    local missing_target=0
+    IFS=',' read -ra targets_arr <<< "$targets_csv"
+    for t in "${targets_arr[@]}"; do
+      if [[ "$installed_set" != *"|${t}|"* ]]; then
+        missing_target=1
+        break
+      fi
+      if [[ -n "$available_targets" ]]; then
+        available_targets+=" then "
+      fi
+      available_targets+="\`\$${t}\`"
+    done
+    if (( missing_target == 0 )); then
+      emitted_flow_labels+=("$label")
+      emitted_flow_targets+=("$available_targets")
+      (( ${#label} > max_flow_label )) && max_flow_label=${#label}
+    fi
+  done
+
+  local composed_flow_lines=""
+  if (( ${#emitted_flow_labels[@]} == 0 )); then
+    composed_flow_lines='_(No complete composed flows available for this profile.)_'
+  else
+    local i
+    for i in "${!emitted_flow_labels[@]}"; do
+      local label="${emitted_flow_labels[$i]}"
+      local pad=$(( max_flow_label - ${#label} ))
+      local spaces=""
+      while (( pad > 0 )); do spaces+=" "; pad=$((pad - 1)); done
+      if [[ -n "$composed_flow_lines" ]]; then
+        composed_flow_lines+=$'\n'
+      fi
+      composed_flow_lines+="- ${label}${spaces} -> ${emitted_flow_targets[$i]}"
+    done
+  fi
+
   # Substitute placeholders by reading the template line-by-line. We avoided
   # awk -v / sed -e here because both choke on multi-line replacement values:
   # awk reports `newline in string` (replacement values contain literal \n),
@@ -1114,6 +1164,9 @@ write_codex_agents_md() {
         ;;
       *'<!-- PROMPT_PACK_ROUTING_RULES -->'*)
         printf '%s\n' "$routing_lines" >> "$dest"
+        ;;
+      *'<!-- PROMPT_PACK_COMPOSED_FLOW_RULES -->'*)
+        printf '%s\n' "$composed_flow_lines" >> "$dest"
         ;;
       *)
         printf '%s\n' "$line" >> "$dest"

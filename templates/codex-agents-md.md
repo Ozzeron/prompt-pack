@@ -22,6 +22,13 @@ does not match any installed skill, answer ad-hoc.
 
 <!-- PROMPT_PACK_ROUTING_RULES -->
 
+### Composed flows
+
+Some intents require an ordered sequence of skills. Only complete sequences
+available in this project are listed here.
+
+<!-- PROMPT_PACK_COMPOSED_FLOW_RULES -->
+
 ### Multilingual intent aliases
 
 Russian / Ukrainian phrases that should map to the same routes (only the
