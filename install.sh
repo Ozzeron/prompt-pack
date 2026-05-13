@@ -981,7 +981,7 @@ convert_cross_links_for_codex() {
       continue
     fi
     tmp="$(mktemp)"
-    sed -E "s|\\[\\`\\$${target}\\`\\]\\(\\.\\./${target}/SKILL\\.md\\)|\\`\\$${target}\\`|g" "$file" > "$tmp"
+    sed -E 's|\[`\$'"$target"'`\]\(\.\./'"$target"'/SKILL\.md\)|`\$'"$target"'`|g' "$file" > "$tmp"
     mv "$tmp" "$file"
   done <<< "$linked_targets"
 }
