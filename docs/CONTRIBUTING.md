@@ -192,6 +192,17 @@ bar. Until then, expect format churn.
 Open an issue or start a discussion before significant changes. The catalog is small on
 purpose; coordination keeps it that way.
 
+## Release testing
+
+Manual pre-release regression briefs live in `docs/release-testing/`. The current brief
+covers the Codex target end-to-end (installer, layout, AGENTS.md content, skill discovery,
+routing, cross-skill links). It is environment-specific (Windows / PowerShell / one Codex
+CLI version) and intentionally not part of CI.
+
+Deterministic installer/format checks may move to GitHub Actions in a future release. LLM-
+based checks (skill activation, routing intents, composed flows) remain manual because they
+require network access and produce non-deterministic results.
+
 ## License
 
 By contributing you agree your contribution is licensed under MIT, the same as the pack.
