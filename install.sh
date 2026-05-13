@@ -918,18 +918,23 @@ is_codex_inherit_only() {
   esac
 }
 
-# Write a minimal agents/openai.yaml that disables implicit invocation for
-# foundation skills. Schema: developers.openai.com/codex/skills.
+# Write a minimal agents/openai.yaml for foundation skills.
+# Schema: developers.openai.com/codex/skills.
 write_codex_openai_yaml() {
   local dest_dir="$1"
+  local allow_implicit="${2:-false}"
   local agents_dir="$dest_dir/agents"
   mkdir -p "$agents_dir"
-  cat > "$agents_dir/openai.yaml" <<'YAML'
-# Disable implicit invocation: this skill is foundation/inherit-only.
-# Codex will still list it; the user can call $<name> explicitly.
-policy:
-  allow_implicit_invocation: false
-YAML
+  if [[ "$allow_implicit" == "true" ]]; then
+    echo '# Allow implicit invocation: task-router applies disambiguation rules.' > "$agents_dir/openai.yaml"
+  else
+    echo '# Disable implicit invocation: this skill is foundation/inherit-only.' > "$agents_dir/openai.yaml"
+  fi
+  {
+    echo '# Codex will still list it; the user can call $<name> explicitly.'
+    echo 'policy:'
+    echo "  allow_implicit_invocation: $allow_implicit"
+  } >> "$agents_dir/openai.yaml"
 }
 
 # Rewrite the source SKILL.md cross-skill links into a Codex-friendly form.
@@ -954,6 +959,7 @@ YAML
 # (the basename before /SKILL.md) as the canonical skill name.
 convert_cross_links_for_codex() {
   local file="$1"
+  local installed_set="${2:-}"
   local tmp
   tmp="$(mktemp)"
   # On BSD sed (macOS) and GNU sed (Linux), -E enables extended regex with
@@ -961,6 +967,23 @@ convert_cross_links_for_codex() {
   # to a temp file and move.
   sed -E 's|\[`[^`]+`\]\([^)]*/([A-Za-z0-9._-]+)/SKILL\.md\)|[`$\1`](../\1/SKILL.md)|g' "$file" > "$tmp"
   mv "$tmp" "$file"
+
+  if [[ -z "$installed_set" ]]; then
+    return 0
+  fi
+
+  local linked_targets
+  linked_targets="$(grep -Eo '\[`\$[A-Za-z0-9._-]+`\]\(\.\./[A-Za-z0-9._-]+/SKILL\.md\)' "$file" | sed -E 's|^\[`\$([A-Za-z0-9._-]+)`\]\(\.\./[A-Za-z0-9._-]+/SKILL\.md\)$|\1|' | sort -u || true)"
+  local target
+  while IFS= read -r target; do
+    [[ -z "$target" ]] && continue
+    if [[ "$installed_set" == *"|${target}|"* ]]; then
+      continue
+    fi
+    tmp="$(mktemp)"
+    sed -E 's|\[`\$'"$target"'`\]\(\.\./'"$target"'/SKILL\.md\)|`\$'"$target"'`|g' "$file" > "$tmp"
+    mv "$tmp" "$file"
+  done <<< "$linked_targets"
 }
 
 # Codex-native install.
@@ -1006,6 +1029,12 @@ CODEX_ROUTING_RULES=(
   "UI design|ui-designer"
   "Dockerfile / compose / containerize|docker"
   "Handoff / wrap-up|handoff"
+)
+
+CODEX_COMPOSED_FLOW_RULES=(
+  "Full PR review|code-review,security-review"
+  "Schema change PR|database-review,code-review,security-review"
+  "Refactor execution|refactor-planner,duplication-audit"
 )
 
 write_codex_agents_md() {
@@ -1081,6 +1110,50 @@ write_codex_agents_md() {
     done
   fi
 
+  local emitted_flow_labels=()
+  local emitted_flow_targets=()
+  local max_flow_label=0
+  for rule in "${CODEX_COMPOSED_FLOW_RULES[@]}"; do
+    local label="${rule%%|*}"
+    local targets_csv="${rule#*|}"
+    local available_targets=""
+    local targets_arr
+    local missing_target=0
+    IFS=',' read -ra targets_arr <<< "$targets_csv"
+    for t in "${targets_arr[@]}"; do
+      if [[ "$installed_set" != *"|${t}|"* ]]; then
+        missing_target=1
+        break
+      fi
+      if [[ -n "$available_targets" ]]; then
+        available_targets+=" then "
+      fi
+      available_targets+="\`\$${t}\`"
+    done
+    if (( missing_target == 0 )); then
+      emitted_flow_labels+=("$label")
+      emitted_flow_targets+=("$available_targets")
+      (( ${#label} > max_flow_label )) && max_flow_label=${#label}
+    fi
+  done
+
+  local composed_flow_lines=""
+  if (( ${#emitted_flow_labels[@]} == 0 )); then
+    composed_flow_lines='_(No complete composed flows available for this profile.)_'
+  else
+    local i
+    for i in "${!emitted_flow_labels[@]}"; do
+      local label="${emitted_flow_labels[$i]}"
+      local pad=$(( max_flow_label - ${#label} ))
+      local spaces=""
+      while (( pad > 0 )); do spaces+=" "; pad=$((pad - 1)); done
+      if [[ -n "$composed_flow_lines" ]]; then
+        composed_flow_lines+=$'\n'
+      fi
+      composed_flow_lines+="- ${label}${spaces} -> ${emitted_flow_targets[$i]}"
+    done
+  fi
+
   # Substitute placeholders by reading the template line-by-line. We avoided
   # awk -v / sed -e here because both choke on multi-line replacement values:
   # awk reports `newline in string` (replacement values contain literal \n),
@@ -1096,6 +1169,9 @@ write_codex_agents_md() {
         ;;
       *'<!-- PROMPT_PACK_ROUTING_RULES -->'*)
         printf '%s\n' "$routing_lines" >> "$dest"
+        ;;
+      *'<!-- PROMPT_PACK_COMPOSED_FLOW_RULES -->'*)
+        printf '%s\n' "$composed_flow_lines" >> "$dest"
         ;;
       *)
         printf '%s\n' "$line" >> "$dest"
@@ -1124,6 +1200,11 @@ install_codex() {
   echo
 
   if (( DRY_RUN == 0 )); then mkdir -p "$skills_root"; fi
+
+  local installed_set="|"
+  for skill in "${SKILLS[@]}"; do
+    installed_set+="${skill##*/}|"
+  done
 
   for skill in "${SKILLS[@]}"; do
     local name="${skill##*/}"
@@ -1165,14 +1246,21 @@ install_codex() {
     # paths that don't exist under the flat .agents/skills/ layout.
     local skill_file="$dest/SKILL.md"
     if [[ -f "$skill_file" ]]; then
-      convert_cross_links_for_codex "$skill_file"
+      convert_cross_links_for_codex "$skill_file" "$installed_set"
     fi
 
     # Mark foundation skills as explicit-only so Codex doesn't auto-select
-    # them based on description match.
+    # them based on description match. task-router is the exception: it may
+    # be selected implicitly to enforce disambiguation rules.
     if is_codex_inherit_only "$skill"; then
-      write_codex_openai_yaml "$dest"
-      echo "  Wrote $dest  (skill: $name, explicit-only)"
+      local allow_implicit='false'
+      local policy_label='explicit-only'
+      if [[ "$skill" == "meta/task-router" ]]; then
+        allow_implicit='true'
+        policy_label='implicit-router'
+      fi
+      write_codex_openai_yaml "$dest" "$allow_implicit"
+      echo "  Wrote $dest  (skill: $name, $policy_label)"
     else
       echo "  Wrote $dest  (skill: $name)"
     fi
@@ -1484,4 +1572,3 @@ case "$TARGET" in
   openclaw)          install_openclaw ;;
   raw)               install_raw ;;
 esac
-

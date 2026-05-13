@@ -991,19 +991,25 @@ function Test-CodexInheritOnly {
     return $Script:CodexInheritOnlySkills -contains $Skill
 }
 
-# Write a minimal agents/openai.yaml that disables implicit invocation for
-# foundation skills. Schema: developers.openai.com/codex/skills.
+# Write a minimal agents/openai.yaml for foundation skills.
+# Schema: developers.openai.com/codex/skills.
 function Write-CodexOpenaiYaml {
-    param([string]$DestDir)
+    param([string]$DestDir, [bool]$AllowImplicitInvocation = $false)
 
     $agentsDir = Join-Path $DestDir 'agents'
     if (-not (Test-Path $agentsDir)) { New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null }
 
+    $allowValue = if ($AllowImplicitInvocation) { 'true' } else { 'false' }
+    $comment = if ($AllowImplicitInvocation) {
+        '# Allow implicit invocation: task-router applies disambiguation rules.'
+    } else {
+        '# Disable implicit invocation: this skill is foundation/inherit-only.'
+    }
     $yaml = @(
-        '# Disable implicit invocation: this skill is foundation/inherit-only.',
+        $comment,
         '# Codex will still list it; the user can call $<name> explicitly.',
         'policy:',
-        '  allow_implicit_invocation: false',
+        "  allow_implicit_invocation: $allowValue",
         ''
     ) -join "`n"
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -1027,7 +1033,7 @@ function Write-CodexOpenaiYaml {
 #   [`postgres-supabase`](../postgres-supabase/SKILL.md)
 #       -> [`$postgres-supabase`](../postgres-supabase/SKILL.md)
 function Convert-CrossLinksForCodex {
-    param([string]$Body)
+    param([string]$Body, [hashtable]$InstalledNames = $null)
 
     return [regex]::Replace($Body, '\[`([^`]+)`\]\([^)]*?/?([A-Za-z0-9._-]+)/SKILL\.md\)', {
         param($m)
@@ -1035,6 +1041,9 @@ function Convert-CrossLinksForCodex {
         # over the bracketed label, because the label sometimes carries the
         # legacy `category/name` form.
         $basename = $m.Groups[2].Value
+        if ($InstalledNames -and -not $InstalledNames.ContainsKey($basename)) {
+            return '`$' + $basename + '`'
+        }
         return '[`$' + $basename + '`](../' + $basename + '/SKILL.md)'
     })
 }
@@ -1056,6 +1065,11 @@ function Install-Codex {
     Write-Host "  (scope: $scopeLabel; format: Codex-native skill folders with progressive disclosure)`n" -ForegroundColor DarkGray
 
     if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null }
+
+    $installedNames = @{}
+    foreach ($s in $SkillList) {
+        $installedNames[($s -split '/')[-1]] = $true
+    }
 
     foreach ($skill in $SkillList) {
         $name = ($skill -split '/')[-1]
@@ -1092,17 +1106,20 @@ function Install-Codex {
         $skillFile = Join-Path $dest 'SKILL.md'
         if (Test-Path $skillFile) {
             $body = [System.IO.File]::ReadAllText($skillFile, [System.Text.Encoding]::UTF8)
-            $body = Convert-CrossLinksForCodex -Body $body
+            $body = Convert-CrossLinksForCodex -Body $body -InstalledNames $installedNames
             $utf8NoBom = New-Object System.Text.UTF8Encoding $false
             [System.IO.File]::WriteAllText($skillFile, $body, $utf8NoBom)
         }
 
         # Mark foundation skills as explicit-only so Codex doesn't auto-select
-        # them based on description match.
+        # them based on description match. task-router is the exception: it
+        # may be selected implicitly to enforce disambiguation rules.
         $isInheritOnly = Test-CodexInheritOnly -Skill $skill
         if ($isInheritOnly) {
-            Write-CodexOpenaiYaml -DestDir $dest
-            Write-Host "  Wrote $dest  (skill: $name, explicit-only)" -ForegroundColor Green
+            $allowImplicit = ($skill -eq 'meta/task-router')
+            Write-CodexOpenaiYaml -DestDir $dest -AllowImplicitInvocation $allowImplicit
+            $policyLabel = if ($allowImplicit) { 'implicit-router' } else { 'explicit-only' }
+            Write-Host "  Wrote $dest  (skill: $name, $policyLabel)" -ForegroundColor Green
         } else {
             Write-Host "  Wrote $dest  (skill: $name)" -ForegroundColor Green
         }
@@ -1178,6 +1195,12 @@ $Script:CodexRoutingRules = @(
     @{ Label = 'Handoff / wrap-up';        Targets = @('handoff') }
 )
 
+$Script:CodexComposedFlowRules = @(
+    @{ Label = 'Full PR review';    Targets = @('code-review', 'security-review') },
+    @{ Label = 'Schema change PR';  Targets = @('database-review', 'code-review', 'security-review') },
+    @{ Label = 'Refactor execution'; Targets = @('refactor-planner', 'duplication-audit') }
+)
+
 function Write-CodexAgentsMd {
     param([string]$DestPath, [string[]]$SkillList)
 
@@ -1222,8 +1245,27 @@ function Write-CodexAgentsMd {
         }) -join "`n"
     }
 
+    $maxFlowLabel = 0
+    $emittedFlows = @()
+    foreach ($rule in $Script:CodexComposedFlowRules) {
+        $availableTargets = @($rule.Targets | Where-Object { $installedSet.ContainsKey($_) })
+        if ($availableTargets.Count -ne $rule.Targets.Count) { continue }
+        $emittedFlows += [pscustomobject]@{ Label = $rule.Label; Targets = $availableTargets }
+        if ($rule.Label.Length -gt $maxFlowLabel) { $maxFlowLabel = $rule.Label.Length }
+    }
+    $composedFlowLines = if ($emittedFlows.Count -eq 0) {
+        '_(No complete composed flows available for this profile.)_'
+    } else {
+        ($emittedFlows | ForEach-Object {
+            $labelPadded = $_.Label.PadRight($maxFlowLabel)
+            $targetStr = ($_.Targets | ForEach-Object { "``" + '$' + $_ + "``" }) -join ' then '
+            "- $labelPadded -> $targetStr"
+        }) -join "`n"
+    }
+
     $rendered = $template.Replace('<!-- PROMPT_PACK_SKILL_LIST -->', $skillLines)
     $rendered = $rendered.Replace('<!-- PROMPT_PACK_ROUTING_RULES -->', $routingLines)
+    $rendered = $rendered.Replace('<!-- PROMPT_PACK_COMPOSED_FLOW_RULES -->', $composedFlowLines)
 
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($DestPath, $rendered, $utf8NoBom)
