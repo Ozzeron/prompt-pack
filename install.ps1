@@ -1027,7 +1027,7 @@ function Write-CodexOpenaiYaml {
 #   [`postgres-supabase`](../postgres-supabase/SKILL.md)
 #       -> [`$postgres-supabase`](../postgres-supabase/SKILL.md)
 function Convert-CrossLinksForCodex {
-    param([string]$Body)
+    param([string]$Body, [hashtable]$InstalledNames = $null)
 
     return [regex]::Replace($Body, '\[`([^`]+)`\]\([^)]*?/?([A-Za-z0-9._-]+)/SKILL\.md\)', {
         param($m)
@@ -1035,6 +1035,9 @@ function Convert-CrossLinksForCodex {
         # over the bracketed label, because the label sometimes carries the
         # legacy `category/name` form.
         $basename = $m.Groups[2].Value
+        if ($InstalledNames -and -not $InstalledNames.ContainsKey($basename)) {
+            return '`$' + $basename + '`'
+        }
         return '[`$' + $basename + '`](../' + $basename + '/SKILL.md)'
     })
 }
@@ -1056,6 +1059,11 @@ function Install-Codex {
     Write-Host "  (scope: $scopeLabel; format: Codex-native skill folders with progressive disclosure)`n" -ForegroundColor DarkGray
 
     if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null }
+
+    $installedNames = @{}
+    foreach ($s in $SkillList) {
+        $installedNames[($s -split '/')[-1]] = $true
+    }
 
     foreach ($skill in $SkillList) {
         $name = ($skill -split '/')[-1]
@@ -1092,7 +1100,7 @@ function Install-Codex {
         $skillFile = Join-Path $dest 'SKILL.md'
         if (Test-Path $skillFile) {
             $body = [System.IO.File]::ReadAllText($skillFile, [System.Text.Encoding]::UTF8)
-            $body = Convert-CrossLinksForCodex -Body $body
+            $body = Convert-CrossLinksForCodex -Body $body -InstalledNames $installedNames
             $utf8NoBom = New-Object System.Text.UTF8Encoding $false
             [System.IO.File]::WriteAllText($skillFile, $body, $utf8NoBom)
         }

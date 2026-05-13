@@ -954,6 +954,7 @@ YAML
 # (the basename before /SKILL.md) as the canonical skill name.
 convert_cross_links_for_codex() {
   local file="$1"
+  local installed_set="${2:-}"
   local tmp
   tmp="$(mktemp)"
   # On BSD sed (macOS) and GNU sed (Linux), -E enables extended regex with
@@ -961,6 +962,23 @@ convert_cross_links_for_codex() {
   # to a temp file and move.
   sed -E 's|\[`[^`]+`\]\([^)]*/([A-Za-z0-9._-]+)/SKILL\.md\)|[`$\1`](../\1/SKILL.md)|g' "$file" > "$tmp"
   mv "$tmp" "$file"
+
+  if [[ -z "$installed_set" ]]; then
+    return 0
+  fi
+
+  local linked_targets
+  linked_targets="$(grep -Eo '\[`\$[A-Za-z0-9._-]+`\]\(\.\./[A-Za-z0-9._-]+/SKILL\.md\)' "$file" | sed -E 's|^\[`\$([A-Za-z0-9._-]+)`\]\(\.\./[A-Za-z0-9._-]+/SKILL\.md\)$|\1|' | sort -u || true)"
+  local target
+  while IFS= read -r target; do
+    [[ -z "$target" ]] && continue
+    if [[ "$installed_set" == *"|${target}|"* ]]; then
+      continue
+    fi
+    tmp="$(mktemp)"
+    sed -E "s|\\[\\`\\$${target}\\`\\]\\(\\.\\./${target}/SKILL\\.md\\)|\\`\\$${target}\\`|g" "$file" > "$tmp"
+    mv "$tmp" "$file"
+  done <<< "$linked_targets"
 }
 
 # Codex-native install.
@@ -1125,6 +1143,11 @@ install_codex() {
 
   if (( DRY_RUN == 0 )); then mkdir -p "$skills_root"; fi
 
+  local installed_set="|"
+  for skill in "${SKILLS[@]}"; do
+    installed_set+="${skill##*/}|"
+  done
+
   for skill in "${SKILLS[@]}"; do
     local name="${skill##*/}"
     local src="$PROMPTS_ROOT/$skill"
@@ -1165,7 +1188,7 @@ install_codex() {
     # paths that don't exist under the flat .agents/skills/ layout.
     local skill_file="$dest/SKILL.md"
     if [[ -f "$skill_file" ]]; then
-      convert_cross_links_for_codex "$skill_file"
+      convert_cross_links_for_codex "$skill_file" "$installed_set"
     fi
 
     # Mark foundation skills as explicit-only so Codex doesn't auto-select
@@ -1484,4 +1507,3 @@ case "$TARGET" in
   openclaw)          install_openclaw ;;
   raw)               install_raw ;;
 esac
-
