@@ -3,7 +3,7 @@
 # Install prompt-pack skills into a project directory.
 #
 # Usage:
-#   ./install.sh --target <cursor|cursor-foundation|cursor-rules|agents|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--no-backup] [--list]
+#   ./install.sh --target <cursor|cursor-foundation|cursor-rules|agents|claude-skills|claude-code|codex|codex-agents-md|openclaw|raw> [--profile <name>] [--path <dir>] [--scope <repo|user>] [--force] [--no-backup] [--list]
 #
 # Targets:
 #   cursor             - Cursor 2.4+ Skills-native. Foundation rules go to
@@ -26,7 +26,14 @@
 #                        --target cursor against the same repo (you'd get
 #                        duplicates). Layer --target cursor-foundation for
 #                        always-on rules without the duplication.
-#   claude-code     - .claude/agents/*.md.
+#   claude-skills   - Claude Code native Agent Skills: each skill goes to
+#                     .claude/skills/<name>/SKILL.md. meta/task-router is
+#                     filtered out (Claude Code's own skill discovery is the
+#                     router). Use --scope user to write to $HOME/.claude/skills/
+#                     instead of the project.
+#   claude-code     - Legacy Claude Code subagents: .claude/agents/*.md. Each
+#                     skill becomes a subagent. Prefer --target claude-skills
+#                     on current Claude Code builds.
 #   codex           - Codex-native: .agents/skills/<name>/SKILL.md + a
 #                     compact AGENTS.md router/bridge. Use --scope user to
 #                     write to $HOME/.agents/skills/ instead.
@@ -196,7 +203,7 @@ show_list() {
 
   echo
   echo "Available targets:"
-  for t in cursor cursor-foundation cursor-rules agents claude-code codex codex-agents-md openclaw raw; do
+  for t in cursor cursor-foundation cursor-rules agents claude-skills claude-code codex codex-agents-md openclaw raw; do
     echo "  $t"
   done
   echo
@@ -301,6 +308,13 @@ detect_collisions() {
     cursor-foundation) [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
     cursor-rules)    [[ -d "$TARGET_PATH/.cursor/rules" ]]  && echo '.cursor/rules/'  || true ;;
     agents)          [[ -d "$TARGET_PATH/.agents/skills" ]] && echo '.agents/skills/' || true ;;
+    claude-skills)
+      if [[ "$SCOPE" == "user" ]]; then
+        [[ -d "$HOME/.claude/skills" ]] && echo "$HOME/.claude/skills/" || true
+      else
+        [[ -d "$TARGET_PATH/.claude/skills" ]] && echo '.claude/skills/' || true
+      fi
+      ;;
     claude-code)     [[ -d "$TARGET_PATH/.claude/agents" ]] && echo '.claude/agents/' || true ;;
     codex)
       if [[ "$SCOPE" == "user" ]]; then
@@ -874,6 +888,87 @@ write_cursor_bridge() {
     return
   fi
   cp "$template" "$dest"
+}
+
+# Claude Code native Agent Skills. Same directory-per-skill layout as the
+# `agents` target (Claude Code reads name + description from the frontmatter
+# and loads the full SKILL.md on selection), but rooted at .claude/skills/
+# (repo scope) or $HOME/.claude/skills/ (user scope). meta/task-router is
+# filtered: Claude Code's own skill discovery is the router, same reasoning
+# as the cursor / agents targets.
+install_claude_skills() {
+  local skills_root
+  local scope_label
+
+  if [[ "$SCOPE" == "user" ]]; then
+    skills_root="$HOME/.claude/skills"
+    scope_label="user (~/.claude/skills/)"
+  else
+    skills_root="$TARGET_PATH/.claude/skills"
+    scope_label="repo (.claude/skills/)"
+  fi
+
+  echo
+  echo "Installing Claude Code Agent Skills to $skills_root"
+  echo "  (scope: $scope_label; skills are discovered by name + description)"
+  echo
+
+  if (( DRY_RUN == 0 )); then mkdir -p "$skills_root"; fi
+
+  # Drop incompatible skills (meta/task-router conflicts with native Skills
+  # matchers). bash 3.2 has no mapfile, hence the read loop.
+  local filtered=()
+  while IFS= read -r _line; do
+    [[ -n "$_line" ]] && filtered+=("$_line")
+  done < <(filter_skills_for_cursor_or_agents "${SKILLS[@]}")
+  SKILLS=("${filtered[@]}")
+
+  for skill in "${SKILLS[@]}"; do
+    local name="${skill##*/}"
+    local src_dir="$PROMPTS_ROOT/$skill"
+    local src="$src_dir/SKILL.md"
+    local dest_dir="$skills_root/$name"
+
+    if [[ ! -d "$src_dir" ]]; then echo "  Missing: $src_dir" >&2; continue; fi
+
+    if (( DRY_RUN == 1 )); then
+      local action='create'
+      [[ -d "$dest_dir" ]] && action='replace (existing renamed to .bak)'
+      echo "  [dry-run] would $action $dest_dir"
+      continue
+    fi
+
+    if [[ -d "$dest_dir" ]]; then
+      if (( FORCE == 0 && FORCE_ALL == 0 )); then
+        read -r -p "  Replace $dest_dir? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a] " resp
+        case "$resp" in
+          [aA])
+            FORCE_ALL=1
+            echo "  Yes to all: subsequent skills will be replaced without prompting."
+            ;;
+          [yY])
+            ;;
+          *)
+            echo "  Skipped."; continue ;;
+        esac
+      fi
+      local backup
+      backup="$(backup_directory "$dest_dir")"
+      [[ -n "$backup" ]] && echo "  Backed up to $backup"
+    fi
+
+    cp -R "$src_dir" "$dest_dir"
+
+    # Rewrite frontmatter to the Agent Skills schema (name + description).
+    local skill_file="$dest_dir/SKILL.md"
+    if [[ -f "$skill_file" ]]; then
+      write_agent_skill_frontmatter "$src" "$skill_file"
+    fi
+    echo "  Wrote $dest_dir  (Claude Code skill: $name)"
+  done
+
+  echo
+  echo "Done. Claude Code will pick up the skills on next start (invoke with /<skill-name>)."
 }
 
 install_claude_code() {
@@ -1495,13 +1590,13 @@ done
 if (( LIST == 1 )); then show_list; exit 0; fi
 
 if [[ -z "$TARGET" ]]; then
-  echo "Error: --target is required (cursor / cursor-foundation / cursor-rules / agents / claude-code / codex / codex-agents-md / openclaw / raw)." >&2
+  echo "Error: --target is required (cursor / cursor-foundation / cursor-rules / agents / claude-skills / claude-code / codex / codex-agents-md / openclaw / raw)." >&2
   echo "Run with --list to see available profiles and skills." >&2
   exit 1
 fi
 
 case "$TARGET" in
-  cursor|cursor-foundation|cursor-rules|agents|claude-code|codex|codex-agents-md|openclaw|raw) ;;
+  cursor|cursor-foundation|cursor-rules|agents|claude-skills|claude-code|codex|codex-agents-md|openclaw|raw) ;;
   *) echo "Error: invalid --target '$TARGET'" >&2; exit 1 ;;
 esac
 
@@ -1566,6 +1661,7 @@ case "$TARGET" in
   cursor-foundation) install_cursor_foundation ;;
   cursor-rules)      install_cursor_rules ;;
   agents)            install_agents ;;
+  claude-skills)     install_claude_skills ;;
   claude-code)       install_claude_code ;;
   codex)             install_codex ;;
   codex-agents-md)   install_codex_agents_md ;;
