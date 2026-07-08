@@ -81,7 +81,7 @@
   .\install.ps1 -Target cursor -Profile minimal
 
 .EXAMPLE
-  .\install.ps1 -Target codex -Profile supabase -Path ~\code\project-a
+  .\install.ps1 -Target codex -Profile supabase -Path ~\code\your-project
 
 .EXAMPLE
   .\install.ps1 -Target cursor -Skills meta/engineering-principles, architecture/frontend-feature

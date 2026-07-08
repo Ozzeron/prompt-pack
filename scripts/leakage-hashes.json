@@ -1,0 +1,17 @@
+{
+  "_comment": "Private leakage blocklist. Each hash is sha256 of the term after normalization (lowercase, strip every char outside [a-z0-9@]). Storing hashes instead of the terms keeps the blocklist itself from republishing private project names and personal handles. Add entries with: node scripts/leakage-hash.mjs \"<term>\"",
+  "hashes": [
+    "4add409618f6db7db10f2582549f4f92046d0b12dde059245ce89fcda911ae5c",
+    "df813c44837f71f5ef332f68de226f76630a1bd8897480357ff74d62f3be7930",
+    "97aeb548aa904cd2e36da4b6a1fd6265c4f83aa61ad49bba987d9821e70184db",
+    "98eda9f1f86d6cb8d21c65211e192c8c4504c5f6e19923d5516551a473f40b0b",
+    "55e4d63db5a3aef5e199fcd29c780db51c611a49e3be2a634f82d4d95e9a0a80",
+    "b0c5fbfcb887122f06c7655a0bf7c8df1ddbed8ef3215140916595409b0d5ae4",
+    "eb9c5fb1ebefa6b554a92b202543bee0ecc0289729727f96bebaefbb906fd19a",
+    "6dfa43c0a4695a0c5ab12b330e00fd5e75794ee4cc00a6c93579ba99898c2c1d",
+    "1cd6a6cb25f923a427aeda479b5d15f48094af968460e267338b8dd815fe737f",
+    "ff29553867b2ce083a5d9301d57258fdb1951d212dba53e20acfde07dc9abf9d",
+    "1c12bbf14d0cfa3d682aa57b6cf409d6bb16b51e4c4cae54960231d86533af19",
+    "3e7a9bfe12c8b7034d3fd978456e8cfb47397b6d6c73eddb41211e1389f8d890"
+  ]
+}

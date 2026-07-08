@@ -45,7 +45,7 @@
 #
 # Examples:
 #   ./install.sh --target cursor --profile minimal
-#   ./install.sh --target codex --profile supabase --path ~/code/project-a
+#   ./install.sh --target codex --profile supabase --path ~/code/your-project
 #   ./install.sh --target cursor --profile fullstack --dry-run
 #   ./install.sh --list
 #
