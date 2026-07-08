@@ -159,8 +159,11 @@ It checks every skill against the format contract: required frontmatter fields,
 description length, required sections in order, internal link integrity, length
 bounds, project-specific leakage, installer profile parity between
 `install.ps1` and `install.sh`, README profile counts, and task-router references.
-If `npm run lint` is green, your skill is structurally valid; the reviewer can
-focus on content.
+It also verifies that every inline `<category>/<name>` skill reference in any skill
+body resolves to a real skill (not just those in task-router), and that no two skill
+descriptions are near-duplicates (Jaccard token-overlap similarity below a calibrated
+threshold), since descriptions drive native skill matching. If `npm run lint` is green,
+your skill is structurally valid; the reviewer can focus on content.
 
 The linter is a single file with no dependencies (`scripts/lint-skills.mjs`),
 works on any Node 18+.

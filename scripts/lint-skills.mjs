@@ -10,10 +10,13 @@
  * - For non-meta skills: required sections present in order
  *   (When to use → Scope → Inherits → Token discipline → Process → Output format → Anti-patterns)
  * - All internal markdown links to ../...SKILL.md resolve
+ * - Every inline `<category>/<name>` skill reference in any skill body resolves to an
+ *   existing skill (refs whose category is not a real prompts/ dir are ignored)
  * - No project-specific leakage (private terms are stored as SHA-256 hashes in
  *   scripts/leakage-hashes.json; see scripts/leakage-hash.mjs to add one)
  * - All profiles in install.ps1 / install.sh reference existing skills
  * - All references in task-router active table point to existing skills
+ * - No two skill descriptions are near-duplicates (Jaccard token similarity below threshold)
  *
  * Exit code: 0 if clean, 1 if any failures.
  */
@@ -46,6 +49,18 @@ const REQUIRED_SECTIONS_META_MIN = ['## When to use', '## Anti-patterns'];
 const DESCRIPTION_MAX = 120;
 const LENGTH_MIN = 80;
 const LENGTH_MAX = 310;
+
+// Description-collision threshold: max allowed Jaccard similarity between the tokenized
+// descriptions of any two skills. Descriptions are the primary activation surface for
+// native skill matchers (Cursor/Codex/Claude Code), so two near-identical descriptions
+// blur routing between them. Calibration: the current 23 skills peak at 0.20 pairwise
+// similarity (meta/engineering-principles <-> meta/reuse-before-create). 0.50 leaves
+// >2x headroom over that while still catching genuine near-duplicates — two skills that
+// share half their meaningful description tokens is a real collision, not coincidence.
+const DESCRIPTION_SIMILARITY_MAX = 0.5;
+// Tiny stopword list dropped before comparison so shared connective words don't inflate
+// similarity. Tokens shorter than 3 chars are also dropped (see tokenizeDescription).
+const DESCRIPTION_STOPWORDS = new Set(['the', 'and', 'for', 'with', 'use', 'when', 'your']);
 
 // Skills that create or modify production code (as opposed to reviewing, planning,
 // or summarising). Each must inherit meta/reuse-before-create so the DRY decision
@@ -230,7 +245,36 @@ function checkLeakage(content) {
   return hits;
 }
 
-function lintSkill(skill) {
+// Every inline `<category>/<name>` code span in a skill body must resolve to an existing
+// skill — a generalization of the task-router reference check to all skills. Only refs
+// whose first segment is a real prompts/ category directory are validated, so unrelated
+// slash-paths in backticks (`docs/ai-rules`, `.agents/skills`, `src/index`) are ignored.
+function checkInlineSkillReferences(body, skill, skillSet, categorySet) {
+  const failures = [];
+  // task-router keeps its special handling: the "## Planned" section lists forward-looking
+  // skills that intentionally do not exist yet, so it stays exempt. This exemption applies
+  // only to task-router; every other skill body is scanned in full.
+  let scanBody = body;
+  if (skill.category === 'meta' && skill.name === 'task-router') {
+    scanBody = body.split(/^##\s*Planned/m)[0] || body;
+  }
+  const refRe = /`([a-z-]+\/[a-z-]+)`/g;
+  const seen = new Set();
+  let match;
+  while ((match = refRe.exec(scanBody)) !== null) {
+    const ref = match[1];
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    const category = ref.split('/')[0];
+    if (!categorySet.has(category)) continue; // not a skill reference — ignore
+    if (!skillSet.has(ref)) {
+      failures.push(`references missing skill: ${ref}`);
+    }
+  }
+  return failures;
+}
+
+function lintSkill(skill, skillSet, categorySet) {
   const content = readFileSync(skill.path, 'utf8');
   const lineCount = content.split(/\r?\n/).length;
   const failures = [];
@@ -296,6 +340,7 @@ function lintSkill(skill) {
   }
 
   failures.push(...checkLinks(body, skill.path));
+  failures.push(...checkInlineSkillReferences(body, skill, skillSet, categorySet));
 
   // Code-creating skills must inherit meta/reuse-before-create. The DRY decision flow
   // is the central anti-tech-debt mechanism; skipping it in any coding skill leaves a
@@ -498,9 +543,55 @@ function checkRouterReferences(skillIds) {
   return failures;
 }
 
+// Lowercase, split on non-alphanumerics, drop stopwords and tokens shorter than 3 chars.
+function tokenizeDescription(desc) {
+  return new Set(
+    String(desc)
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 3 && !DESCRIPTION_STOPWORDS.has(w)),
+  );
+}
+
+function jaccardSimilarity(a, b) {
+  if (a.size === 0 && b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) if (b.has(t)) inter += 1;
+  const union = a.size + b.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
+// Pairwise-compare every skill description; fail any pair at/above the similarity ceiling.
+function checkDescriptionCollisions(skills) {
+  const failures = [];
+  const entries = [];
+  for (const skill of skills) {
+    const content = readFileSync(skill.path, 'utf8');
+    const parsed = parseFrontmatter(content);
+    if (!parsed.ok || typeof parsed.data.description !== 'string') continue;
+    entries.push({
+      id: `${skill.category}/${skill.name}`,
+      tokens: tokenizeDescription(parsed.data.description),
+    });
+  }
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const sim = jaccardSimilarity(entries[i].tokens, entries[j].tokens);
+      if (sim >= DESCRIPTION_SIMILARITY_MAX) {
+        failures.push(
+          `descriptions too similar (${sim.toFixed(2)} >= ${DESCRIPTION_SIMILARITY_MAX}): ${entries[i].id} <-> ${entries[j].id}`,
+        );
+      }
+    }
+  }
+  return failures;
+}
+
 function main() {
   const skills = findSkillFiles();
   const skillIds = skills.map((s) => `${s.category}/${s.name}`);
+  const skillSet = new Set(skillIds);
+  const categorySet = new Set(skills.map((s) => s.category));
   let totalFailures = 0;
 
   console.log(`Linting ${skills.length} skills...\n`);
@@ -508,7 +599,7 @@ function main() {
   for (const skill of skills.sort((a, b) =>
     `${a.category}/${a.name}`.localeCompare(`${b.category}/${b.name}`),
   )) {
-    const failures = lintSkill(skill);
+    const failures = lintSkill(skill, skillSet, categorySet);
     const id = `${skill.category}/${skill.name}`;
     if (failures.length === 0) {
       console.log(`  PASS  ${id}`);
@@ -557,6 +648,15 @@ function main() {
     console.log('  FAIL  task-router');
     for (const f of routerFailures) console.log(`        - ${f}`);
     totalFailures += routerFailures.length;
+  }
+
+  const collisionFailures = checkDescriptionCollisions(skills);
+  if (collisionFailures.length === 0) {
+    console.log('  PASS  no near-duplicate skill descriptions');
+  } else {
+    console.log('  FAIL  description collisions');
+    for (const f of collisionFailures) console.log(`        - ${f}`);
+    totalFailures += collisionFailures.length;
   }
 
   console.log();
