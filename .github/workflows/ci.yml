@@ -166,3 +166,178 @@ jobs:
             throw "DryRun created .claude - safety contract violated"
           }
           Write-Host "OK: no files written by dry-run"
+
+  install-sh-content:
+    # The smoke jobs above only DRY-RUN the installer, which proves it parses
+    # flags but never checks what a real install writes. This job does REAL
+    # installs into temp dirs and asserts the on-disk result: skill counts,
+    # rewritten-frontmatter shape, per-target task-router filtering, raw-body
+    # frontmatter stripping, idempotence, and backup behaviour. Run on macOS too
+    # so the assertions exercise bash 3.2 (see the install-sh-smoke rationale).
+    name: install.sh content assertions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show bash version
+        run: bash --version
+
+      - name: Run real-install content assertions
+        run: bash scripts/test-install-content.sh "$GITHUB_WORKSPACE"
+
+  install-ps1-win51:
+    # The install-ps1-smoke job runs under `pwsh` (PowerShell 7). The installer's
+    # documented encoding pitfalls (BOM, cp1252 double-encoding, UTF-16) are
+    # specific to WINDOWS PowerShell 5.1, whose default file APIs behave
+    # differently from PS7. `shell: powershell` selects the built-in 5.1 host so
+    # this job actually exercises that pipeline. It does a REAL install and then
+    # asserts every rewritten SKILL.md is BOM-less UTF-8 (first bytes are not the
+    # UTF-8 or UTF-16 BOM markers) and that the skill count is correct.
+    name: install.ps1 real install (Windows PowerShell 5.1)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show PowerShell edition
+        shell: powershell
+        run: $PSVersionTable | Format-List
+
+      - name: List profiles and skills
+        shell: powershell
+        run: .\install.ps1 -List
+
+      - name: Dry-run install (claude-skills / minimal)
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path "$env:TEMP\pp51-dry" -Force | Out-Null
+          Set-Location "$env:TEMP\pp51-dry"
+          git init -q
+          & "$env:GITHUB_WORKSPACE\install.ps1" -Target claude-skills -Profile minimal -DryRun
+
+      - name: Real install (claude-skills / minimal, -Force)
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path "$env:TEMP\pp51-real" -Force | Out-Null
+          Set-Location "$env:TEMP\pp51-real"
+          # git init so the installer's final `git status` leaves $LASTEXITCODE 0
+          # (a non-repo dir makes git exit non-zero, which the step would surface).
+          git init -q
+          & "$env:GITHUB_WORKSPACE\install.ps1" -Target claude-skills -Profile minimal -Force
+
+      - name: Assert BOM-less UTF-8 and skill count
+        shell: powershell
+        run: |
+          $skillsRoot = "$env:TEMP\pp51-real\.claude\skills"
+          $files = @(Get-ChildItem -Path $skillsRoot -Recurse -Filter 'SKILL.md')
+          $expected = 4  # minimal profile = 4 skills, none filtered for claude-skills
+          if ($files.Count -ne $expected) {
+            throw "expected $expected SKILL.md files, found $($files.Count)"
+          }
+          foreach ($f in $files) {
+            $bytes = [System.IO.File]::ReadAllBytes($f.FullName)
+            $b0 = if ($bytes.Length -ge 1) { $bytes[0] } else { -1 }
+            $b1 = if ($bytes.Length -ge 2) { $bytes[1] } else { -1 }
+            $b2 = if ($bytes.Length -ge 3) { $bytes[2] } else { -1 }
+            if ($b0 -eq 0xEF -and $b1 -eq 0xBB -and $b2 -eq 0xBF) { throw "UTF-8 BOM in $($f.FullName)" }
+            if ($b0 -eq 0xFF -and $b1 -eq 0xFE) { throw "UTF-16 LE BOM in $($f.FullName)" }
+            if ($b0 -eq 0xFE -and $b1 -eq 0xFF) { throw "UTF-16 BE BOM in $($f.FullName)" }
+          }
+          Write-Host "OK: $($files.Count) SKILL.md files, all BOM-less UTF-8"
+
+  cross-shell-parity:
+    # windows-latest ships BOTH Git Bash (`shell: bash`) and Windows PowerShell
+    # 5.1 (`shell: powershell`), so it is the one runner where the two installers
+    # can be compared head-to-head. install.sh and install.ps1 must produce
+    # byte-identical trees for the same target+profile; the only historical
+    # divergence class here is text encoding (BOM / CRLF / trailing newline /
+    # a stray blank line eaten by an over-greedy regex). This job installs the
+    # same target+profile via each installer and compares the trees byte-for-byte
+    # with `git hash-object`.
+    name: cross-shell install parity (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install via install.sh (Git Bash)
+        shell: bash
+        run: |
+          TMP_U=$(cygpath -u "$RUNNER_TEMP")
+          for combo in "agents minimal" "claude-skills minimal"; do
+            set -- $combo
+            d="$TMP_U/parity-sh/$1"
+            mkdir -p "$d"
+            ( cd "$d" && git init -q )
+            "$GITHUB_WORKSPACE/install.sh" --target "$1" --profile "$2" --path "$d" --force
+          done
+
+      - name: Install via install.ps1 (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          foreach ($c in @(@('agents', 'minimal'), @('claude-skills', 'minimal'))) {
+            $d = Join-Path $env:RUNNER_TEMP "parity-ps\$($c[0])"
+            New-Item -ItemType Directory -Force -Path $d | Out-Null
+            Push-Location $d; git init -q; Pop-Location
+            & "$env:GITHUB_WORKSPACE\install.ps1" -Target $c[0] -Profile $c[1] -Path $d -Force
+          }
+
+      - name: Compare trees byte-for-byte (Git Bash)
+        shell: bash
+        run: |
+          TMP_U=$(cygpath -u "$RUNNER_TEMP")
+          fail=0
+          for t in agents claude-skills; do
+            A="$TMP_U/parity-sh/$t"
+            B="$TMP_U/parity-ps/$t"
+            ( cd "$A" && find . -type f | LC_ALL=C sort ) > a-list.txt
+            ( cd "$B" && find . -type f | LC_ALL=C sort ) > b-list.txt
+            if ! diff -u a-list.txt b-list.txt; then
+              echo "FILE LIST MISMATCH for target '$t'"
+              fail=1
+            fi
+            while IFS= read -r f; do
+              ha=$(git hash-object "$A/$f")
+              hb=$(git hash-object "$B/$f")
+              if [ "$ha" != "$hb" ]; then
+                echo "HASH MISMATCH ($t): $f  (sh=$ha ps=$hb)"
+                fail=1
+              fi
+            done < a-list.txt
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "Cross-shell parity FAILED: install.sh and install.ps1 diverged."
+            exit 1
+          fi
+          echo "Cross-shell parity OK: install.sh and install.ps1 produce identical trees."
+
+  version-bump:
+    # Version-bump gate. Every prompts/**/SKILL.md whose content changes in a PR
+    # must also bump its frontmatter `version`, so the release history stays
+    # honest. PR-only: on push/dispatch there is no meaningful base to diff
+    # against. fetch-depth: 0 is required so the merge-base with the target
+    # branch is reachable.
+    name: version-bump gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check version bumps for changed skills
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "$GITHUB_BASE_REF"
+          node scripts/check-version-bump.mjs

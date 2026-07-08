@@ -6,7 +6,9 @@
     "type":  "module",
     "scripts":  {
                     "lint":  "node scripts/lint-skills.mjs",
-                    "lint:skills":  "node scripts/lint-skills.mjs"
+                    "lint:skills":  "node scripts/lint-skills.mjs",
+                    "test:install-content":  "bash scripts/test-install-content.sh",
+                    "check:version-bump":  "node scripts/check-version-bump.mjs"
                 },
     "engines":  {
                     "node":  "\u003e=18"

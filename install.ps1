@@ -495,7 +495,14 @@ function Write-CursorMdc {
             $description = $Matches[1].Trim()
         }
     }
-    $body = $raw -replace '(?s)^---\s*\r?\n.*?\r?\n---\s*\r?\n', ''
+    # Strip the frontmatter block. The closing delimiter is matched as
+    # `---[ \t]*\r?\n` (horizontal whitespace only), NOT `---\s*\r?\n`: `\s`
+    # matches newlines, so a greedy `\s*` would also eat the blank line that
+    # separates the frontmatter from the body. install.sh's awk extractor keeps
+    # that blank line, so eating it here makes the Windows install one byte
+    # shorter than the bash install for every rewritten SKILL.md — a cross-shell
+    # parity break the CI parity job exists to catch.
+    $body = $raw -replace '(?s)^---\s*\r?\n.*?\r?\n---[ \t]*\r?\n', ''
 
     # Cursor-native frontmatter + original body.
     $newFrontmatter = @(
@@ -701,7 +708,12 @@ function Write-AgentSkillFrontmatter {
         if ($fm -match '(?m)^name:\s*(.+)$')        { $name = $Matches[1].Trim() }
         if ($fm -match '(?m)^description:\s*(.+)$') { $description = $Matches[1].Trim() }
     }
-    $body = $raw -replace '(?s)^---\s*\r?\n.*?\r?\n---\s*\r?\n', ''
+    # Match the closing delimiter with `---[ \t]*\r?\n` (horizontal whitespace
+    # only). A greedy `\s*` would also consume the blank line after the closing
+    # `---`, which install.sh's awk body extractor preserves; dropping it here
+    # makes the Windows install one byte shorter than the bash install for every
+    # rewritten SKILL.md (see cross-shell parity job).
+    $body = $raw -replace '(?s)^---\s*\r?\n.*?\r?\n---[ \t]*\r?\n', ''
     $body = Convert-CrossLinksForFlatInstall -Body $body
 
     $quotedDescription = Format-YamlDoubleQuoted -RawValue $description
