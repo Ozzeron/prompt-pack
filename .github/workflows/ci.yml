@@ -93,6 +93,13 @@ jobs:
           git init -q
           $GITHUB_WORKSPACE/install.sh --target claude-code --profile fullstack --dry-run
 
+      - name: Dry-run install (claude-skills / fullstack) into temp dir
+        run: |
+          mkdir -p /tmp/test-claude-skills
+          cd /tmp/test-claude-skills
+          git init -q
+          $GITHUB_WORKSPACE/install.sh --target claude-skills --profile fullstack --dry-run
+
       - name: Dry-run install (openclaw / all) into temp dir
         run: |
           mkdir -p /tmp/test-openclaw
@@ -141,10 +148,21 @@ jobs:
           git init -q
           & "$env:GITHUB_WORKSPACE\install.ps1" -Target cursor -Profile minimal -DryRun
 
+      - name: Dry-run install (claude-skills / fullstack, Windows)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "$env:TEMP\test-claude-skills" -Force | Out-Null
+          Set-Location "$env:TEMP\test-claude-skills"
+          git init -q
+          & "$env:GITHUB_WORKSPACE\install.ps1" -Target claude-skills -Profile fullstack -DryRun
+
       - name: Assert dry-run did not write files
         shell: pwsh
         run: |
           if (Test-Path "$env:TEMP\test-raw\docs\ai-rules") {
             throw "DryRun created docs\ai-rules - safety contract violated"
+          }
+          if (Test-Path "$env:TEMP\test-claude-skills\.claude") {
+            throw "DryRun created .claude - safety contract violated"
           }
           Write-Host "OK: no files written by dry-run"

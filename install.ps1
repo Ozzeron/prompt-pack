@@ -8,7 +8,7 @@
   loose markdown for any other tool).
 
 .PARAMETER Target
-  Where to install. One of: cursor, cursor-foundation, cursor-rules, agents, claude-code, codex, codex-agents-md, openclaw, raw
+  Where to install. One of: cursor, cursor-foundation, cursor-rules, agents, claude-skills, claude-code, codex, codex-agents-md, openclaw, raw
 
   - cursor            : Cursor 2.4+ Skills-native install. Writes most skills
                         to `.cursor/skills/<name>/SKILL.md` (Agent Skills
@@ -53,12 +53,22 @@
                         into one AGENTS.md, capped at 32 KiB (Codex default
                         project_doc_max_bytes). Use only for hosts that do
                         not yet support `.agents/skills/`.
+  - claude-skills     : Claude Code native Agent Skills. Writes each skill to
+                        `.claude/skills/<name>/SKILL.md` (or to
+                        `$HOME/.claude/skills/` when -Scope user). Skills are
+                        discovered by name + description; `meta/task-router`
+                        is filtered out because Claude Code's own skill
+                        discovery is the router. Recommended for Claude Code.
+  - claude-code       : Legacy Claude Code subagents. Copies each skill to
+                        `.claude/agents/<name>.md`. Prefer -Target claude-skills
+                        on current Claude Code builds.
 
 .PARAMETER Scope
-  Codex install scope. One of: repo (default), user. Only used when
-  -Target codex. `repo` writes to `<project>/.agents/skills/`; `user`
-  writes to `$HOME/.agents/skills/` so every Codex session inherits the
-  skills regardless of the working directory.
+  Install scope for the codex and claude-skills targets. One of: repo
+  (default), user. `repo` writes into the project (`.agents/skills/` or
+  `.claude/skills/`); `user` writes to the home directory
+  (`$HOME/.agents/skills/` or `$HOME/.claude/skills/`) so every session
+  inherits the skills regardless of the working directory.
 
 .PARAMETER Profile
   Which skill bundle to install. One of: minimal, nextjs, backend, supabase,
@@ -81,7 +91,7 @@
   .\install.ps1 -Target cursor -Profile minimal
 
 .EXAMPLE
-  .\install.ps1 -Target codex -Profile supabase -Path ~\code\project-a
+  .\install.ps1 -Target codex -Profile supabase -Path ~\code\your-project
 
 .EXAMPLE
   .\install.ps1 -Target cursor -Skills meta/engineering-principles, architecture/frontend-feature
@@ -103,7 +113,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet('cursor', 'cursor-foundation', 'cursor-rules', 'agents', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw')]
+    [ValidateSet('cursor', 'cursor-foundation', 'cursor-rules', 'agents', 'claude-skills', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw')]
     [string]$Target,
 
     [Parameter(Mandatory = $false)]
@@ -246,7 +256,7 @@ function Show-List {
     foreach ($s in (Get-AllSkills)) { Write-Host "  $s" -ForegroundColor Gray }
 
     Write-Host "`nAvailable targets:" -ForegroundColor Cyan
-    'cursor', 'cursor-foundation', 'cursor-rules', 'agents', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw' | ForEach-Object {
+    'cursor', 'cursor-foundation', 'cursor-rules', 'agents', 'claude-skills', 'claude-code', 'codex', 'codex-agents-md', 'openclaw', 'raw' | ForEach-Object {
         Write-Host "  $_" -ForegroundColor Gray
     }
 }
@@ -334,6 +344,14 @@ function Test-AgentConfigCollision {
         'cursor-foundation' { if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' } }
         'cursor-rules'    { if (Test-Path (Join-Path $ProjectPath '.cursor\rules'))  { $hits += '.cursor/rules/' } }
         'agents'          { if (Test-Path (Join-Path $ProjectPath '.agents\skills')) { $hits += '.agents/skills/' } }
+        'claude-skills'   {
+            if ($Scope -eq 'user') {
+                $userSkills = Join-Path $env:USERPROFILE '.claude\skills'
+                if (Test-Path $userSkills) { $hits += '~/.claude/skills/' }
+            } else {
+                if (Test-Path (Join-Path $ProjectPath '.claude\skills')) { $hits += '.claude/skills/' }
+            }
+        }
         'claude-code'     { if (Test-Path (Join-Path $ProjectPath '.claude\agents')) { $hits += '.claude/agents/' } }
         'codex'           {
             if ($Scope -eq 'user') {
@@ -930,6 +948,72 @@ function Write-CursorBridgeRule {
     Copy-Item -Path $templatePath -Destination $DestPath -Force
 }
 
+# Claude Code native Agent Skills. Same directory-per-skill layout as the
+# `agents` target (Claude Code reads name + description from the frontmatter
+# and loads the full SKILL.md on selection), but rooted at .claude/skills/
+# (repo scope) or $HOME/.claude/skills/ (user scope). meta/task-router is
+# filtered: Claude Code's own skill discovery is the router, same reasoning
+# as the cursor / agents targets.
+function Install-ClaudeSkills {
+    param([string[]]$SkillList, [string]$ProjectPath, [string]$Scope = 'repo')
+
+    if ($Scope -eq 'user') {
+        $skillsRoot = Join-Path $env:USERPROFILE '.claude\skills'
+        $scopeLabel = 'user (~/.claude/skills/)'
+    } else {
+        $skillsRoot = Join-Path $ProjectPath '.claude\skills'
+        $scopeLabel = 'repo (.claude/skills/)'
+    }
+
+    Write-Host "`nInstalling Claude Code Agent Skills to $skillsRoot" -ForegroundColor Cyan
+    Write-Host "  (scope: $scopeLabel; skills are discovered by name + description)`n" -ForegroundColor DarkGray
+
+    $SkillList = Select-SkillsForCursorOrAgents -SkillList $SkillList
+
+    if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $skillsRoot | Out-Null }
+
+    foreach ($skill in $SkillList) {
+        $name = ($skill -split '/')[-1]
+        $srcDir = Join-Path $PromptsRoot ($skill -replace '/', '\')
+        $src    = Join-Path $srcDir 'SKILL.md'
+        if (-not (Test-Path $srcDir)) { Write-Host "  Missing: $srcDir" -ForegroundColor Red; continue }
+
+        $destDir = Join-Path $skillsRoot $name
+
+        if ($DryRun) {
+            $action = if (Test-Path $destDir) { 'replace (existing renamed to .bak)' } else { 'create' }
+            Write-Host "  [dry-run] would $action $destDir" -ForegroundColor DarkCyan
+            continue
+        }
+
+        if (Test-Path $destDir) {
+            if (-not $Force -and -not $Script:ForceAll) {
+                $resp = Read-Host "  Replace $destDir? Existing will be renamed to <name>.bak-<timestamp>. [y/N/a]"
+                if ($resp -match '^[aA]$') {
+                    $Script:ForceAll = $true
+                    Write-Host "  Yes to all: subsequent skills will be replaced without prompting." -ForegroundColor DarkGray
+                } elseif ($resp -notmatch '^[yY]$') {
+                    Write-Host "  Skipped." -ForegroundColor Yellow; continue
+                }
+            }
+            $backup = Backup-Directory -DirPath $destDir
+            if ($backup) { Write-Host "  Backed up to $backup" -ForegroundColor DarkYellow }
+        }
+
+        Copy-Item -Path $srcDir -Destination $destDir -Recurse -Force
+
+        # Rewrite frontmatter to Agent Skills schema (name + description only).
+        $skillFile = Join-Path $destDir 'SKILL.md'
+        if (Test-Path $skillFile) {
+            Write-AgentSkillFrontmatter -SrcPath $src -DestPath $skillFile
+        }
+
+        Write-Host "  Wrote $destDir  (Claude Code skill: $name)" -ForegroundColor Green
+    }
+
+    Write-Host "`nDone. Claude Code will pick up the skills on next start (invoke with /<skill-name>)." -ForegroundColor Cyan
+}
+
 function Install-ClaudeCode {
     param([string[]]$SkillList, [string]$ProjectPath)
 
@@ -1429,7 +1513,7 @@ function Install-Raw {
 if ($List) { Show-List; exit 0 }
 
 if (-not $Target) {
-    Write-Host "Error: -Target is required (cursor / cursor-foundation / cursor-rules / agents / claude-code / codex / codex-agents-md / openclaw / raw)." -ForegroundColor Red
+    Write-Host "Error: -Target is required (cursor / cursor-foundation / cursor-rules / agents / claude-skills / claude-code / codex / codex-agents-md / openclaw / raw)." -ForegroundColor Red
     Write-Host "Run with -List to see available profiles and skills."
     exit 1
 }
@@ -1481,6 +1565,7 @@ switch ($Target) {
     'cursor-foundation' { Install-CursorFoundation -SkillList $skillList -ProjectPath $projectPath }
     'cursor-rules'      { Install-CursorRules      -SkillList $skillList -ProjectPath $projectPath }
     'agents'            { Install-Agents           -SkillList $skillList -ProjectPath $projectPath }
+    'claude-skills'     { Install-ClaudeSkills     -SkillList $skillList -ProjectPath $projectPath -Scope $Scope }
     'claude-code'       { Install-ClaudeCode       -SkillList $skillList -ProjectPath $projectPath }
     'codex'             { Install-Codex            -SkillList $skillList -ProjectPath $projectPath -Scope $Scope }
     'codex-agents-md'   { Install-CodexAgentsMd    -SkillList $skillList -ProjectPath $projectPath }

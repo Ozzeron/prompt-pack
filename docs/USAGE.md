@@ -16,7 +16,7 @@ in projects where you want the latest.
 
 ## Targets
 
-The installer supports nine targets. Pick one based on your AI tool:
+The installer supports ten targets. Pick one based on your AI tool:
 
 | Target            | Output location | Tool |
 |-------------------|----------------|------|
@@ -24,7 +24,8 @@ The installer supports nine targets. Pick one based on your AI tool:
 | `cursor-foundation` | `<project>/.cursor/rules/*.mdc` (three foundation rules only, no `.cursor/skills/`) | Cursor 2.4+ — pair with `agents` to avoid duplicate skill roots |
 | `cursor-rules`    | `<project>/.cursor/rules/*.mdc` (every skill + bridge router) | Cursor builds older than 2.4 / rules-only flow |
 | `agents`          | `<project>/.agents/skills/<name>/SKILL.md` (no AGENTS.md) | Cursor 2.4+, Codex CLI, GitHub Copilot — one install for all three |
-| `claude-code`     | `<project>/.claude/agents/` | Claude Code |
+| `claude-skills`   | `<project>/.claude/skills/<name>/SKILL.md` (or `~/.claude/skills/` with `--scope user`) | Claude Code (native Agent Skills) |
+| `claude-code`     | `<project>/.claude/agents/` | Claude Code (legacy subagents — prefer `claude-skills`) |
 | `codex`           | `<project>/.agents/skills/<name>/SKILL.md` + compact `<project>/AGENTS.md` | OpenAI Codex CLI / IDE / app (native skills format) |
 | `codex-agents-md` | `<project>/AGENTS.md` (single merged file) | Legacy Codex installs without `.agents/skills/` support |
 | `openclaw`        | `<project>/skills/<name>/` (full directories) | OpenClaw workspace |
@@ -216,10 +217,10 @@ Use `agents` when you want Codex + Cursor + Copilot all activated from a
 single install with no AGENTS.md noise. Use `codex` when you specifically
 want the Codex AGENTS.md router (multilingual aliases, routing table).
 
-`meta/task-router` is filtered out of this target's skill list: it's
-written for the OpenClaw / Claude Code subagent-orchestration model and
-fights Codex / Cursor / Copilot's native skill matchers. The legacy
-`cursor-rules` and OpenClaw / Claude Code / Codex targets keep it.
+`meta/task-router` is filtered out of this target's skill list (and out of
+`claude-skills`): it's written for the OpenClaw / Claude Code
+subagent-orchestration model and fights the hosts' native skill matchers.
+The legacy `cursor-rules` and OpenClaw / Claude Code / Codex targets keep it.
 
 ### Layering for Cursor users
 
@@ -272,17 +273,41 @@ and each writes only what belongs in its tree.
 
 ## Claude Code
 
-Claude Code picks up subagents from `.claude/agents/*.md` automatically. Description
-matching activates the right subagent for the task.
+Claude Code supports Agent Skills natively: each skill is a directory with a
+`SKILL.md` under `.claude/skills/` (project) or `~/.claude/skills/` (user).
+Claude reads `name` + `description` from the frontmatter to decide relevance
+and loads the full skill on selection — same progressive-disclosure model as
+Cursor 2.4+ and Codex. This is the recommended target:
 
 ```bash
 cd ~/code/your-project
-~/code/prompt-pack/install.sh --target claude-code --profile fullstack
+~/code/prompt-pack/install.sh --target claude-skills --profile fullstack
+
+# Or install once for every project on the machine:
+~/code/prompt-pack/install.sh --target claude-skills --profile fullstack --scope user
 ```
 
 ```powershell
 cd ~\code\your-project
-& ~\code\prompt-pack\install.ps1 -Target claude-code -Profile fullstack
+& ~\code\prompt-pack\install.ps1 -Target claude-skills -Profile fullstack
+
+# Or install once for every project on the machine:
+& ~\code\prompt-pack\install.ps1 -Target claude-skills -Profile fullstack -Scope user
+```
+
+Skills activate on description match, and you can invoke one explicitly by
+typing `/<skill-name>` (e.g. `/code-review`). `meta/task-router` is filtered
+out of this target — Claude Code's own skill discovery is the router.
+
+### Legacy: subagents
+
+The older `claude-code` target copies each skill to `.claude/agents/<name>.md`,
+turning it into a subagent. Subagents run in a separate context window, which
+is useful for isolation but means they don't share the main conversation.
+Prefer `claude-skills` unless you specifically want the subagent model:
+
+```bash
+~/code/prompt-pack/install.sh --target claude-code --profile fullstack
 ```
 
 No reload needed — Claude Code reads `.claude/agents/` on each invocation.
@@ -500,7 +525,7 @@ cd ~\code\your-project
 The installer runs pre-flight checks and warns when:
 
 - Agent-config already exists at the target location (`.cursor/rules/`,
-  `.claude/agents/`, `AGENTS.md`, `skills/`, `docs/ai-rules/`)
+  `.claude/skills/`, `.claude/agents/`, `AGENTS.md`, `skills/`, `docs/ai-rules/`)
 - The git working tree is dirty (so you can review changes via `git diff` afterwards)
 - The directory isn't a git repo (so undoing requires manual deletion)
 

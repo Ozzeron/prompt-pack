@@ -10,7 +10,8 @@
  * - For non-meta skills: required sections present in order
  *   (When to use → Scope → Inherits → Token discipline → Process → Output format → Anti-patterns)
  * - All internal markdown links to ../...SKILL.md resolve
- * - No project-specific leakage (Ozzeron, project-a, project-b-fit, med-project-c, acme-data, etc.)
+ * - No project-specific leakage (private terms are stored as SHA-256 hashes in
+ *   scripts/leakage-hashes.json; see scripts/leakage-hash.mjs to add one)
  * - All profiles in install.ps1 / install.sh reference existing skills
  * - All references in task-router active table point to existing skills
  *
@@ -20,6 +21,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import YAML from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -63,23 +65,62 @@ const CODE_CREATING_SKILLS = new Set([
   'delivery/ai-agent-docs',
 ]);
 
+// Plain-text leakage terms are limited to what is public anyway (the repo
+// owner's handle). Everything private — project codenames, employer names,
+// personal @handles that previously slipped into example ADR deciders — lives
+// as SHA-256 hashes in scripts/leakage-hashes.json so the blocklist itself
+// does not republish the very terms it exists to keep out of the pack.
+// Canonical placeholder names (alice, bob) are the safe substitutes in skills.
 const LEAKAGE_TERMS = [
   /\bozzeron\b/i,
-  /\bproject-a\b/i,
-  /\bproject-b[-\s]?fit\b/i,
-  /\bmed[-\s]?project-c\b/i,
-  /\bacme-data\b/i,
-  /\betl-tool\b/i,
-  /\bproject-d\b/i,
-  // Personal first names that previously slipped into example ADR deciders.
-  // Canonical placeholder names (alice, bob) are the safe substitutes.
-  /@alice\b/i,
-  /@bob\b/i,
-  /@alice\b/i,
-  /@carol\b/i,
-  /@dave\b/i,
-  /@erin\b/i,
 ];
+
+// Hashed private-term blocklist. Each entry is sha256(normalize(term)) where
+// normalize() lowercases and strips every char outside [a-z0-9@]. Use
+// `node scripts/leakage-hash.mjs "<term>"` to generate an entry.
+const LEAKAGE_HASHES_PATH = join(__dirname, 'leakage-hashes.json');
+
+function loadLeakageHashes() {
+  if (!existsSync(LEAKAGE_HASHES_PATH)) return new Set();
+  const parsed = JSON.parse(readFileSync(LEAKAGE_HASHES_PATH, 'utf8'));
+  return new Set(parsed.hashes || []);
+}
+
+function normalizeLeakageTerm(term) {
+  return term.toLowerCase().replace(/[^a-z0-9@]/g, '');
+}
+
+// Scan content for tokens (and adjacent token pairs, to catch hyphenated or
+// spaced spellings like "some-name" / "some name") whose normalized hash is
+// on the private blocklist.
+function checkHashedLeakage(content, hashes) {
+  if (hashes.size === 0) return [];
+  const hits = [];
+  const lower = content.toLowerCase();
+  const tokenRe = /@?[a-z0-9]+/g;
+  const tokens = [];
+  let m;
+  while ((m = tokenRe.exec(lower)) !== null) {
+    tokens.push({ text: m[0], start: m.index, end: m.index + m[0].length });
+  }
+  const seen = new Set();
+  const tryCandidate = (text, raw) => {
+    const hash = createHash('sha256').update(normalizeLeakageTerm(text)).digest('hex');
+    if (hashes.has(hash) && !seen.has(raw)) {
+      seen.add(raw);
+      hits.push(raw);
+    }
+  };
+  for (let i = 0; i < tokens.length; i++) {
+    tryCandidate(tokens[i].text, tokens[i].text);
+    // Adjacent pair joined across a short separator (hyphen, space, underscore).
+    if (i + 1 < tokens.length && tokens[i + 1].start - tokens[i].end <= 3) {
+      const raw = lower.slice(tokens[i].start, tokens[i + 1].end);
+      tryCandidate(tokens[i].text + tokens[i + 1].text, raw);
+    }
+  }
+  return hits;
+}
 
 function findSkillFiles() {
   const skills = [];
@@ -177,12 +218,15 @@ function checkLinks(body, fromPath) {
   return failures;
 }
 
+const LEAKAGE_HASHES = loadLeakageHashes();
+
 function checkLeakage(content) {
   const hits = [];
   for (const re of LEAKAGE_TERMS) {
     const m = content.match(re);
     if (m) hits.push(m[0]);
   }
+  hits.push(...checkHashedLeakage(content, LEAKAGE_HASHES));
   return hits;
 }
 
