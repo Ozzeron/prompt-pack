@@ -2,7 +2,7 @@
 name: code-review
 description: Review a diff or pull request. Severity-classified, actionable, focused on correctness, security, and maintainability.
 category: review
-version: 0.4.1
+version: 0.4.2
 triggers: ["review this PR", "review diff", "code review", "review my changes"]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -51,7 +51,7 @@ If you cannot tick all four, stop and ask. Do not start reading.
 - Before merging, before deploying, when a refactor lands
 
 Do not invoke for greenfield work (use `architecture/*`) or for full-codebase audits
-(use `review/frontend-audit` or `review/backend-audit`).
+(use `review/frontend-audit` or `review/repo-audit`).
 
 ## Scope
 

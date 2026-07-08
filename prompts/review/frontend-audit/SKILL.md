@@ -2,7 +2,7 @@
 name: frontend-audit
 description: Critical audit of an existing frontend. Architecture, DRY, UI behaviour, performance, state, types, a11y.
 category: review
-version: 0.1.0
+version: 0.1.1
 triggers: [audit, "review the frontend", "code quality", "architecture review"]
 applies_to: [openclaw, cursor, claude-code]
 ---
@@ -34,7 +34,7 @@ In scope:
 - Common code smells and AI-generated artifacts
 
 Out of scope:
-- Backend, API, or database design (use `review/backend-audit`)
+- Backend, API, or database design (use `review/repo-audit`, or `review/database-review` for the database part)
 - Visual design language / brand decisions (use `interface/ui-designer`)
 - Full rewrites — propose incremental fixes only
 
