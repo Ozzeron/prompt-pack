@@ -277,7 +277,35 @@ Claude Code supports Agent Skills natively: each skill is a directory with a
 `SKILL.md` under `.claude/skills/` (project) or `~/.claude/skills/` (user).
 Claude reads `name` + `description` from the frontmatter to decide relevance
 and loads the full skill on selection — same progressive-disclosure model as
-Cursor 2.4+ and Codex. This is the recommended target:
+Cursor 2.4+ and Codex.
+
+### Plugin marketplace (recommended — no clone needed)
+
+The repo doubles as a Claude Code plugin marketplace
+(`.claude-plugin/marketplace.json`). Add it once and install a profile plugin:
+
+```
+/plugin marketplace add Ozzeron/prompt-pack
+/plugin install fullstack@prompt-pack
+```
+
+One plugin per installer profile: `minimal`, `nextjs`, `backend`, `supabase`,
+`fullstack`, `all-skills`. The profiles overlap by design (each includes the
+minimal core), so install exactly ONE — two profile plugins side by side would
+duplicate the shared skills in discovery. Switch profiles with
+`/plugin uninstall` + `/plugin install`; update with `/plugin update`.
+Plugins install to user scope by default and work across all your projects.
+
+`meta/task-router` is excluded from every plugin — Claude Code's native skill
+discovery does the routing. Note that Claude Code ships built-in `/code-review`
+and `/security-review` commands; the pack's same-named skills coexist under the
+plugin namespace but you may prefer a profile without them if you find the
+overlap noisy.
+
+### Installer (`claude-skills` target)
+
+If you prefer the clone-and-install flow (e.g. to vendor skills into a repo so
+teammates get them without adding a marketplace), use the installer:
 
 ```bash
 cd ~/code/your-project
