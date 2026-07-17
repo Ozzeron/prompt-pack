@@ -121,9 +121,25 @@ prompts/<category>/<name>/
 ## How to use
 
 The pack ships with an installer for each major AI tool. One command, six profiles, ten
-targets. Detailed guidance lives in [`docs/USAGE.md`](docs/USAGE.md).
+targets. Claude Code users can skip the installer entirely and use the plugin
+marketplace. Detailed guidance lives in [`docs/USAGE.md`](docs/USAGE.md).
 
 ### Quick start
+
+#### Claude Code (plugin — no clone needed)
+
+The repo is a Claude Code plugin marketplace. Add it once, then install one
+profile plugin (they overlap by design — pick ONE):
+
+```
+/plugin marketplace add Ozzeron/prompt-pack
+/plugin install fullstack@prompt-pack
+```
+
+Available plugins mirror the installer profiles: `minimal`, `nextjs`, `backend`,
+`supabase`, `fullstack`, `all-skills`. Skills activate on description match;
+`meta/task-router` is excluded — Claude Code's own skill discovery is the router.
+Updates ship with `/plugin update`, no re-clone or re-run needed.
 
 #### Linux / macOS (bash)
 

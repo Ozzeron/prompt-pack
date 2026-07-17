@@ -4,6 +4,21 @@ All notable changes to prompt-pack. Full release notes with details live in
 [GitHub Releases](https://github.com/Ozzeron/prompt-pack/releases); this file
 is the condensed history.
 
+## Unreleased
+
+- Claude Code plugin marketplace: `.claude-plugin/marketplace.json` at the repo root
+  exposes six profile plugins (`minimal`, `nextjs`, `backend`, `supabase`, `fullstack`,
+  `all-skills`) — `/plugin marketplace add Ozzeron/prompt-pack` then
+  `/plugin install <profile>@prompt-pack`, no clone or installer run needed.
+  `meta/task-router` is excluded from every plugin (native skill discovery routes).
+- New installer target `claude-skills`: Claude Code native Agent Skills
+  (`.claude/skills/<name>/SKILL.md`, `--scope user` for `~/.claude/skills/`).
+  Legacy `claude-code` subagents target unchanged; prefer `claude-skills`.
+- Lint: private leakage terms moved to a SHA-256 hash blocklist
+  (`scripts/leakage-hashes.json`); inline-ref and description-collision checks added.
+- CI: real-install assertions, Windows PowerShell 5.1 job, cross-shell parity job,
+  skill version-bump gate.
+
 ## v0.4.1 - 2026-05-13
 
 - Fixed Codex partial-profile installs so cross-skill links only stay as markdown links when the target skill is installed; missing targets are rendered as plain `$skill` references.

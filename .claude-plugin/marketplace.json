@@ -1,0 +1,147 @@
+{
+  "name": "prompt-pack",
+  "owner": {
+    "name": "Ozzeron",
+    "url": "https://github.com/Ozzeron"
+  },
+  "description": "Curated AI agent skills for coding work. Format-linted, profile-installed. Pick ONE profile plugin — they overlap by design, mirroring the installer profiles.",
+  "plugins": [
+    {
+      "name": "minimal",
+      "displayName": "Prompt Pack — Minimal",
+      "description": "Core discipline only: engineering principles, reuse-before-create, token discipline, handoff. The 4-skill foundation every other profile builds on.",
+      "source": "./",
+      "skills": [
+        "./prompts/meta/engineering-principles",
+        "./prompts/meta/reuse-before-create",
+        "./prompts/meta/token-discipline",
+        "./prompts/delivery/handoff"
+      ],
+      "keywords": ["discipline", "dry", "foundation"]
+    },
+    {
+      "name": "nextjs",
+      "displayName": "Prompt Pack — Next.js / Frontend",
+      "description": "Minimal core plus frontend feature building, UI design, code review, repo audit, debugging, and test writing.",
+      "source": "./",
+      "skills": [
+        "./prompts/meta/engineering-principles",
+        "./prompts/meta/reuse-before-create",
+        "./prompts/meta/token-discipline",
+        "./prompts/delivery/handoff",
+        "./prompts/architecture/frontend-feature",
+        "./prompts/interface/ui-designer",
+        "./prompts/review/code-review",
+        "./prompts/review/repo-audit",
+        "./prompts/review/debugger",
+        "./prompts/delivery/test-writer"
+      ],
+      "keywords": ["frontend", "nextjs", "react", "ui"]
+    },
+    {
+      "name": "backend",
+      "displayName": "Prompt Pack — Backend",
+      "description": "Minimal core plus backend API design, database schema and migrations, database review, security review, code review, repo audit, debugging, and test writing.",
+      "source": "./",
+      "skills": [
+        "./prompts/meta/engineering-principles",
+        "./prompts/meta/reuse-before-create",
+        "./prompts/meta/token-discipline",
+        "./prompts/delivery/handoff",
+        "./prompts/architecture/backend-api",
+        "./prompts/architecture/database-schema",
+        "./prompts/architecture/database-migrations",
+        "./prompts/review/code-review",
+        "./prompts/review/repo-audit",
+        "./prompts/review/database-review",
+        "./prompts/review/security-review",
+        "./prompts/review/debugger",
+        "./prompts/delivery/test-writer"
+      ],
+      "keywords": ["backend", "api", "database", "sql"]
+    },
+    {
+      "name": "supabase",
+      "displayName": "Prompt Pack — Supabase",
+      "description": "The backend profile plus Postgres/Supabase specifics: RLS, migration workflow, schema cache, auth integration.",
+      "source": "./",
+      "skills": [
+        "./prompts/meta/engineering-principles",
+        "./prompts/meta/reuse-before-create",
+        "./prompts/meta/token-discipline",
+        "./prompts/delivery/handoff",
+        "./prompts/architecture/backend-api",
+        "./prompts/architecture/database-schema",
+        "./prompts/architecture/database-migrations",
+        "./prompts/architecture/postgres-supabase",
+        "./prompts/review/code-review",
+        "./prompts/review/repo-audit",
+        "./prompts/review/database-review",
+        "./prompts/review/security-review",
+        "./prompts/review/debugger",
+        "./prompts/delivery/test-writer"
+      ],
+      "keywords": ["supabase", "postgres", "rls", "backend"]
+    },
+    {
+      "name": "fullstack",
+      "displayName": "Prompt Pack — Fullstack",
+      "description": "Frontend plus backend plus every review skill: architecture, UI, database, security, duplication audit, refactor planning, docs. task-router is excluded — Claude Code's native skill discovery does the routing.",
+      "source": "./",
+      "skills": [
+        "./prompts/meta/engineering-principles",
+        "./prompts/meta/reuse-before-create",
+        "./prompts/meta/token-discipline",
+        "./prompts/architecture/backend-api",
+        "./prompts/architecture/frontend-feature",
+        "./prompts/architecture/database-schema",
+        "./prompts/architecture/database-migrations",
+        "./prompts/architecture/postgres-supabase",
+        "./prompts/architecture/refactor-planner",
+        "./prompts/interface/ui-designer",
+        "./prompts/review/code-review",
+        "./prompts/review/repo-audit",
+        "./prompts/review/frontend-audit",
+        "./prompts/review/database-review",
+        "./prompts/review/security-review",
+        "./prompts/review/duplication-audit",
+        "./prompts/review/debugger",
+        "./prompts/delivery/handoff",
+        "./prompts/delivery/test-writer",
+        "./prompts/delivery/doc-writer"
+      ],
+      "keywords": ["fullstack", "frontend", "backend", "review"]
+    },
+    {
+      "name": "all-skills",
+      "displayName": "Prompt Pack — Everything",
+      "description": "Every skill in the pack except task-router (Claude Code's native skill discovery does the routing): the fullstack profile plus AI agent docs and Docker.",
+      "source": "./",
+      "skills": [
+        "./prompts/meta/engineering-principles",
+        "./prompts/meta/reuse-before-create",
+        "./prompts/meta/token-discipline",
+        "./prompts/architecture/backend-api",
+        "./prompts/architecture/frontend-feature",
+        "./prompts/architecture/database-schema",
+        "./prompts/architecture/database-migrations",
+        "./prompts/architecture/postgres-supabase",
+        "./prompts/architecture/refactor-planner",
+        "./prompts/infra/docker",
+        "./prompts/interface/ui-designer",
+        "./prompts/review/code-review",
+        "./prompts/review/repo-audit",
+        "./prompts/review/frontend-audit",
+        "./prompts/review/database-review",
+        "./prompts/review/security-review",
+        "./prompts/review/duplication-audit",
+        "./prompts/review/debugger",
+        "./prompts/delivery/handoff",
+        "./prompts/delivery/test-writer",
+        "./prompts/delivery/doc-writer",
+        "./prompts/delivery/ai-agent-docs"
+      ],
+      "keywords": ["all", "complete", "fullstack", "docker", "agents"]
+    }
+  ]
+}
