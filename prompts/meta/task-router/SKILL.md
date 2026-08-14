@@ -1,10 +1,12 @@
 ---
 name: task-router
-description: Orchestrator skill. Maps user requests to the right specialist prompt and decides when to spawn subagents.
-category: meta
-version: 0.3.0
-triggers: ["add a feature", "build", "implement", "refactor", "fix bug", "review this", "audit", "design", "migrate", orchestration, "multi-step"]
-applies_to: [openclaw, claude-code]
+description: "Legacy routing table for hosts without native skill discovery: maps a request to the right specialist skill and defines composed flows such as review followed by a security pass. Use when running the pack on a pre-Agent-Skills setup, such as plain rules files or a custom orchestrator, that cannot match skills by description. Not for native hosts (Claude Code, Cursor, Codex), which route by description and exclude this skill."
+license: MIT
+metadata:
+  pp-category: meta
+  pp-version: "0.4.0"
+  pp-activation: legacy
+  pp-surfaces: "openclaw, claude-code"
 ---
 
 # Task Router

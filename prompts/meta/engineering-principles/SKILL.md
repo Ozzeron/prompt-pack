@@ -1,10 +1,12 @@
 ---
 name: engineering-principles
-description: Cross-cutting engineering standards every coding skill inherits. DRY, modular, type-safe, maintainable, modern.
-category: meta
-version: 0.1.0
-triggers: [inherit-only]
-applies_to: [openclaw, cursor, claude-code, generic]
+description: "Cross-cutting code standards every building skill inherits: file and function size ceilings, single responsibility, type safety at trust boundaries, naming, the bar a new dependency must clear, state placement, and error handling. Inherited by reference from other skills, never matched against a user request. Use when a skill Inherits section points here. Not for direct activation."
+license: MIT
+metadata:
+  pp-category: meta
+  pp-version: "0.2.0"
+  pp-activation: inherit-only
+  pp-surfaces: "openclaw, cursor, claude-code, generic"
 ---
 
 # Engineering Principles

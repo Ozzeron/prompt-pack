@@ -1,10 +1,12 @@
 ---
 name: postgres-supabase
-description: Postgres + Supabase specifics — RLS, migration workflow, schema cache, auth integration, common pitfalls.
-category: architecture
-version: 0.1.0
-triggers: ["supabase", "RLS", "row level security", "auth.uid", "supabase migration"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Handles Postgres and Supabase specifics: row-level security policies, auth.uid() and auth.users integration, the supabase CLI migration workflow, PostgREST and schema-cache quirks, and storage bucket policies. Use when the project runs on Supabase, when RLS blocks or leaks rows, or when PostgREST returns a schema-cache error. Not for vendor-neutral schema design (database-schema) or non-Postgres databases."
+license: MIT
+metadata:
+  pp-category: architecture
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Postgres + Supabase
@@ -147,38 +149,7 @@ Notes:
 - `ON DELETE CASCADE` mirrors auth deletes. Decide if you actually want this — for soft
   delete, drop the cascade and handle in app code.
 
-## Migration workflow
-
-Pick **one** workflow per project and stick to it:
-
-### Option A — Supabase CLI (recommended for new projects)
-```bash
-supabase migration new add_orders_table
-# edit the file
-supabase db push          # to local
-supabase db push --linked # to remote (after staging)
-```
-
-### Option B — Custom apply script (for projects that started without CLI)
-Common in Supabase projects that pre-date the migration CLI. Pattern:
-
-```
-supabase/migrations/
-  20260101_initial.sql
-  20260102_add_orders.sql
-  ...
-scripts/apply-migrations.mjs   # reads files in order, runs against DB_URL
-```
-
-The script must:
-- Be idempotent (track applied migrations in a table)
-- Wrap each migration in a transaction unless the file requires `CONCURRENTLY`
-- Fail loud on errors
-
-### Option C — Dashboard SQL editor
-For one-off ops only. Anything ongoing goes into version control as a migration file.
-
-**Whichever you pick, never mix.** Dashboard edits + CLI migrations = drift.
+> **Detail:** read [Migration workflow options](references/migration-workflow.md) when the task applies migrations (Supabase CLI, custom script, or dashboard SQL).
 
 ## Schema cache (PostgREST)
 
@@ -207,22 +178,7 @@ scripts must include it.
 - ❌ Dropping a column that an RLS policy references — policy breaks silently
 - ❌ Migration scripts that don't `NOTIFY pgrst, 'reload schema'` — REST API 404s
 
-## Indexes specific to Supabase patterns
-
-For RLS-heavy tables:
-- Index every column referenced in policies (`user_id`, `org_id`, etc.)
-- Composite indexes leading with the tenant column: `(user_id, created_at DESC)` for "my recent X"
-
-For full-text search via `pg_trgm`:
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX <table>_<col>_trgm_idx ON <table> USING gin (<col> gin_trgm_ops);
-```
-
-For `jsonb` filters that are hot:
-```sql
-CREATE INDEX <table>_<col>_gin_idx ON <table> USING gin (<col> jsonb_path_ops);
-```
+> **Detail:** read [Indexes for Supabase access patterns](references/indexes.md) when you are adding indexes or an RLS policy is slow.
 
 ## Output format
 

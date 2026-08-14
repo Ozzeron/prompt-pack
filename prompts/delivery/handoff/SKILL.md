@@ -1,10 +1,12 @@
 ---
 name: handoff
-description: Wrap up a coding task with a clear summary of what changed, how to verify, what's risky, and what was left out.
-category: delivery
-version: 0.1.0
-triggers: ["summarise changes", "hand off", "PR description", "wrap up", "what did you change"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Closes out a coding task with a structured handoff: what changed and why, how to verify it, risks and known gaps, what was deliberately left out, and follow-ups. Use when the work is finished and the user asks to wrap up, summarise the changes, or draft a PR description, or when passing work to another agent or person. Not for one-line edits or quick answers, where the overhead beats the value."
+license: MIT
+metadata:
+  pp-category: delivery
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Code Handoff
@@ -83,6 +85,8 @@ Inherit [`meta/token-discipline`](../../meta/token-discipline/SKILL.md). Additio
 
 Drop sections that are empty. If there are no risks, no out-of-scope items, or no
 suggestions — omit those headings rather than writing "none".
+
+> **Detail:** read [worked handoffs](references/EXAMPLES.md) when you are unsure how much detail a handoff of this size warrants.
 
 ## Anti-patterns
 

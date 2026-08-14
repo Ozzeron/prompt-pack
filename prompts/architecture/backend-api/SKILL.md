@@ -1,10 +1,12 @@
 ---
 name: backend-api
-description: Build server-side endpoints, APIs, and data access. Security-aware, contract-first, framework-agnostic.
-category: architecture
-version: 0.1.0
-triggers: ["build endpoint", "new API", "REST", "GraphQL", "backend feature"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Builds server-side endpoints and data access: REST or GraphQL routes, input validation, auth flows, queries, and error contracts, contract-first and framework-agnostic. Use when adding an endpoint or API surface, wiring login, session, token, or permission logic, or writing server-side business logic that persists data. Not for pure UI work, hosting or container choices, or picking a framework for a greenfield project."
+license: MIT
+metadata:
+  pp-category: architecture
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Backend API Developer

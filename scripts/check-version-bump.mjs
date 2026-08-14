@@ -3,7 +3,7 @@
  * Version-bump gate.
  *
  * For every prompts/<category>/<name>/SKILL.md whose CONTENT changed versus the
- * merge-base with the target branch, require that the frontmatter `version`
+ * merge-base with the target branch, require that the frontmatter `metadata.pp-version`
  * field also changed. This keeps the CHANGELOG / release history honest: a
  * skill edit that ships without a version bump is invisible to anyone tracking
  * versions.
@@ -57,8 +57,16 @@ function parseVersion(content) {
   if (!m) return null;
   try {
     const data = YAML.parse(m[1]);
-    if (data && typeof data === 'object' && data.version !== undefined && data.version !== null) {
-      return String(data.version);
+    if (data && typeof data === 'object') {
+      // Current shape: metadata.pp-version. Pre-0.5 shape: a top-level `version` key.
+      // The fallback matters for the gate itself — the base ref of any PR opened around
+      // the migration still carries the old shape, and reading null there would report a
+      // spurious "no base version" instead of comparing the two.
+      const meta = data.metadata;
+      const fromMeta =
+        meta && typeof meta === 'object' && !Array.isArray(meta) ? meta['pp-version'] : undefined;
+      const version = fromMeta !== undefined && fromMeta !== null ? fromMeta : data.version;
+      if (version !== undefined && version !== null) return String(version);
     }
   } catch {
     /* malformed frontmatter — treat as no version */
@@ -150,7 +158,7 @@ function main() {
     const curVer = parseVersion(curContent);
 
     if (curVer === null) {
-      violations.push(`${newPath}: content changed but frontmatter has no 'version' field`);
+      violations.push(`${newPath}: content changed but frontmatter has no 'metadata.pp-version' field`);
       continue;
     }
     if (baseVer !== null && baseVer === curVer) {
@@ -167,7 +175,7 @@ function main() {
   if (violations.length > 0) {
     console.error('Version-bump gate FAILED:');
     for (const v of violations) console.error(`  - ${v}`);
-    console.error("\nEvery SKILL.md whose content changed must also bump its frontmatter 'version'.");
+    console.error("\nEvery SKILL.md whose content changed must also bump its frontmatter 'metadata.pp-version'.");
     process.exit(1);
   }
 

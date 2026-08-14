@@ -1,10 +1,12 @@
 ---
 name: database-schema
-description: Design a database schema. Naming, types, indexes, soft-delete, multi-tenant. Relational core + document-store notes.
-category: architecture
-version: 0.1.0
-triggers: ["design schema", "new table", "data model", "ER diagram"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Designs a database schema: table and column naming, key and type choices, indexes, soft-delete and audit columns, multi-tenant boundaries, plus document-store notes. Use when modelling new tables or collections, restructuring data such as one-to-many into many-to-many or splitting a god-table, or designing the data layer before the API. Not for query tuning (database-review) or writing the migration itself (database-migrations)."
+license: MIT
+metadata:
+  pp-category: architecture
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Database Schema Designer

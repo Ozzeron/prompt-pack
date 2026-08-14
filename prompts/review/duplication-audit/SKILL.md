@@ -1,10 +1,12 @@
 ---
 name: duplication-audit
-description: Find code duplication clusters and propose consolidations. Report-only; refactor-planner executes.
-category: review
-version: 0.1.0
-triggers: [find duplicates, audit duplication, DRY audit, check duplication, find repeated code, duplication report]
-applies_to: [openclaw, cursor, claude-code]
+description: "Maps duplication across a repo: copy-paste clusters, parallel implementations of the same logic, near-duplicate components and utils, ranked by consolidation payoff. Report only, it changes no code. Use when asked for a DRY or duplication audit, before a refactor sprint, or when a review mentioned duplication without enumerating it. Not for executing the consolidation (refactor-planner) or reviewing a diff (code-review)."
+license: MIT
+metadata:
+  pp-category: review
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Duplication Auditor

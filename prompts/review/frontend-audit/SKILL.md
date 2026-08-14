@@ -1,10 +1,12 @@
 ---
 name: frontend-audit
-description: Critical audit of an existing frontend. Architecture, DRY, UI behaviour, performance, state, types, a11y.
-category: review
-version: 0.1.1
-triggers: [audit, "review the frontend", "code quality", "architecture review"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Audits an existing frontend with no diff: component architecture, duplication, state placement, data-fetching patterns, render performance, type safety, UI states, and accessibility, ranked by severity against effort. Use when asked to assess a frontend, or when symptoms like a sluggish UI, recurring regressions, or fear of changing code need a diagnosis. Not for greenfield features or diff review (code-review)."
+license: MIT
+metadata:
+  pp-category: review
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Frontend Architecture Auditor

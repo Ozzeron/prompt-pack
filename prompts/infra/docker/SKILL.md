@@ -1,10 +1,12 @@
 ---
 name: docker
-description: Write or modify Dockerfile and docker-compose. Multi-stage, pinned base, secret-safe, cache-aware, non-root.
-category: infra
-version: 0.1.1
-triggers: ["write Dockerfile", "edit Dockerfile", "docker-compose", "containerize", "build image"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Writes and reviews Dockerfile, .dockerignore, and docker-compose files: multi-stage builds, pinned base images, non-root users, cache-friendly layer order, and secrets kept out of image layers. Use when containerising a service, editing a Dockerfile or compose file, or bumping a base image. Not for Kubernetes, Helm, ECS, or Swarm manifests, and not for editing CI pipelines unless explicitly asked."
+license: MIT
+metadata:
+  pp-category: infra
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Docker Discipline
@@ -15,7 +17,7 @@ correctly, run as a non-root user, and never bake secrets into layers. You are
 stack-agnostic — the rules below apply identically to Node, Python, Go, Java, Ruby, and
 anything else that gets containerised.
 
-See [`EXAMPLES.md`](./EXAMPLES.md) for annotated Dockerfile, `.dockerignore`, secret-mount,
+Read [annotated examples](references/EXAMPLES.md) when you need a reference Dockerfile, `.dockerignore`, secret-mount,
 and `docker-compose.yml` examples that pair with the rules in this file.
 
 ## Preflight (do this before writing or editing any container file)
@@ -131,7 +133,7 @@ Go, Java, Rust, bundled frontends, native modules).
 
 Shape: `FROM ... AS build` installs deps and produces the artifact; `FROM ... AS runtime`
 re-installs prod-only deps, copies the artifact from `build` via `COPY --from=build`,
-switches to a non-root `USER`, and runs with exec-form `CMD`. See **EXAMPLES.md** for the
+switches to a non-root `USER`, and runs with exec-form `CMD`. See [references/EXAMPLES.md](references/EXAMPLES.md) for the
 annotated full file.
 
 If the project already uses multi-stage, match its stage names. Do not rename `build` to
@@ -155,7 +157,7 @@ Same pattern for `pyproject.toml` / `poetry.lock`, `requirements.txt`, `go.mod` 
 - ❌ `ARG NPM_TOKEN=...` — the value is recorded in `docker history`, even if unset at runtime.
 - ❌ `ENV API_KEY=hardcoded` — visible in `docker inspect` and every layer below it.
 - ❌ `COPY .env .env` — bakes the file into the image; rebases of the image carry it forward.
-- ✅ Build-time secrets: BuildKit `--mount=type=secret` (see EXAMPLES.md for the full
+- ✅ Build-time secrets: BuildKit `--mount=type=secret` (see [references/EXAMPLES.md](references/EXAMPLES.md) for the full
   `RUN --mount` shape and the matching `docker build --secret` invocation).
 - ✅ Runtime secrets: injected by the orchestrator (`docker run --env-file`, compose
   `secrets:`, K8s `Secret`). The image declares the *name* it expects, not the value.
@@ -163,65 +165,7 @@ Same pattern for `pyproject.toml` / `poetry.lock`, `requirements.txt`, `go.mod` 
 If you find a secret in `ARG` or `ENV` in the existing Dockerfile, flag it as a finding
 before continuing — the value is already in the registry layers.
 
-### 5. `.dockerignore` exists and is not empty
-
-Without `.dockerignore`, `COPY . .` ships `.git/`, `.env`, `node_modules/`, build output,
-editor configs, and anything else in the working tree into the build context. Patterns
-commonly excluded when not needed in the build context: `.git`, `.env` and `.env.*`,
-dependency caches (`node_modules`, `.venv`, `__pycache__`), build output (`target`,
-`build`, `dist`), logs, editor metadata (`.idea`, `.vscode`), `.DS_Store`, the Dockerfile
-and `docker-compose*.yml` themselves, and `README.md`. **Re-include with `!path` when a
-file actually belongs in the build context** — e.g. `README.md` consumed by a packaging
-step, or a Dockerfile copied into the image for a metadata layer. See EXAMPLES.md for a
-starter `.dockerignore`.
-
-The build context is rebuilt every time you run `docker build`; an unfiltered context
-makes builds slower and leaks history into images.
-
-### 6. Run as non-root in the final stage
-
-The final stage runs the application. It must not be root.
-
-- ❌ Final stage with no `USER` directive — defaults to root.
-- ❌ `USER root` left in the final stage from an earlier copy or chown step.
-- ✅ Use the runtime image's built-in user where it exists (`USER node`, `USER nobody`),
-  or create one explicitly with `groupadd --system` + `useradd --system` in a single
-  `RUN` layer before the final `USER` switch (see EXAMPLES.md).
-
-Any `chown`, `chmod`, or `apt-get install` belongs **before** the final `USER` switch,
-not after.
-
-### 7. `HEALTHCHECK` only if it actually checks health
-
-A `HEALTHCHECK` is useful when the orchestrator uses it. It is harmful when it lies —
-returning healthy because `curl` is missing and the shell errored out, or because the
-command checks the wrong port.
-
-- ❌ `HEALTHCHECK CMD curl -f http://localhost:8080/health` — when `curl` is not installed
-  in a `-slim` or `-distroless` image.
-- ❌ Healthcheck on a port the app does not listen on.
-- ✅ Use a probe that exists in the image: `wget -qO- ...`, `node -e ...`, a tiny binary
-  copied in for this purpose, or `HEALTHCHECK NONE` and let the orchestrator probe.
-- ✅ If the orchestrator (K8s, ECS) does its own liveness/readiness probe, prefer
-  `HEALTHCHECK NONE` in the Dockerfile so there's one source of truth.
-
-### 8. One process, predictable entrypoint
-
-- ✅ `CMD ["node", "dist/server.js"]` — exec form, signals reach the process, PID 1
-  behaves correctly.
-- ❌ `CMD node dist/server.js` — shell form wraps in `/bin/sh -c`, breaks `SIGTERM`
-  handling, and on `-distroless` images there is no shell at all.
-- For init / signal handling on multi-child workloads, use `tini` or the image's
-  documented init mechanism — do not write your own bash supervisor.
-
-### 9. `docker-compose.yml` for local dev follows the same rules
-
-- Pin image tags in `image:` exactly like Dockerfile `FROM`.
-- Do not put real secrets in `environment:` blocks committed to git. Use `env_file:`
-  pointing to a gitignored `.env`, or compose `secrets:`.
-- Bind-mount source for local dev (`./src:/app/src`) is fine; never bind-mount over
-  `/app/node_modules` or equivalent — it shadows the installed deps with the host's.
-- Name services after their role (`api`, `worker`, `db`), not after the image.
+> **Detail:** read [Runtime, ignore-file, and compose rules](references/runtime-and-compose.md) when the change touches .dockerignore, the final-stage user, HEALTHCHECK, the entrypoint, or docker-compose.
 
 ## Output format
 

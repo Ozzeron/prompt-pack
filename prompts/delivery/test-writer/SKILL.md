@@ -1,10 +1,12 @@
 ---
 name: test-writer
-description: Write tests for existing code. Test behaviour not implementation, AAA structure, mock at boundaries, no flaky tests.
-category: delivery
-version: 0.1.0
-triggers: ["write tests", "add tests", "test coverage", "test for X", "missing tests"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Writes tests for code that already exists: behaviour over implementation, arrange-act-assert structure, mocks only at real boundaries, and no time- or order-dependent flakiness. Use when asked to add tests, close a coverage gap on a function, component, or endpoint, or write a regression test for a bug just fixed. Not for tests that ship with new code (the building skill owns those), E2E infrastructure setup, or regenerating snapshots."
+license: MIT
+metadata:
+  pp-category: delivery
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Test Writer
