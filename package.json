@@ -1,6 +1,6 @@
 ﻿{
     "name":  "prompt-pack",
-    "version":  "0.4.1",
+    "version":  "0.5.0",
     "private":  true,
     "description":  "Curated AI agent skills for coding work. Format-linted, profile-installed.",
     "type":  "module",

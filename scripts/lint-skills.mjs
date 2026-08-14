@@ -318,9 +318,17 @@ function checkReferences(skill, body) {
         `references/${file} is linked without a load condition (say when to read it, e.g. "read X when …")`,
       );
     }
-    const refLines = readFileSync(join(refDir, file), 'utf8').split(/\r?\n/).length;
+    const refPath = join(refDir, file);
+    const refContent = readFileSync(refPath, 'utf8');
+    const refLines = refContent.split(/\r?\n/).length;
     if (refLines > REFERENCE_MAX) {
       failures.push(`references/${file} is ${refLines} lines > ${REFERENCE_MAX} — split it by topic`);
+    }
+    // Links inside a reference file resolve from references/, one level deeper than
+    // SKILL.md. Moving a section out of a skill silently breaks every ../.. link it
+    // carried, which is exactly what happened to frontend-feature's layer rules.
+    for (const f of checkLinks(refContent, refPath)) {
+      failures.push(`references/${file}: ${f}`);
     }
   }
   return failures;
@@ -654,6 +662,38 @@ function checkReadmeProfileCounts() {
   return { failures };
 }
 
+/**
+ * The pack's security claim is that installing a skill profile installs Markdown and
+ * nothing else — no scripts to audit, no post-install step, nothing that executes. That
+ * claim is only worth making if it is enforced, so anything executable under prompts/ is a
+ * lint failure. (The opt-in enforcement hooks DO ship code; they live in hooks/, are
+ * documented in SECURITY.md, and are installed by a separate plugin.)
+ */
+const EXECUTABLE_EXT = new Set([
+  '.sh', '.bash', '.zsh', '.ps1', '.psm1', '.bat', '.cmd', '.py', '.rb', '.pl',
+  '.js', '.mjs', '.cjs', '.ts', '.exe', '.dll', '.so', '.dylib', '.jar', '.wasm',
+]);
+
+function checkNoExecutableCode() {
+  const failures = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      const dot = entry.name.lastIndexOf('.');
+      const ext = dot === -1 ? '' : entry.name.slice(dot).toLowerCase();
+      if (EXECUTABLE_EXT.has(ext)) {
+        failures.push(`executable file under prompts/: ${relative(REPO_ROOT, full)}`);
+      }
+    }
+  };
+  walk(PROMPTS_ROOT);
+  return failures;
+}
+
 function checkRouterReferences(skillIds) {
   const failures = [];
   const skillSet = new Set(skillIds);
@@ -789,6 +829,15 @@ function main() {
     console.log('  FAIL  task-router');
     for (const f of routerFailures) console.log(`        - ${f}`);
     totalFailures += routerFailures.length;
+  }
+
+  const executableFailures = checkNoExecutableCode();
+  if (executableFailures.length === 0) {
+    console.log('  PASS  no executable code under prompts/ (skills are Markdown only)');
+  } else {
+    console.log('  FAIL  executable code under prompts/');
+    for (const f of executableFailures) console.log(`        - ${f}`);
+    totalFailures += executableFailures.length;
   }
 
   const collisionFailures = checkDescriptionCollisions(skills);

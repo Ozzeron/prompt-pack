@@ -16,7 +16,20 @@ in projects where you want the latest.
 
 ## Targets
 
-The installer supports ten targets. Pick one based on your AI tool:
+The installer supports ten targets. Pick one based on your AI tool.
+
+**Two carry the pack forward:** `claude-skills` (or the Claude Code plugin, below) and
+`agents` for Cursor / Codex / Copilot. The rest exist for hosts that predate Agent Skills —
+maintained, not developed.
+
+**Directory targets vs flat targets.** Skills keep on-demand material in
+`references/*.md` (output templates, coverage passes, worked examples), loaded only when the
+skill's own instructions call for it. Targets that write a directory per skill —
+`claude-skills`, `agents`, `cursor`, `codex`, `openclaw`, and the plugin — copy those files
+verbatim. Flat targets write a single file per skill and **cannot carry them**:
+`cursor-rules`, `codex-agents-md`, `claude-code` (subagents), and `raw` lose the referenced
+files, so a skill installed that way still names its reference file but the file is not
+there. Prefer a directory target unless your host forces otherwise.
 
 | Target            | Output location | Tool |
 |-------------------|----------------|------|
@@ -301,6 +314,30 @@ discovery does the routing. Note that Claude Code ships built-in `/code-review`
 and `/security-review` commands; the pack's same-named skills coexist under the
 plugin namespace but you may prefer a profile without them if you find the
 overlap noisy.
+
+#### Enforcement hooks (optional, layer on any profile)
+
+```
+/plugin install enforcement@prompt-pack
+```
+
+This plugin installs **no skills**. It registers three `PreToolUse` hooks that make three of
+the pack's own rules deterministic instead of advisory:
+
+| Guard | Rule it enforces | Behaviour |
+|---|---|---|
+| `guard-noise-reads` | `meta/token-discipline` | **denies** reads of `node_modules/`, git internals, lockfiles, minified bundles; **asks** on build output (`dist/`, `.next/`, `coverage/`) where a read is sometimes legitimate |
+| `guard-new-file` | `meta/reuse-before-create` | **asks** when a new source file duplicates an existing name modulo case, separators, and extension |
+| `guard-new-dependency` | `meta/engineering-principles` | **asks** when an install command names a package; restore commands (`npm ci`, `pnpm install`) pass through |
+
+Every guard fails open: a malformed payload or an internal error exits with no decision, so
+a bug can never block your work. They make no network calls and write no files. This is the
+only part of the pack that ships executable code, which is why it is a separate plugin and
+why the config lives at `hooks/enforcement.json` rather than the auto-discovered
+`hooks/hooks.json`. See [`SECURITY.md`](../SECURITY.md).
+
+To remove: `/plugin uninstall enforcement@prompt-pack`. The installer targets (`install.sh` /
+`install.ps1`) do not install hooks — Claude Code plugins only.
 
 ### Installer (`claude-skills` target)
 

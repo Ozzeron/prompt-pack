@@ -54,7 +54,7 @@ get the same view? They should.
 - No `any`. `unknown` at trust boundaries (API responses), narrowed via Zod.
 
 ### UI / components
-Delegate to [`interface/ui-designer`](../../interface/ui-designer/SKILL.md). The summary:
+Delegate to [`interface/ui-designer`](../../../interface/ui-designer/SKILL.md). The summary:
 - Calibrate creativity (usually A or B for in-app features)
 - Reuse design-system primitives first
 - Cover all states: default, loading, empty, error, plus mutation states
