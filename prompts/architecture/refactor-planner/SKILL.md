@@ -1,6 +1,6 @@
 ---
 name: refactor-planner
-description: "Plans a safe step-by-step refactor: expand-then-contract sequencing, one shippable green step at a time, an explicit rollback per step, and a stop condition. Use when asked to split a large file, swap a library or state manager, restructure or rename a module, extract duplicated logic, or migrate between framework patterns. Not for one-line renames, greenfield work, or writing the code itself."
+description: "Plans a safe step-by-step refactor: expand-then-contract sequencing, one shippable green step at a time, an explicit rollback per step, and a stop condition. Use when asked to split a large file or component into modules, untangle a folder, swap a library or state manager, restructure or rename a module, or migrate between framework patterns. Not for one-line renames, greenfield work, or writing the code itself."
 license: MIT
 metadata:
   pp-category: architecture

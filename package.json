@@ -9,6 +9,7 @@
                     "lint:skills":  "node scripts/lint-skills.mjs",
                     "test:install-content":  "bash scripts/test-install-content.sh",
                     "test:hooks":  "node scripts/test-hooks.mjs",
+                    "eval:descriptions":  "node scripts/eval-descriptions.mjs",
                     "check:version-bump":  "node scripts/check-version-bump.mjs"
                 },
     "engines":  {

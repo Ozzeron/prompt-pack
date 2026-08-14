@@ -1,6 +1,6 @@
 ---
 name: test-writer
-description: "Writes tests for code that already exists: behaviour over implementation, arrange-act-assert structure, mocks only at real boundaries, and no time- or order-dependent flakiness. Use when asked to add tests, close a coverage gap on a function, component, or endpoint, or write a regression test for a bug just fixed. Not for tests that ship with new code (the building skill owns those), E2E infrastructure setup, or regenerating snapshots."
+description: "Writes tests for code that already exists: behaviour over implementation, arrange-act-assert structure, mocks only at real boundaries, and no time- or order-dependent flakiness. Use when asked to add tests, close a coverage gap on a function, component, or endpoint, or write a regression test for a bug just fixed. Not for diagnosing why a test fails (debugger), tests that ship with new code, or E2E infrastructure setup."
 license: MIT
 metadata:
   pp-category: delivery

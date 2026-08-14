@@ -1,6 +1,6 @@
 ---
 name: docker
-description: "Writes and reviews Dockerfile, .dockerignore, and docker-compose files: multi-stage builds, pinned base images, non-root users, cache-friendly layer order, and secrets kept out of image layers. Use when containerising a service, editing a Dockerfile or compose file, or bumping a base image. Not for Kubernetes, Helm, ECS, or Swarm manifests, and not for editing CI pipelines unless explicitly asked."
+description: "Writes and reviews Dockerfile, .dockerignore, and docker-compose files: multi-stage builds, pinned base images, non-root users, cache-friendly layer order, and secrets kept out of image layers. Use when asked to containerize or containerise a service, shrink a bloated image, edit a Dockerfile or compose file, or bump a base image. Not for Kubernetes, Helm, ECS, or Swarm manifests, and not for editing CI pipelines unless asked."
 license: MIT
 metadata:
   pp-category: infra

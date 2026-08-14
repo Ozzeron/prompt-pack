@@ -1,6 +1,6 @@
 ---
 name: database-schema
-description: "Designs a database schema: table and column naming, key and type choices, indexes, soft-delete and audit columns, multi-tenant boundaries, plus document-store notes. Use when modelling new tables or collections, restructuring data such as one-to-many into many-to-many or splitting a god-table, or designing the data layer before the API. Not for query tuning (database-review) or writing the migration itself (database-migrations)."
+description: "Designs a database schema: table and column naming, key and type choices, indexes, soft-delete and audit columns, multi-tenant boundaries, plus document-store notes. Use when modelling new tables or collections, deciding whether two entities belong in one table or two, restructuring one-to-many into many-to-many, or designing the data layer before the API. Not for query tuning (database-review) or writing the migration itself (database-migrations)."
 license: MIT
 metadata:
   pp-category: architecture

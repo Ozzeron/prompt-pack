@@ -1,6 +1,6 @@
 ---
 name: frontend-audit
-description: "Audits an existing frontend with no diff: component architecture, duplication, state placement, data-fetching patterns, render performance, type safety, UI states, and accessibility, ranked by severity against effort. Use when asked to assess a frontend, or when symptoms like a sluggish UI, recurring regressions, or fear of changing code need a diagnosis. Not for greenfield features or diff review (code-review)."
+description: "Audits an existing frontend with no diff: component architecture, duplication, state placement, data-fetching patterns, render performance, type safety, UI states, and accessibility, ranked by severity against effort. Use when asked to audit or assess a React, Vue, or Svelte frontend, or when the UI is slow, regressions keep returning, or every change breaks something else. Not for greenfield features or diff review (code-review)."
 license: MIT
 metadata:
   pp-category: review

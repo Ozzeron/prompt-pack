@@ -1,6 +1,6 @@
 ---
 name: repo-audit
-description: "Audits a whole project sample-based and stack-agnostic: architecture and module boundaries, security posture, data layer, dependency health, tests, CI, and maintainability risk, plus an entry-point summary for a new maintainer. Use when asked to review or assess an entire codebase without a diff, in any language the user writes in. Not for diff review (code-review), frontend-only audits (frontend-audit), or bug hunts (debugger)."
+description: "Audits an entire project sample-based and stack-agnostic: architecture and module boundaries, security posture, data layer, dependency health, tests, CI, and maintainability risk, plus an entry-point summary for a new maintainer. Use when asked for a full audit of the whole project, or to assess an unfamiliar codebase with no diff to review. Not for a frontend-only audit (frontend-audit), diff review (code-review), or bug hunts (debugger)."
 license: MIT
 metadata:
   pp-category: review

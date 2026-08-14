@@ -1,6 +1,6 @@
 ---
 name: database-migrations
-description: "Writes safe, reversible, backward-compatible database migrations: expand-then-contract ordering, lock-aware DDL, chunked backfills, and a rollback path per step. Use when adding, renaming, or dropping columns or tables, changing a type or constraint, adding an index on production data, or backfilling rows. Not for first-time schema design (database-schema) or diagnosing slow queries (database-review)."
+description: "Writes safe, reversible, backward-compatible database migrations: expand-then-contract ordering, lock-aware DDL, chunked backfills, and a rollback path per step. Use when a column or table has to be added, renamed, or dropped without downtime, when a type or constraint changes, when an index goes onto a production table, or when rows need backfilling. Not for first-time schema design (database-schema) or diagnosing slow queries (database-review)."
 license: MIT
 metadata:
   pp-category: architecture

@@ -25,6 +25,12 @@ jobs:
       - name: Run skill linter
         run: npm run lint
 
+      - name: Run description activation eval
+        # Deterministic proxy: it fails when a description lacks the vocabulary a user
+        # would actually type. The real-matcher mode (--llm) needs a CLI session and is
+        # run by hand before release, not in CI.
+        run: npm run eval:descriptions
+
   hooks:
     # The enforcement hooks are the one part of the pack that runs as code on a user's
     # machine, so their decisions are tested rather than asserted. Windows is in the

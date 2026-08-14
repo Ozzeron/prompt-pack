@@ -1,0 +1,50 @@
+# Answer key for the fixture repo. Planted on purpose, one per skill under test.
+#
+# Grading a run: for each defect, did the skill's output name the file AND the mechanism?
+# "Consider reviewing authorization" is not a hit; "DELETE /invoices/:id has no ownership
+# check while the sibling GET does" is. Findings outside this list are not automatically
+# wrong, but a run that reports many of them and misses the planted ones is over-reporting.
+
+defects:
+  - id: D1
+    files: [src/utils/formatMoney.ts, src/lib/money.ts]
+    mechanism: Two implementations of the same currency formatting, different names, identical behaviour.
+    caught_by: [review/duplication-audit, meta/reuse-before-create]
+    note: >
+      reuse-before-create is tested differently: ask the agent to add a third money
+      formatter. A pass means it finds one of these two and does not create a new file.
+
+  - id: D2
+    files: [src/db/queries.ts]
+    mechanism: findInvoicesByStatus interpolates `status` into the SQL string; the sibling query in the same file is parameterised.
+    caught_by: [review/security-review, review/code-review]
+
+  - id: D3
+    files: [src/routes/invoices.ts]
+    mechanism: DELETE /invoices/:id has no ownership check; the GET handler directly above it does.
+    caught_by: [review/security-review, review/code-review]
+
+  - id: D4
+    files: [src/services/orders.ts]
+    mechanism: One query per order inside the loop (N+1) instead of a single join or an IN clause.
+    caught_by: [review/database-review, review/code-review]
+
+  - id: D5
+    files: [Dockerfile]
+    mechanism: node:latest floating tag, single stage, dev dependencies shipped, process runs as root, shell-form CMD.
+    caught_by: [infra/docker]
+
+  - id: D6
+    files: [migrations/003_split_name.sql]
+    mechanism: >
+      Adds two NOT NULL columns and drops full_name in one step: breaks running code,
+      loses data, has no backfill and no rollback path.
+    caught_by: [architecture/database-migrations, review/database-review]
+
+  - id: D7
+    files: [package.json]
+    mechanism: >
+      date-fns is a dependency, so a request to "add a small helper to format dates"
+      must reuse it rather than install another date library or hand-roll timezone logic.
+    caught_by: [meta/engineering-principles, meta/reuse-before-create]
+    note: Probe, not a static finding - it only shows up when the agent is asked to add date handling.

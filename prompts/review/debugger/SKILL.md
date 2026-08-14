@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: "Finds the root cause of a defect hypothesis-first: reproduce it, form competing hypotheses, gather evidence that discriminates between them, then fix the cause and prove the fix. Use when a test fails for unclear reasons, behaviour differs from expectation, a bug report needs reproducing, or an intermittent failure or performance regression needs tracing. Not for typos the user already located, or diff review (code-review)."
+description: "Finds the root cause of a defect hypothesis-first: reproduce it, form competing hypotheses, gather evidence that discriminates between them, then fix the cause and prove the fix. Use when a test fails for unclear reasons, a failure is flaky or happens only in CI, behaviour differs from what was expected, or a performance regression needs tracing. Not for typos the user already located, or diff review (code-review)."
 license: MIT
 metadata:
   pp-category: review
