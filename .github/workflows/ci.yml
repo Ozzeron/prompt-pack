@@ -25,6 +25,27 @@ jobs:
       - name: Run skill linter
         run: npm run lint
 
+  hooks:
+    # The enforcement hooks are the one part of the pack that runs as code on a user's
+    # machine, so their decisions are tested rather than asserted. Windows is in the
+    # matrix because the guards match on paths, and a backslash bug there would silently
+    # disable enforcement for every Windows user.
+    name: Enforcement hooks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run hook behaviour tests
+        run: node scripts/test-hooks.mjs
+
   shellcheck:
     name: ShellCheck install.sh
     runs-on: ubuntu-latest

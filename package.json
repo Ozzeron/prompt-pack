@@ -8,6 +8,7 @@
                     "lint":  "node scripts/lint-skills.mjs",
                     "lint:skills":  "node scripts/lint-skills.mjs",
                     "test:install-content":  "bash scripts/test-install-content.sh",
+                    "test:hooks":  "node scripts/test-hooks.mjs",
                     "check:version-bump":  "node scripts/check-version-bump.mjs"
                 },
     "engines":  {

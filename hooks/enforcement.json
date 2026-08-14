@@ -1,0 +1,52 @@
+{
+  "_comment": [
+    "Deterministic enforcement layer. A skill can only ask an agent to follow a rule;",
+    "a PreToolUse hook makes the rule architectural — it cannot be reasoned around.",
+    "Every rule here already exists in prose in a foundation skill, so the hooks add",
+    "enforcement, not new policy:",
+    "  guard-noise-reads   -> meta/token-discipline  (never read dependency trees or build output)",
+    "  guard-new-file      -> meta/reuse-before-create (search before creating)",
+    "  guard-new-dependency-> meta/engineering-principles (a new dep must clear a bar)",
+    "",
+    "Deliberately NOT hooks/hooks.json: that path is auto-discovered for every plugin",
+    "in this marketplace, and enforcement must stay opt-in. The `enforcement` plugin",
+    "entry in .claude-plugin/marketplace.json points here explicitly.",
+    "",
+    "Every hook fails open: any error, missing node, or unexpected payload exits 0",
+    "with no decision, so a broken hook never blocks work."
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-noise-reads.mjs\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-new-file.mjs\"",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-new-dependency.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
