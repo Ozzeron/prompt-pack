@@ -72,6 +72,13 @@ is the condensed history.
   scores 59/59 (static proxy 58/58; one case is semantic-only by design).
 - CI: `actions/checkout` and `actions/setup-node` pinned to v7, ShellCheck action pinned
   to a release tag instead of `master`. `yaml` dev dependency 2.8 -> 2.9.
+- Codex target now has real-install content assertions (`scripts/test-install-content.sh`
+  tests 6-8): foundation `agents/openai.yaml` policies, AGENTS.md bridge honesty (every
+  installed skill listed, no route to an uninstalled one, composed flows only when complete,
+  BOM-less with Cyrillic aliases intact), cross-link rewrite with no dangling targets,
+  `--scope user` writes no AGENTS.md, legacy `codex-agents-md` stays under 32 KiB. `codex`
+  joins the sh/ps1 byte-parity matrix. These are the deterministic checks the May Codex
+  regression brief listed as CI candidates.
 
 ### Earlier in this cycle
 

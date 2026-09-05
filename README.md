@@ -41,7 +41,7 @@ What backs that up, and what does not: `npm run lint` enforces the format and sp
 contract, `npm run eval:descriptions` scores 58/58 labelled queries onto the right skill,
 `npm run test:hooks` covers 24 enforcement cases, and CI does real installs on Linux,
 macOS, and Windows (PowerShell 5.1 included) with byte-for-byte parity between the two
-installers. Behavioural quality — does a skill actually catch the planted N+1, the missing
+installers, the Codex AGENTS.md bridge and policy files included. Behavioural quality — does a skill actually catch the planted N+1, the missing
 authz check, the duplicate util — is exercised against `evals/fixtures/shop/` by hand, not
 in CI, so this README publishes no pass rate for it.
 

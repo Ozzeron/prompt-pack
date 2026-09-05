@@ -8,7 +8,9 @@
 > See `CHANGELOG.md` for the v0.4.1 fixes this brief surfaced (composed flows, profile-aware
 > cross-skill links, routing disambiguation).
 >
-> Deterministic checks (T1, T2, T3, T8, T9, T10) are candidates for future GitHub Actions CI.
+> Deterministic checks landed in CI with v0.5.0: T1 = `npm run lint`, T2 = the dry-run smoke
+> jobs, T3/T8/T9/T10 = tests 6-8 in `scripts/test-install-content.sh` plus the `codex` entry in
+> the cross-shell parity job.
 > LLM-based checks (T4, T5, T6) intentionally remain manual because they require network access
 > to `api.openai.com` and produce non-deterministic results.
 
