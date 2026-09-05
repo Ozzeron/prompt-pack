@@ -14,6 +14,12 @@ git clone https://github.com/Ozzeron/prompt-pack.git ~/code/prompt-pack
 That's the source. Updates: `cd ~/code/prompt-pack && git pull`, then re-run the installer
 in projects where you want the latest.
 
+No clone is needed for two paths: Claude Code users install the [plugin](#claude-code), and
+Cursor / Codex / Copilot / OpenClaw users can run `npx skills add Ozzeron/prompt-pack`, which
+writes `.agents/skills/` straight from GitHub (see
+[Universal Agent Skills](#universal-agent-skills-agents) for how it differs from the
+installer).
+
 ## Targets
 
 The installer supports ten targets. Pick one based on your AI tool.
@@ -219,6 +225,31 @@ skills reached GA in Copilot code review on 2026-07-29).
 ```powershell
 & ~\code\prompt-pack\install.ps1 -Target agents -Profile fullstack
 ```
+
+### Same layout via `npx skills` (skills.sh)
+
+The repo is a valid [skills.sh](https://skills.sh) source, so the same tree can be written
+without cloning:
+
+```bash
+npx skills add Ozzeron/prompt-pack          # pick skills in the prompt
+npx skills add Ozzeron/prompt-pack --all    # every skill, every detected agent
+npx skills update                           # later
+```
+
+It finds all 23 skills, copies `references/` with them, and records source and content hash
+per skill in `skills-lock.json`. Two differences from `--target agents`, verified on the
+v0.5.0 tree:
+
+- **`meta/task-router` is included.** The installer filters it out of native targets because
+  hosts route by description; `npx skills` has no such filter. Remove it with
+  `npx skills remove task-router` if it shows up in your skill list.
+- **Cross-skill links are not rewritten.** Skills link to each other as
+  `../../meta/token-discipline/SKILL.md`, a path that is valid in this repo and in the
+  per-category installer output but not in the flat `.agents/skills/` tree; 62 of the 81
+  links in a full install point nowhere. The installer's `agents` target strips them to bare
+  names, `npx skills` copies the files verbatim. The label next to each link is the skill
+  name, and that is what an agent should read; nothing else in the skill depends on the path.
 
 **No always-apply rules** are installed in this mode, on purpose:
 `.agents/skills/` is a skill-only layout, and adding a `.cursor/rules/`
@@ -599,6 +630,9 @@ cd ~/code/your-project
 
 `--force` skips the per-file overwrite prompt. The installer is idempotent — re-running
 it overwrites with the latest version of each skill.
+
+Installed through `npx skills add`? Then `npx skills update` refreshes every skill from the
+repo and rewrites `skills-lock.json`.
 
 ## Safety and reversibility
 

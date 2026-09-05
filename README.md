@@ -177,6 +177,23 @@ Optionally layer the enforcement hooks on top of any profile:
 That one installs no skills — only the three `PreToolUse` guards described in
 [`SECURITY.md`](SECURITY.md). Everything else in the pack is Markdown and nothing else.
 
+#### Cursor / Codex / Copilot / OpenClaw (`npx skills` — no clone needed)
+
+The repo is a valid [skills.sh](https://skills.sh) source. One command writes the skills to
+`.agents/skills/`, the root all four hosts read, and pins what it installed in
+`skills-lock.json`:
+
+```bash
+npx skills add Ozzeron/prompt-pack
+```
+
+Pick skills in the prompt, or take everything with `--all`. Two differences from the
+installer's `agents` target: `npx skills` also ships `meta/task-router` (drop it with
+`npx skills remove task-router`; native hosts route by description), and it copies files
+verbatim, so the cross-skill links inside a `SKILL.md` keep their repo-relative paths and
+do not resolve in the flat layout. Treat them as names, not paths. Update with
+`npx skills update`.
+
 #### Linux / macOS (bash)
 
 ```bash
