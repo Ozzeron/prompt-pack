@@ -4,7 +4,7 @@ All notable changes to prompt-pack. Full release notes with details live in
 [GitHub Releases](https://github.com/Ozzeron/prompt-pack/releases); this file
 is the condensed history.
 
-## Unreleased
+## v0.5.0 - 2026-09-05 — Agent Skills spec conformance
 
 ### Agent Skills spec conformance (breaking for anything that read the old frontmatter)
 
@@ -63,6 +63,15 @@ is the condensed history.
 - README/USAGE/CONTRIBUTING/PROMPT-FORMAT rewritten around the standard: unverifiable
   hardening claims replaced with the commands that back them, flat installer targets
   documented as unable to carry `references/`, legacy targets marked maintained-not-developed.
+
+- Host directory map (USAGE, September 2026): `agents` is read by OpenClaw as well as
+  Cursor, Codex, and Copilot; Cursor and Copilot also scan `.claude/skills/`, so one skill
+  root per repo is now the documented rule. Codex activation notes (`$skill`, `/skills`,
+  `agents/openai.yaml` policy) and the moved Codex docs link.
+- Real-matcher eval run end to end for the first time: `npm run eval:descriptions -- --llm`
+  scores 59/59 (static proxy 58/58; one case is semantic-only by design).
+- CI: `actions/checkout` and `actions/setup-node` pinned to v7, ShellCheck action pinned
+  to a release tag instead of `master`. `yaml` dev dependency 2.8 -> 2.9.
 
 ### Earlier in this cycle
 

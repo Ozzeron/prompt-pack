@@ -33,8 +33,8 @@
                         if you prefer the rules-only flow.
   - agents            : Universal Agent Skills target. Writes each skill to
                         `.agents/skills/<name>/SKILL.md` only — no AGENTS.md
-                        bridge. Works in Cursor 2.4+, Codex CLI, and GitHub
-                        Copilot from one install. Prefer `-Target codex` if
+                        bridge. Works in Cursor 2.4+, Codex CLI, GitHub
+                        Copilot, and OpenClaw from one install. Prefer `-Target codex` if
                         you specifically want the Codex AGENTS.md router.
                         `meta/task-router` is filtered out — Codex / native
                         Skills matchers conflict with it. Do NOT also run
@@ -798,7 +798,7 @@ function Install-CursorFoundation {
     Write-Host "`nDone. Reload your Cursor window to pick up the new rules." -ForegroundColor Cyan
     Write-Host "This target writes ONLY foundation rules. For the specialised skills, run" -ForegroundColor DarkGray
     Write-Host "`-Target agents` against the same project (universal Skills layout that" -ForegroundColor DarkGray
-    Write-Host "Cursor 2.4+, Codex CLI, and GitHub Copilot all read)." -ForegroundColor DarkGray
+    Write-Host "Cursor 2.4+, Codex CLI, GitHub Copilot, and OpenClaw all read)." -ForegroundColor DarkGray
 }
 
 # Legacy Cursor target. Writes every skill to .cursor/rules/<name>.mdc plus a
@@ -880,8 +880,8 @@ function Install-CursorRules {
 }
 
 # Universal Agent Skills target. Writes every skill to `.agents/skills/<name>/`
-# without any AGENTS.md bridge. Compatible with Cursor 2.4+, Codex CLI, and
-# GitHub Copilot from a single install.
+# without any AGENTS.md bridge. Compatible with Cursor 2.4+, Codex CLI,
+# GitHub Copilot, and OpenClaw from a single install.
 #
 # No always-apply rules: `.agents/skills/` is a skill-only layout, and adding
 # a .cursor/rules/ side-channel would couple this target to Cursor. Users who
@@ -892,7 +892,7 @@ function Install-Agents {
 
     $skillsRoot = Join-Path $ProjectPath '.agents\skills'
     Write-Host "`nInstalling Agent Skills to $skillsRoot" -ForegroundColor Cyan
-    Write-Host "  (universal target: works in Cursor 2.4+, Codex CLI, and GitHub Copilot)`n" -ForegroundColor DarkGray
+    Write-Host "  (universal target: works in Cursor 2.4+, Codex CLI, GitHub Copilot, and OpenClaw)`n" -ForegroundColor DarkGray
 
     $SkillList = Select-SkillsForCursorOrAgents -SkillList $SkillList
 
@@ -938,7 +938,7 @@ function Install-Agents {
     }
 
     Write-Host "`nDone. Restart your AI tool to pick up the new skills." -ForegroundColor Cyan
-    Write-Host "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot)." -ForegroundColor DarkGray
+    Write-Host "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot, OpenClaw)." -ForegroundColor DarkGray
     Write-Host "Need always-on foundation rules? Layer `-Target cursor-foundation` on top of this install." -ForegroundColor DarkGray
 }
 

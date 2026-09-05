@@ -6,7 +6,7 @@ Built to be **simple to use**, **token-aware**, and **stack-agnostic**.
 > Built on the [Agent Skills](https://agentskills.io/specification) open standard:
 > spec-conformant `SKILL.md` frontmatter, progressive disclosure via `references/`,
 > descriptions written for activation. Installs as a Claude Code plugin, as
-> `.agents/skills/` for Cursor / Codex / Copilot, or through the installer for
+> `.agents/skills/` for Cursor / Codex / Copilot / OpenClaw, or through the installer for
 > older layouts.
 
 ## Why not another prompt list?
@@ -225,7 +225,7 @@ installed that way lose their on-demand material.
 | `cursor`          | Cursor 2.4+ Skills-native. Foundation rules go to `.cursor/rules/*.mdc` (alwaysApply); every other skill becomes a Cursor Agent Skill at `.cursor/skills/<name>/SKILL.md`. |
 | `cursor-foundation` | Foundation-only Cursor install. Writes only the three always-on rules to `.cursor/rules/*.mdc`; no `.cursor/skills/`. Pair with `agents` to avoid duplicate skill roots in Cursor. |
 | `cursor-rules`    | Legacy Cursor target. Every skill in `.cursor/rules/*.mdc` plus a `prompt-pack-router.mdc` bridge. Use only for Cursor builds older than 2.4. |
-| `agents`          | Universal Agent Skills. Writes every skill to `.agents/skills/<name>/SKILL.md` — works in Cursor 2.4+, Codex CLI, and GitHub Copilot from one install. No AGENTS.md. |
+| `agents`          | Universal Agent Skills. Writes every skill to `.agents/skills/<name>/SKILL.md` — works in Cursor 2.4+, Codex CLI, GitHub Copilot, and OpenClaw from one install. No AGENTS.md. |
 | `claude-skills`   | Claude Code native Agent Skills. Each skill goes to `.claude/skills/<name>/SKILL.md`. Use `--scope user` to install to `$HOME/.claude/skills/` instead. |
 | `claude-code`     | Legacy Claude Code subagents: copies skills into `.claude/agents/`. Prefer `claude-skills` on current builds. |
 | `codex`           | Codex-native: each skill goes to `.agents/skills/<name>/SKILL.md`, plus a compact `AGENTS.md` router/bridge. Use `--scope user` to install to `$HOME/.agents/skills/` instead. |
@@ -322,7 +322,8 @@ asserted:
   strings. `triggers` is gone — its phrases moved into the description, which is what hosts
   actually match on.
 - **Descriptions are written for activation**, 384-452 chars each (was a 120-char cap, which
-  cannot hold what + when + when-not). The activation eval scores 58/58 with a 95% floor;
+  cannot hold what + when + when-not). The activation eval scores 58/58 offline and 59/59
+  through the real matcher (`--llm`, run by hand before release) against a 95% floor;
   the first run scored 84.7% and every miss was a real missing keyword.
 - **Progressive disclosure.** Nine skills moved templates, coverage passes, and worked
   examples into `references/`, each linked with an explicit load condition. Core `SKILL.md`
