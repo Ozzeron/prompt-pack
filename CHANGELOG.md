@@ -4,6 +4,13 @@ All notable changes to prompt-pack. Full release notes with details live in
 [GitHub Releases](https://github.com/Ozzeron/prompt-pack/releases); this file
 is the condensed history.
 
+## Unreleased
+
+- Docs: the repo is a working [skills.sh](https://skills.sh) source. `npx skills add
+  Ozzeron/prompt-pack` is documented as the no-clone path for Cursor / Codex / Copilot /
+  OpenClaw, with the two verified differences from `--target agents` (task-router included,
+  cross-skill links copied verbatim so 62 of 81 do not resolve in the flat tree).
+
 ## v0.5.0 - 2026-09-05 — Agent Skills spec conformance
 
 ### Agent Skills spec conformance (breaking for anything that read the old frontmatter)
