@@ -1,10 +1,12 @@
 ---
 name: reuse-before-create
-description: DRY discipline core. Before creating anything new, find what already exists. Every coding skill inherits this.
-category: meta
-version: 0.1.0
-triggers: ["writing code", "adding component", "adding util", "adding type", "creating file", "new helper", "new hook"]
-applies_to: [openclaw, cursor, claude-code, generic]
+description: "The DRY precondition step: before any new component, hook, util, type, constant, schema, or dependency exists, search the repo and the dependency tree for what already covers it, prefer reuse, extension, or composition, and require a one-line justification for anything genuinely new. Use when about to add a file, helper, or package. Not for cataloguing duplication that already shipped (duplication-audit)."
+license: MIT
+metadata:
+  pp-category: meta
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code, generic"
 ---
 
 # Reuse Before Create
@@ -168,6 +170,8 @@ You're about to write something new.
   │
   └─ Create new. Write the one-line justification.
 ```
+
+> **Detail:** read [worked reuse decisions](references/EXAMPLES.md) when a search turns up a near-match and the reuse-vs-create call is genuinely unclear.
 
 ## Anti-patterns
 

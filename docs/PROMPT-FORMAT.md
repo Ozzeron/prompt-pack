@@ -11,12 +11,14 @@ Every prompt in `prompts/<category>/<name>/SKILL.md` follows this schema. The fo
 
 ```markdown
 ---
-name: <kebab-case-id>
-description: <one-line, what this prompt is for; what triggers it>
-category: <architecture | review | interface | delivery | meta | infra>
-version: 0.1.0
-triggers: [<short trigger phrases or task types>]
-applies_to: [<cursor, claude-code, openclaw, generic>]
+name: <kebab-case-id, matching the directory name>
+description: "<what it does. Use when <literal triggers>. Not for <near-miss siblings>.>"
+license: MIT
+metadata:
+  pp-category: <architecture | review | interface | delivery | meta | infra>
+  pp-version: "0.1.0"
+  pp-activation: <native | inherit-only | legacy>
+  pp-surfaces: "<openclaw, cursor, claude-code>"
 ---
 
 # <Role title>
@@ -65,16 +67,58 @@ Out of scope:
 <Optional: caveats, version notes, related prompts>
 ```
 
-## Required fields in frontmatter
+## Frontmatter
+
+The top level is fixed by the [Agent Skills specification](https://agentskills.io/specification):
+only `name`, `description`, `license`, `compatibility`, `metadata`, and `allowed-tools` may
+appear there. Everything pack-specific lives under `metadata` as a `pp-`-prefixed **string**
+(the spec defines metadata as a map of string to string, so no lists and no bare numbers).
+Inventing a top-level key still loads in Claude Code, but it fails `skills-ref validate` and
+stops being portable — the linter rejects it.
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `name` | string | yes | kebab-case, must match directory name |
-| `description` | string | yes | one-line summary, **≤ 120 characters**; main agents see this |
-| `category` | enum | yes | architecture / review / interface / delivery / meta / infra |
-| `version` | semver | yes | bump on behaviour change |
-| `triggers` | string[] | no | hints for orchestrators |
-| `applies_to` | string[] | no | which surfaces this is verified on |
+| `description` | string | yes | activation surface — see the rules below |
+| `license` | string | yes here | `MIT`, matching the repo licence |
+| `metadata.pp-category` | enum | yes | architecture / review / interface / delivery / meta / infra; must match the directory |
+| `metadata.pp-version` | semver string | yes | bump on every behaviour change (CI gate) |
+| `metadata.pp-activation` | enum | yes | `native` · `inherit-only` · `legacy` |
+| `metadata.pp-surfaces` | string | no | comma-separated surfaces the skill is verified on |
+
+`pp-activation` values:
+
+- **`native`** — the host discovers it from `description` alone. Almost every skill.
+- **`inherit-only`** — pulled in by another skill's `## Inherits` section and never matched
+  against a user request. Its description must say so, or a host will load foundation rules
+  as if they were a task.
+- **`legacy`** — kept for pre-Agent-Skills flows (orchestrator routing). Excluded from
+  native install targets. Currently only `meta/task-router`.
+
+There is no `triggers` field. It was a pre-standard invention that no host reads: on a
+native host the description IS the trigger surface, so trigger phrases belong inside it as
+literal keywords.
+
+### Description rules
+
+The description is the only part of a skill loaded before the host decides whether to open
+it, which makes it the highest-leverage 400 characters in the file. Required shape:
+
+1. **What it does**, third person, concrete nouns — not "helps with databases".
+2. **`Use when …`** with the words a user actually types. Literal beats paraphrase:
+   `containerise`, `RLS`, `auth.uid()`, `without downtime`, `flaky in CI`, `pnpm add`.
+3. **A negative trigger** (`Not for …`) naming the sibling skill that would otherwise steal
+   the activation. Overlapping skills are the main cause of wrong routing in a pack this
+   dense: `code-review` vs the `*-audit` skills, `doc-writer` vs `ai-agent-docs`,
+   `database-schema` vs `database-migrations` vs `database-review`.
+
+Enforced by the linter: 120–500 characters, a `Use when` clause, a negative clause,
+ASCII only (`install.ps1` rewrites this line under Windows PowerShell 5.1, which
+double-encodes non-ASCII), and no two descriptions above 0.5 Jaccard token similarity.
+
+Every new or reworded description also needs cases in `evals/descriptions/cases.yaml`
+— at least one obvious query, one non-obvious phrasing, and one near-miss that must route
+elsewhere. `npm run eval:descriptions` gates CI at 95% top-1.
 
 ## Section order
 
@@ -139,17 +183,44 @@ legitimately.
 The frontmatter is machine-readable so tools can:
 
 - generate a catalog/index
-- power the `task-router` orchestrator
+- power the `task-router` orchestrator on legacy (non-Agent-Skills) hosts
 - convert prompts to Cursor/Claude Code formats
 - validate prompt quality on PRs (linting)
 
 The body is structured so models (especially weaker ones) parse it consistently
 and don't drift between sections.
 
+## Progressive disclosure
+
+`SKILL.md` is loaded in full on every activation, so it holds only what every run needs:
+scope, process, gotchas, output format, anti-patterns. Anything conditional goes into
+`references/*.md` — output templates, per-branch checklists, coverage passes, worked
+examples (`references/EXAMPLES.md`).
+
+Each reference file must be linked from `SKILL.md` on a line that states **when** to read
+it:
+
+```markdown
+> **Detail:** read [Coverage areas](references/coverage-areas.md) when you work a coverage
+> pass: injection, authz, secrets, transport, CSRF, dependencies, uploads, config.
+```
+
+"See references/ for details" is not acceptable and the linter rejects it: without a
+condition the agent cannot tell whether this run needs the file, so it either loads
+everything (defeating the point) or nothing (losing the content). The linter also fails a
+reference file that nothing links to, one left at the skill root instead of `references/`,
+and one over 250 lines.
+
+Note for flat install targets (`raw`, `cursor-rules`, `codex-agents-md`, `claude-code`
+subagents): they write a single file per skill and cannot carry `references/`. The
+directory-based targets (`claude-skills`, `agents`, `cursor`, `codex`, `openclaw`) and the
+plugin install copy them verbatim.
+
 ## Length guidance
 
-- A skill file should usually fit in **80–250 lines**. If it grows beyond that,
-  split into a smaller core skill + supporting docs in the same directory.
+- `SKILL.md` must be **80–240 lines** (linted). The spec ceiling is 500 lines / 5,000
+  tokens for the whole file; the tighter budget exists because this content loads on every
+  activation. Past 240 lines, move conditional material into `references/`.
 - Keep the role statement to **one paragraph**. Long preambles waste tokens
   on every invocation.
 - Token-discipline section is mandatory and non-negotiable.

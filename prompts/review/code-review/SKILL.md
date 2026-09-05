@@ -1,10 +1,12 @@
 ---
 name: code-review
-description: Review a diff or pull request. Severity-classified, actionable, focused on correctness, security, and maintainability.
-category: review
-version: 0.4.2
-triggers: ["review this PR", "review diff", "code review", "review my changes"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Reviews one specific diff or pull request in four passes (correctness, security, maintainability, tests) and reports severity-classified findings with a concrete fix each, skipping whatever linters already catch. Use when a diff, PR, or named set of recent changes is provided, or before a merge or deploy. Not for greenfield code, and not for assessing a codebase with no diff (repo-audit, frontend-audit)."
+license: MIT
+metadata:
+  pp-category: review
+  pp-version: "0.5.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Code Reviewer
@@ -215,6 +217,8 @@ No Findings section. "Be thorough" was satisfied by walking the diff and confirm
 defects. Public-API impact, if relevant, is at most a Minor optional note ("if this is
 in a public API surface, confirm consumers are updated") — never the basis for Request
 changes on a clean rename.
+
+> **Detail:** read [worked review findings](references/EXAMPLES.md) when you need the expected shape and severity wording of a finding.
 
 ## Anti-patterns
 

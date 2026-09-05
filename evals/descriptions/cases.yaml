@@ -1,0 +1,165 @@
+# Activation dataset for skill descriptions.
+#
+# One labelled query per case: `expect` is the skill that SHOULD win when a host matches
+# the request against the pack's descriptions. Because a case labelled for one skill is
+# automatically a negative case for the other 22, this doubles as the near-miss suite —
+# the pairs that matter most are the ones that share vocabulary but need different skills
+# ("review this PR" vs "review the whole project", "design a schema" vs "review this
+# migration", "write the README" vs "write AGENTS.md").
+#
+# Queries are written the way a user actually types: lowercase, partial, sometimes vague.
+# The valuable positives are the ones where the connection is not literal — if every query
+# repeated the skill name, the suite would only prove that string matching works.
+#
+# Run: npm run eval:descriptions          (deterministic proxy, gates CI)
+#      npm run eval:descriptions -- --llm (real matcher, needs the claude CLI)
+#
+# Skills with pp-activation inherit-only or legacy intentionally have no cases: they must
+# never win top-1, and the runner fails any case where one of them does.
+
+cases:
+  # architecture -------------------------------------------------------------------
+  - query: add a POST /invoices endpoint that saves to the db
+    expect: architecture/backend-api
+  - query: we need cursor pagination on the users list api
+    expect: architecture/backend-api
+  - query: wire up session tokens and permission checks for login
+    expect: architecture/backend-api
+
+  - query: rename the status column without downtime
+    expect: architecture/database-migrations
+  - query: add an index to a 40 million row table safely
+    expect: architecture/database-migrations
+  - query: backfill created_at for the old rows in chunks
+    expect: architecture/database-migrations
+
+  - query: model tags for posts, many to many
+    expect: architecture/database-schema
+  - query: should orders and order_items be one table or two
+    expect: architecture/database-schema
+  - query: design the data layer for a multi tenant billing feature
+    expect: architecture/database-schema
+
+  - query: build the settings page with the profile form
+    expect: architecture/frontend-feature
+  - query: add crud for projects in the dashboard
+    expect: architecture/frontend-feature
+  - query: implement the invite screen, routing and data included
+    expect: architecture/frontend-feature
+
+  - query: rls policy so users only see their own rows
+    expect: architecture/postgres-supabase
+  - query: postgrest says column not found after my migration
+    expect: architecture/postgres-supabase
+  - query: auth.uid() is null inside the policy
+    expect: architecture/postgres-supabase
+
+  - query: split this 1200 line component into modules
+    expect: architecture/refactor-planner
+  - query: move us off redux to zustand step by step
+    expect: architecture/refactor-planner
+  - query: untangle the utils folder without breaking main
+    expect: architecture/refactor-planner
+
+  # delivery -----------------------------------------------------------------------
+  - query: what should go in AGENTS.md for this repo
+    expect: delivery/ai-agent-docs
+  - query: the agent keeps ignoring our conventions, fix its context
+    expect: delivery/ai-agent-docs
+  - query: set up cursor rules for this monorepo
+    expect: delivery/ai-agent-docs
+
+  - query: write the readme quickstart section
+    expect: delivery/doc-writer
+  - query: draft an adr for picking zod over yup
+    expect: delivery/doc-writer
+  - query: turn these commits into release notes
+    expect: delivery/doc-writer
+
+  - query: wrap up and summarise what changed
+    expect: delivery/handoff
+  - query: write the pr description for this work
+    expect: delivery/handoff
+  - query: what did you change and how do i verify it
+    expect: delivery/handoff
+
+  - query: add tests for the invoice calculator
+    expect: delivery/test-writer
+  - query: write a regression test for the bug we just fixed
+    expect: delivery/test-writer
+  - query: this module has no coverage at all
+    expect: delivery/test-writer
+
+  # infra --------------------------------------------------------------------------
+  - query: containerise this express app
+    expect: infra/docker
+  - query: our image is 1.2gb, fix the dockerfile
+    expect: infra/docker
+  - query: add a compose file with postgres for local dev
+    expect: infra/docker
+
+  # interface ----------------------------------------------------------------------
+  - query: make this dashboard look less cluttered
+    expect: interface/ui-designer
+  - query: design the empty state for the inbox
+    expect: interface/ui-designer
+  - query: new layout for the pricing page
+    expect: interface/ui-designer
+
+  # meta ---------------------------------------------------------------------------
+  - query: before i add a date helper, check what we already have
+    expect: meta/reuse-before-create
+  - query: am i duplicating a hook that already exists
+    expect: meta/reuse-before-create
+
+  # review -------------------------------------------------------------------------
+  - query: review this pr
+    expect: review/code-review
+  - query: look at my changes before i merge
+    expect: review/code-review
+  - query: here is the diff, anything wrong with it
+    expect: review/code-review
+
+  - query: this endpoint takes 4 seconds and the db cpu is hot
+    expect: review/database-review
+  - query: read this explain plan and tell me what is missing
+    expect: review/database-review
+  - query: check the migration in this pr for lock risk
+    expect: review/database-review
+
+  - query: the test fails only in ci and i have no idea why
+    expect: review/debugger
+  - query: total comes out 0 when there are clearly items
+    expect: review/debugger
+    llm_only: true
+    why: no lexical overlap with any description - resolving it requires inferring "wrong value" as a defect
+  - query: intermittent 500s on checkout, cannot reproduce locally
+    expect: review/debugger
+
+  - query: find all the copy paste in this codebase
+    expect: review/duplication-audit
+  - query: dry audit before the refactor sprint
+    expect: review/duplication-audit
+  - query: how many parallel implementations of the same logic do we have
+    expect: review/duplication-audit
+
+  - query: audit the frontend
+    expect: review/frontend-audit
+  - query: the ui is slow and every change breaks something else
+    expect: review/frontend-audit
+  - query: assess our react component architecture
+    expect: review/frontend-audit
+
+  - query: review the whole project
+    expect: review/repo-audit
+  - query: new maintainer here, what are the risks in this codebase
+    expect: review/repo-audit
+  - query: full audit, there is no diff
+    expect: review/repo-audit
+
+  - query: check the upload handler for vulnerabilities
+    expect: review/security-review
+  - query: security pass on the auth changes
+    expect: review/security-review
+  - query: are we exposed to sql injection anywhere here
+    expect: review/security-review

@@ -21,7 +21,7 @@
 #                        plus a prompt-pack-router.mdc bridge. Use only for
 #                        Cursor builds older than 2.4.
 #   agents             - Universal Agent Skills: .agents/skills/<name>/SKILL.md
-#                        only. Works in Cursor 2.4+, Codex CLI, GitHub Copilot.
+#                        only. Works in Cursor 2.4+, Codex CLI, GitHub Copilot, OpenClaw.
 #                        meta/task-router is filtered out. Do NOT also run
 #                        --target cursor against the same repo (you'd get
 #                        duplicates). Layer --target cursor-foundation for
@@ -744,7 +744,7 @@ install_cursor_foundation() {
   echo "Done. Reload your Cursor window to pick up the new rules."
   echo "This target writes ONLY foundation rules. For the specialised skills, run"
   echo "--target agents against the same project (universal Skills layout that"
-  echo "Cursor 2.4+, Codex CLI, and GitHub Copilot all read)."
+  echo "Cursor 2.4+, Codex CLI, GitHub Copilot, and OpenClaw all read)."
 }
 
 # Legacy Cursor target. Writes every skill to .cursor/rules/<name>.mdc plus a
@@ -798,8 +798,8 @@ install_cursor_rules() {
 }
 
 # Universal Agent Skills target. Writes every skill to .agents/skills/<name>/
-# without any AGENTS.md bridge. Compatible with Cursor 2.4+, Codex CLI, and
-# GitHub Copilot from a single install.
+# without any AGENTS.md bridge. Compatible with Cursor 2.4+, Codex CLI,
+# GitHub Copilot, and OpenClaw from a single install.
 #
 # No always-apply rules: .agents/skills/ is a skill-only layout, and adding a
 # .cursor/rules/ side-channel would couple this target to Cursor. Users who
@@ -809,7 +809,7 @@ install_agents() {
   local skills_root="$TARGET_PATH/.agents/skills"
   echo
   echo "Installing Agent Skills to $skills_root"
-  echo "  (universal target: works in Cursor 2.4+, Codex CLI, and GitHub Copilot)"
+  echo "  (universal target: works in Cursor 2.4+, Codex CLI, GitHub Copilot, and OpenClaw)"
   echo
 
   if (( DRY_RUN == 0 )); then mkdir -p "$skills_root"; fi
@@ -868,7 +868,7 @@ install_agents() {
 
   echo
   echo "Done. Restart your AI tool to pick up the new skills."
-  echo "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot)."
+  echo "Skills are discovered by name + description (Cursor 2.4+, Codex, GitHub Copilot, OpenClaw)."
   echo "Need always-on foundation rules? Layer --target cursor-foundation on top of this install."
 }
 

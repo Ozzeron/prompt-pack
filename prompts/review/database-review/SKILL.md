@@ -1,10 +1,12 @@
 ---
 name: database-review
-description: Review schema, queries, indexes, migrations. Find N+1, missing indexes, lock and race risks.
-category: review
-version: 0.1.0
-triggers: ["review schema", "DB review", "slow query", "explain plan", "review migration"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Reviews database work that already exists: index and schema choices, query plans, N+1 access patterns, lock and race risk in migrations, and transaction or connection misuse. Use when a query or endpoint is slow, database CPU is high, an EXPLAIN plan needs reading, or a schema or migration PR needs a second pair of eyes. Not for designing a new schema (database-schema) or authoring migrations (database-migrations)."
+license: MIT
+metadata:
+  pp-category: review
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Database Review

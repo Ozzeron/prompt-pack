@@ -48,7 +48,9 @@ A new skill earns its place when:
 Every skill follows the schema in [`docs/PROMPT-FORMAT.md`](PROMPT-FORMAT.md). The
 SKILL.md body is the system prompt the host loads at activation time. Required:
 
-- YAML frontmatter (`name`, `description`, `category`, `version`)
+- Spec-conformant YAML frontmatter: `name`, `description`, `license`, plus
+  `metadata.pp-category` / `pp-version` / `pp-activation`. Nothing pack-specific at the
+  top level — the Agent Skills spec fixes those keys and the linter rejects extras.
 - One-paragraph role statement
 - `## When to use` with concrete triggers
 - `## Scope` (in / out)
@@ -87,27 +89,41 @@ native Agent Skills hosts (Cursor 2.4+, Codex CLI, anything that reads
 description first and decides whether to load the body. A vague description means
 the skill never activates, no matter how good the body is.
 
-Write the description as if it were a one-line routing rule, not a tagline.
+Write it as a routing rule with three parts, in this order:
 
-- **Bad:** "Helps write better frontend code."
-- **Good:** "Build frontend features by reusing existing routing, data, form,
-  state, and UI conventions before creating new artifacts."
-
-- **Bad:** "Reviews your pull requests."
-- **Good:** "Code review on a diff or PR: severity-classified findings, file +
-  line citations, correctness/security/maintainability focus."
+1. **What it does**, third person, concrete nouns.
+2. **`Use when …`** carrying the words a user actually types — literal, not paraphrased.
+3. **`Not for …`** naming the sibling skill that would otherwise win.
 
 - **Bad:** "Database stuff."
-- **Good:** "Write safe, reversible, backward-compatible database migrations
-  (expand-then-contract, no downtime, no lock storms)."
+- **Bad (right shape, wrong vocabulary):** "Writes migrations. Use when changing the
+  database. Not for other database work." — no user ever types "changing the database".
+- **Good:** "Writes safe, reversible, backward-compatible database migrations:
+  expand-then-contract ordering, lock-aware DDL, chunked backfills, and a rollback path per
+  step. Use when a column or table has to be added, renamed, or dropped without downtime,
+  when a type or constraint changes, when an index goes onto a production table, or when
+  rows need backfilling. Not for first-time schema design (database-schema) or diagnosing
+  slow queries (database-review)."
 
-Rules of thumb:
+Rules:
 
-- Lead with the verb the user would say ("Build...", "Review...", "Plan...").
-- Name the artifact, the input, and the discipline in one line.
-- Keep it ≤ 120 characters (the linter enforces this).
-- No marketing adjectives ("powerful", "world-class"). They cost tokens and
-  carry no routing signal.
+- 120–500 characters (linted). The spec allows 1024; the pack budget is 500 because 23
+  descriptions all load before any skill does.
+- The negative clause is not optional. It is what stops overlapping skills from stealing
+  each other's activations, and it was the fix for `doc-writer` claiming `AGENTS.md`.
+- Literal keywords beat categories: `containerise` **and** `containerize`, `RLS`,
+  `auth.uid()`, `flaky in CI`, `pnpm add`, `EXPLAIN`. Seven descriptions failed the
+  activation eval purely for missing a word users type.
+- ASCII only. `install.ps1` rewrites this line under Windows PowerShell 5.1, which
+  double-encodes non-ASCII. Multilingual routing lives in `templates/cursor-bridge.mdc`.
+- No marketing adjectives ("powerful", "world-class"). They cost tokens and carry no
+  routing signal.
+- `pp-activation: inherit-only` skills must say in the description that they are inherited,
+  or a host will match them directly.
+
+Every description change needs cases in `evals/descriptions/cases.yaml`: one obvious query,
+one non-obvious phrasing, one near-miss that must route to a different skill. Then run
+`npm run eval:descriptions` — it gates CI at 95% top-1.
 
 ## Activation and routing
 
@@ -188,11 +204,21 @@ Before opening a PR:
 
 **Skill content**
 - [ ] `npm run lint` passes
-- [ ] Frontmatter has all required fields (name, description, category, version)
+- [ ] Frontmatter has all required fields (`name`, `description`, `license`,
+      `metadata.pp-category`, `metadata.pp-version`, `metadata.pp-activation`) and no
+      non-spec top-level keys
 - [ ] `name` matches the directory name (kebab-case)
-- [ ] `description` is one line, ≤ 120 chars, and clearly supports native skill
+- [ ] `description` is 120–500 chars, ASCII, with a `Use when …` clause and a
+      `Not for …` clause, and clearly supports native skill
       discovery (see "Writing a good description")
-- [ ] `version` follows semver, starts at `0.1.0`
+- [ ] `metadata.pp-version` follows semver, starts at `0.1.0`, and is bumped in the
+      same commit as any content change
+- [ ] `SKILL.md` is 80–240 lines; anything conditional lives in `references/` and is
+      linked with an explicit load condition ("read X when Y")
+- [ ] `npm run eval:descriptions` passes, with new cases added for any new or
+      reworded description
+- [ ] `npm run test:hooks` passes if anything under `hooks/` changed, covering both
+      the new decision and the near-miss that must not fire
 - [ ] `## When to use` lists concrete triggers; `## Scope` "Out of scope" lists
       what NOT to invoke for
 - [ ] `## Token discipline (specific)` is present (or inherits-only with a

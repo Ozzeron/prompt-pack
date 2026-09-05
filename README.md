@@ -3,9 +3,11 @@
 A curated, opinionated **Agent Skills library** for AI coding assistants.
 Built to be **simple to use**, **token-aware**, and **stack-agnostic**.
 
-> One source of truth → multiple ways to consume: Cursor 2.4+ Skills, the
-> universal `.agents/skills/` layout (Cursor + Codex + GitHub Copilot),
-> OpenClaw skills, Claude Code subagents, plain copy-paste.
+> Built on the [Agent Skills](https://agentskills.io/specification) open standard:
+> spec-conformant `SKILL.md` frontmatter, progressive disclosure via `references/`,
+> descriptions written for activation. Installs as a Claude Code plugin, as
+> `.agents/skills/` for Cursor / Codex / Copilot / OpenClaw, or through the installer for
+> older layouts.
 
 ## Why not another prompt list?
 
@@ -35,6 +37,14 @@ model-only review would never have caught. It is small enough that you
 can read the whole catalogue in one sitting and audit what your agent
 is actually being told.
 
+What backs that up, and what does not: `npm run lint` enforces the format and spec
+contract, `npm run eval:descriptions` scores 58/58 labelled queries onto the right skill,
+`npm run test:hooks` covers 24 enforcement cases, and CI does real installs on Linux,
+macOS, and Windows (PowerShell 5.1 included) with byte-for-byte parity between the two
+installers, the Codex AGENTS.md bridge and policy files included. Behavioural quality — does a skill actually catch the planted N+1, the missing
+authz check, the duplicate util — is exercised against `evals/fixtures/shop/` by hand, not
+in CI, so this README publishes no pass rate for it.
+
 The discipline that does the work:
 
 1. **Reuse before create.** A central `reuse-before-create` skill,
@@ -57,6 +67,14 @@ The discipline that does the work:
    discovery is the router — descriptions are the primary activation surface.
 5. **Curated, not exhaustive.** Each prompt earns its place.
    No 200 variants of "you are a senior X".
+6. **Enforced where prose is not enough.** Three of the pack's own rules ship as
+   deterministic `PreToolUse` hooks in the opt-in `enforcement` plugin: no reads of
+   dependency trees or build output, no new source file that duplicates an existing name,
+   no dependency installed without clearing the bar. A skill can ask; a hook cannot be
+   reasoned around.
+7. **Measured where it can be measured.** The description is the whole activation surface,
+   so it is the one part that is testable offline: `evals/descriptions/cases.yaml` labels
+   59 real-user phrasings with the skill that must win, near misses included.
 
 ### What this is not
 
@@ -103,19 +121,28 @@ prompts/
   infra/             # docker
   meta/              # task-router, engineering-principles, reuse-before-create,
                      #  token-discipline
+hooks/
+  enforcement.json   # opt-in PreToolUse config (NOT hooks/hooks.json: opt-in by design)
+  scripts/           # three guards, fail-open, no network, no writes
+evals/
+  descriptions/      # labelled activation queries (gates CI)
+  fixtures/shop/     # small repo with planted defects + DEFECTS.yaml answer key
 docs/
   USAGE.md           # how to consume in OpenClaw / Cursor / Claude Code / Codex
   CONTRIBUTING.md    # how to add or modify a prompt (incl. reviewer checklist)
   PROMPT-FORMAT.md   # the schema each prompt must follow
+AGENTS.md            # this repo's own agent instructions (CLAUDE.md imports it)
+SECURITY.md          # what installing actually puts on your machine
 ```
 
 Each prompt is a directory:
 
 ```
 prompts/<category>/<name>/
-  SKILL.md           # the prompt itself, with YAML frontmatter
-  EXAMPLES.md        # optional: sample triggers + expected outputs
-  CHANGELOG.md       # optional: version history when prompts evolve
+  SKILL.md           # the always-loaded core, 80-240 lines, spec frontmatter
+  references/        # optional: loaded on demand, each linked with a "read X when Y"
+    EXAMPLES.md      #   worked examples
+    TEMPLATES.md     #   output templates, per-branch checklists, coverage passes
 ```
 
 ## How to use
@@ -140,6 +167,15 @@ Available plugins mirror the installer profiles: `minimal`, `nextjs`, `backend`,
 `supabase`, `fullstack`, `all-skills`. Skills activate on description match;
 `meta/task-router` is excluded — Claude Code's own skill discovery is the router.
 Updates ship with `/plugin update`, no re-clone or re-run needed.
+
+Optionally layer the enforcement hooks on top of any profile:
+
+```
+/plugin install enforcement@prompt-pack
+```
+
+That one installs no skills — only the three `PreToolUse` guards described in
+[`SECURITY.md`](SECURITY.md). Everything else in the pack is Markdown and nothing else.
 
 #### Linux / macOS (bash)
 
@@ -178,12 +214,18 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ### Targets
 
+Two of these carry the pack forward: **`claude-skills`** (or the plugin above) and
+**`agents`** for everything else. The rest exist for hosts that predate Agent Skills;
+they are maintained but not developed, and the flat ones (`cursor-rules`,
+`codex-agents-md`, `claude-code`, `raw`) cannot carry `references/` files, so skills
+installed that way lose their on-demand material.
+
 | Target            | What it does |
 |-------------------|---|
 | `cursor`          | Cursor 2.4+ Skills-native. Foundation rules go to `.cursor/rules/*.mdc` (alwaysApply); every other skill becomes a Cursor Agent Skill at `.cursor/skills/<name>/SKILL.md`. |
 | `cursor-foundation` | Foundation-only Cursor install. Writes only the three always-on rules to `.cursor/rules/*.mdc`; no `.cursor/skills/`. Pair with `agents` to avoid duplicate skill roots in Cursor. |
 | `cursor-rules`    | Legacy Cursor target. Every skill in `.cursor/rules/*.mdc` plus a `prompt-pack-router.mdc` bridge. Use only for Cursor builds older than 2.4. |
-| `agents`          | Universal Agent Skills. Writes every skill to `.agents/skills/<name>/SKILL.md` — works in Cursor 2.4+, Codex CLI, and GitHub Copilot from one install. No AGENTS.md. |
+| `agents`          | Universal Agent Skills. Writes every skill to `.agents/skills/<name>/SKILL.md` — works in Cursor 2.4+, Codex CLI, GitHub Copilot, and OpenClaw from one install. No AGENTS.md. |
 | `claude-skills`   | Claude Code native Agent Skills. Each skill goes to `.claude/skills/<name>/SKILL.md`. Use `--scope user` to install to `$HOME/.claude/skills/` instead. |
 | `claude-code`     | Legacy Claude Code subagents: copies skills into `.claude/agents/`. Prefer `claude-skills` on current builds. |
 | `codex`           | Codex-native: each skill goes to `.agents/skills/<name>/SKILL.md`, plus a compact `AGENTS.md` router/bridge. Use `--scope user` to install to `$HOME/.agents/skills/` instead. |
@@ -201,6 +243,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 | `supabase`  | 14 | Backend with Postgres + Supabase RLS |
 | `fullstack` | 21 | Almost everything (includes frontend / duplication audits) |
 | `all`       | 23 | Every skill in the pack |
+| `enforcement` | — | Not a skill profile: the three PreToolUse guards. Layer on any of the above (Claude Code plugin only) |
 
 ### Custom selection
 
@@ -228,23 +271,28 @@ path-specific instructions in Codex, ClawHub publication status, manual paste fl
 
 Every prompt follows the schema in [`docs/PROMPT-FORMAT.md`](docs/PROMPT-FORMAT.md):
 
-- YAML frontmatter (`name`, `description`, `category`, `triggers`, `version`)
+- Spec-conformant YAML frontmatter: `name`, `description`, `license`, and pack fields
+  under `metadata` (`pp-category`, `pp-version`, `pp-activation`) — no invented top-level keys
+- A description written for activation: what it does + `Use when …` + `Not for …`,
+  120-500 chars, with the literal words users type
+- Progressive disclosure: conditional material in `references/`, linked with a load condition
 - Short role statement (no inflated "senior architect" prose)
 - Explicit scope and out-of-scope
 - Token-discipline rules (what NOT to read, when to ask before reading large files)
 - Output format
 - Anti-patterns (what NOT to do)
 
-## Orchestration
+## Orchestration (legacy hosts only)
 
-[`prompts/meta/task-router/SKILL.md`](prompts/meta/task-router/SKILL.md) is the
-orchestrator for **legacy rules, OpenClaw, Claude Code subagent flows, and the
-Codex AGENTS.md bridge**. It maps user intents to specific skills and decides
-when to spawn subagents.
+On a native Agent Skills host — Claude Code, Cursor 2.4+, Codex — routing is not the pack's
+job. The host matches the request against skill descriptions, which is why descriptions
+carry `Use when …` and `Not for …` clauses and why the activation eval exists. Adding a
+router skill on top of that gives you a second, worse matcher.
 
-For **native Agent Skills targets** (`cursor`, `agents`, `claude-skills`), the
-host tool's own skill discovery is the router — `task-router` is intentionally
-excluded from those targets. Descriptions are the primary activation surface.
+[`prompts/meta/task-router/SKILL.md`](prompts/meta/task-router/SKILL.md) is therefore marked
+`pp-activation: legacy` and excluded from every native target. It stays in the pack for
+pre-Agent-Skills setups: plain rules files, OpenClaw, Claude Code subagent flows, and the
+Codex `AGENTS.md` bridge, where nothing else can do the mapping.
 
 A typical flow (legacy / rules mode):
 
@@ -266,18 +314,26 @@ For multi-pass intents the router exposes **composed flows** instead of single s
 
 ## Status
 
-🟢 **v0.4.1** — current stable release. Codex installs now include profile-aware
-cross-skill links, composed-flow routing, and stricter disambiguation for bugfix,
-review, and migration requests. Installer supports **ten targets**: Skills-native
-`cursor` (`.cursor/skills/` + three always-on `.mdc` rules), `cursor-foundation` (layer on
-`agents` without duplicate skill roots), legacy `cursor-rules`, universal `agents`
-(`.agents/skills/` for Cursor 2.4+, Codex CLI, Copilot), Skills-native `claude-skills`
-(`.claude/skills/`, repo or user scope), plus unchanged legacy Claude Code subagents, Codex,
-OpenClaw, and raw paths. `meta/task-router` is excluded from `cursor` / `agents` /
-`claude-skills` so it does not fight host skill matchers; docs cover layering and **Cursor
-IDE** duplicate discovery when **`codex` + `cursor`** both install skills into the same repo.
-Still **23 skills**, format-locked, lint-gated. (v0.3.0 brought `infra/docker` and
-framework-neutral `frontend-feature`.)
+🟢 **v0.5.0** — the spec-conformance release. Everything below is enforced by CI, not
+asserted:
+
+- **Frontmatter matches the Agent Skills spec.** `category`, `version`, `triggers`, and
+  `applies_to` were invented top-level keys; they now live under `metadata` as `pp-*`
+  strings. `triggers` is gone — its phrases moved into the description, which is what hosts
+  actually match on.
+- **Descriptions are written for activation**, 384-452 chars each (was a 120-char cap, which
+  cannot hold what + when + when-not). The activation eval scores 58/58 offline and 59/59
+  through the real matcher (`--llm`, run by hand before release) against a 95% floor;
+  the first run scored 84.7% and every miss was a real missing keyword.
+- **Progressive disclosure.** Nine skills moved templates, coverage passes, and worked
+  examples into `references/`, each linked with an explicit load condition. Core `SKILL.md`
+  budget: 240 lines, down from 310.
+- **Enforcement hooks** (`enforcement@prompt-pack`, opt-in): 3 `PreToolUse` guards, 24
+  tested cases, fail-open, Linux + Windows in CI.
+- **Behavioural fixture** with 7 planted defects and an answer key, run by hand.
+
+Still **23 skills**, format-locked, lint-gated. `meta/task-router` is now explicitly
+`legacy`. (v0.4.1 brought Codex profile-aware links; v0.3.0 brought `infra/docker`.)
 
 Use it.
 

@@ -16,14 +16,27 @@ in projects where you want the latest.
 
 ## Targets
 
-The installer supports ten targets. Pick one based on your AI tool:
+The installer supports ten targets. Pick one based on your AI tool.
+
+**Two carry the pack forward:** `claude-skills` (or the Claude Code plugin, below) and
+`agents` for Cursor / Codex / Copilot / OpenClaw. The rest exist for hosts that predate Agent Skills —
+maintained, not developed.
+
+**Directory targets vs flat targets.** Skills keep on-demand material in
+`references/*.md` (output templates, coverage passes, worked examples), loaded only when the
+skill's own instructions call for it. Targets that write a directory per skill —
+`claude-skills`, `agents`, `cursor`, `codex`, `openclaw`, and the plugin — copy those files
+verbatim. Flat targets write a single file per skill and **cannot carry them**:
+`cursor-rules`, `codex-agents-md`, `claude-code` (subagents), and `raw` lose the referenced
+files, so a skill installed that way still names its reference file but the file is not
+there. Prefer a directory target unless your host forces otherwise.
 
 | Target            | Output location | Tool |
 |-------------------|----------------|------|
 | `cursor`          | `<project>/.cursor/skills/<name>/SKILL.md` (most skills) + `<project>/.cursor/rules/*.mdc` (foundation rules) | Cursor 2.4+ (Skills-native) |
 | `cursor-foundation` | `<project>/.cursor/rules/*.mdc` (three foundation rules only, no `.cursor/skills/`) | Cursor 2.4+ — pair with `agents` to avoid duplicate skill roots |
 | `cursor-rules`    | `<project>/.cursor/rules/*.mdc` (every skill + bridge router) | Cursor builds older than 2.4 / rules-only flow |
-| `agents`          | `<project>/.agents/skills/<name>/SKILL.md` (no AGENTS.md) | Cursor 2.4+, Codex CLI, GitHub Copilot — one install for all three |
+| `agents`          | `<project>/.agents/skills/<name>/SKILL.md` (no AGENTS.md) | Cursor 2.4+, Codex CLI, GitHub Copilot, OpenClaw — one install for all four |
 | `claude-skills`   | `<project>/.claude/skills/<name>/SKILL.md` (or `~/.claude/skills/` with `--scope user`) | Claude Code (native Agent Skills) |
 | `claude-code`     | `<project>/.claude/agents/` | Claude Code (legacy subagents — prefer `claude-skills`) |
 | `codex`           | `<project>/.agents/skills/<name>/SKILL.md` + compact `<project>/AGENTS.md` | OpenAI Codex CLI / IDE / app (native skills format) |
@@ -195,7 +208,9 @@ because the rules-only flow has no Skills discovery to fall back on.
 
 The `agents` target writes every skill to `.agents/skills/<name>/SKILL.md`
 with no AGENTS.md bridge. This layout is read by Cursor 2.4+, Codex CLI,
-and GitHub Copilot — one install for all three.
+GitHub Copilot, and OpenClaw — one install for all four. On Copilot that covers the
+coding agent, code review, the CLI, and agent mode in VS Code and JetBrains (agent
+skills reached GA in Copilot code review on 2026-07-29).
 
 ```bash
 ~/code/prompt-pack/install.sh --target agents --profile fullstack
@@ -213,7 +228,7 @@ top — see [Layering for Cursor users](#layering-for-cursor-users) below.
 For Codex, inline the engineering-principles content into your `AGENTS.md`
 manually.
 
-Use `agents` when you want Codex + Cursor + Copilot all activated from a
+Use `agents` when you want Codex + Cursor + Copilot + OpenClaw all activated from a
 single install with no AGENTS.md noise. Use `codex` when you specifically
 want the Codex AGENTS.md router (multilingual aliases, routing table).
 
@@ -221,6 +236,27 @@ want the Codex AGENTS.md router (multilingual aliases, routing table).
 `claude-skills`): it's written for the OpenClaw / Claude Code
 subagent-orchestration model and fights the hosts' native skill matchers.
 The legacy `cursor-rules` and OpenClaw / Claude Code / Codex targets keep it.
+
+### One skill root per repo (who reads what, September 2026)
+
+Every native host now scans more than one directory, and several of them overlap. This is
+what each host discovers at project level, from the vendors' own docs:
+
+| Host | Project roots it scans | User roots |
+|---|---|---|
+| Cursor | `.agents/skills/`, `.cursor/skills/`, `.claude/skills/`, `.codex/skills/` | `~/.agents/skills/`, `~/.cursor/skills/`, `~/.claude/skills/`, `~/.codex/skills/` |
+| Codex | `.agents/skills/` (CWD, parents, repo root) | `~/.agents/skills/`, `/etc/codex/skills/` |
+| GitHub Copilot | `.github/skills/`, `.claude/skills/`, `.agents/skills/` | `~/.copilot/skills/`, `~/.agents/skills/` |
+| Claude Code | `.claude/skills/` (plus nested and `--add-dir` copies) | `~/.claude/skills/`, plugins |
+| OpenClaw | `<workspace>/skills/`, `<workspace>/.agents/skills/` | `~/.agents/skills/` |
+
+The consequence: **install exactly one skill root per repo.** `.agents/skills/` is the only
+directory every non-Claude host reads, which is why `agents` is the universal target. Mixing
+roots duplicates skills in whichever host reads both: `claude-skills` + `agents` shows every
+skill twice in Cursor *and* in Copilot, `codex` + `cursor` doubles them in Cursor, and a
+`.claude/skills/` tree vendored for Claude Code teammates is also picked up by Cursor and
+Copilot on the same machine. If your team uses Claude Code alongside Cursor or Copilot, put
+the pack in `.agents/skills/` and give Claude Code the plugin (user scope, not in the repo).
 
 ### Layering for Cursor users
 
@@ -235,7 +271,7 @@ Pick one of the following layouts:
 - **Cursor-only project**: use `--target cursor`. Writes to
   `.cursor/skills/` for most skills + `.cursor/rules/*.mdc` for the three
   foundation rules.
-- **Universal (Cursor + Codex + Copilot)**: use `--target agents`. Writes
+- **Universal (Cursor + Codex + Copilot + OpenClaw)**: use `--target agents`. Writes
   only `.agents/skills/`. No always-apply foundation rules anywhere.
 - **Universal + always-on foundation rules in Cursor**: combine
   `--target agents` (specialised skills) with `--target cursor-foundation`
@@ -302,6 +338,30 @@ and `/security-review` commands; the pack's same-named skills coexist under the
 plugin namespace but you may prefer a profile without them if you find the
 overlap noisy.
 
+#### Enforcement hooks (optional, layer on any profile)
+
+```
+/plugin install enforcement@prompt-pack
+```
+
+This plugin installs **no skills**. It registers three `PreToolUse` hooks that make three of
+the pack's own rules deterministic instead of advisory:
+
+| Guard | Rule it enforces | Behaviour |
+|---|---|---|
+| `guard-noise-reads` | `meta/token-discipline` | **denies** reads of `node_modules/`, git internals, lockfiles, minified bundles; **asks** on build output (`dist/`, `.next/`, `coverage/`) where a read is sometimes legitimate |
+| `guard-new-file` | `meta/reuse-before-create` | **asks** when a new source file duplicates an existing name modulo case, separators, and extension |
+| `guard-new-dependency` | `meta/engineering-principles` | **asks** when an install command names a package; restore commands (`npm ci`, `pnpm install`) pass through |
+
+Every guard fails open: a malformed payload or an internal error exits with no decision, so
+a bug can never block your work. They make no network calls and write no files. This is the
+only part of the pack that ships executable code, which is why it is a separate plugin and
+why the config lives at `hooks/enforcement.json` rather than the auto-discovered
+`hooks/hooks.json`. See [`SECURITY.md`](../SECURITY.md).
+
+To remove: `/plugin uninstall enforcement@prompt-pack`. The installer targets (`install.sh` /
+`install.ps1`) do not install hooks — Claude Code plugins only.
+
 ### Installer (`claude-skills` target)
 
 If you prefer the clone-and-install flow (e.g. to vendor skills into a repo so
@@ -364,7 +424,7 @@ Codex has two distinct mechanisms, and prompt-pack maps to both:
    the initial list, and loads the full `SKILL.md` only when it picks the
    skill. Lookup roots: `<repo>/.agents/skills/`, walk-up from CWD to repo
    root, plus `$HOME/.agents/skills/` (user) and `/etc/codex/skills/`
-   (admin). See [Codex skills docs](https://developers.openai.com/codex/skills).
+   (admin). See [Codex skills docs](https://learn.chatgpt.com/docs/build-skills).
 2. **AGENTS.md** — project guidance chain. Codex reads `~/.codex/AGENTS.md`
    (global), then walks from repo root down to your CWD picking up
    `AGENTS.md` / `AGENTS.override.md` at each level, capped at 32 KiB total.
@@ -410,7 +470,12 @@ project-independent guidance, not a place for skill content.
 
 - **Explicit**: type `$<skill-name>` in a Codex prompt, e.g. `$code-review`.
 - **Implicit**: Codex matches the skill `description` against the task.
-  Concise, scope-bounded descriptions trigger more reliably.
+  Concise, scope-bounded descriptions trigger more reliably. Implicit selection
+  is on unless a skill ships `agents/openai.yaml` with
+  `policy.allow_implicit_invocation: false`; the pack ships no such file, so
+  every skill is eligible.
+- **List**: `/skills` shows what Codex discovered, which is the quickest
+  check that the install landed in a scanned root.
 
 Restart Codex after installing so it rescans the discovery roots.
 
@@ -444,8 +509,12 @@ merges from root → cwd, with closer files winning.
 
 ## OpenClaw
 
-OpenClaw reads skill directories from its workspace `skills/` folder. Each skill is a
-directory with `SKILL.md` plus optional supporting files.
+OpenClaw reads skill directories from its workspace `skills/` folder, which is the
+highest-precedence root. Each skill is a directory with `SKILL.md` plus optional supporting
+files. OpenClaw also scans `<workspace>/.agents/skills/` and `~/.agents/skills/`, so a repo
+installed with `--target agents` is picked up when it doubles as an OpenClaw workspace; do
+not run both targets into the same workspace. The pack sets no `metadata.openclaw` gating
+block, so every skill is always eligible and never hidden by a missing binary or env var.
 
 ```bash
 ~/code/prompt-pack/install.sh --target openclaw --profile fullstack --path ~/.openclaw/workspace

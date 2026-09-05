@@ -1,24 +1,26 @@
-﻿{
-    "name":  "prompt-pack",
-    "version":  "0.4.1",
-    "private":  true,
-    "description":  "Curated AI agent skills for coding work. Format-linted, profile-installed.",
-    "type":  "module",
-    "scripts":  {
-                    "lint":  "node scripts/lint-skills.mjs",
-                    "lint:skills":  "node scripts/lint-skills.mjs",
-                    "test:install-content":  "bash scripts/test-install-content.sh",
-                    "check:version-bump":  "node scripts/check-version-bump.mjs"
-                },
-    "engines":  {
-                    "node":  "\u003e=18"
-                },
-    "license":  "MIT",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "https://github.com/Ozzeron/prompt-pack.git"
-                   },
-    "devDependencies":  {
-                            "yaml":  "^2.8.4"
-                        }
+{
+    "name": "prompt-pack",
+    "version": "0.5.0",
+    "private": true,
+    "description": "Curated AI agent skills for coding work. Format-linted, profile-installed.",
+    "type": "module",
+    "scripts": {
+        "lint": "node scripts/lint-skills.mjs",
+        "lint:skills": "node scripts/lint-skills.mjs",
+        "test:install-content": "bash scripts/test-install-content.sh",
+        "test:hooks": "node scripts/test-hooks.mjs",
+        "eval:descriptions": "node scripts/eval-descriptions.mjs",
+        "check:version-bump": "node scripts/check-version-bump.mjs"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Ozzeron/prompt-pack.git"
+    },
+    "devDependencies": {
+        "yaml": "^2.9.0"
+    }
 }

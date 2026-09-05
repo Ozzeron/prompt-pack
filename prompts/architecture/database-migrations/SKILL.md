@@ -1,10 +1,12 @@
 ---
 name: database-migrations
-description: Write safe, reversible, backward-compatible database migrations. Avoid downtime, locks, and "oops we lost data".
-category: architecture
-version: 0.1.0
-triggers: ["migration", "alter table", "schema change", "DB upgrade"]
-applies_to: [openclaw, cursor, claude-code]
+description: "Writes safe, reversible, backward-compatible database migrations: expand-then-contract ordering, lock-aware DDL, chunked backfills, and a rollback path per step. Use when a column or table has to be added, renamed, or dropped without downtime, when a type or constraint changes, when an index goes onto a production table, or when rows need backfilling. Not for first-time schema design (database-schema) or diagnosing slow queries (database-review)."
+license: MIT
+metadata:
+  pp-category: architecture
+  pp-version: "0.2.0"
+  pp-activation: native
+  pp-surfaces: "openclaw, cursor, claude-code"
 ---
 
 # Database Migrations

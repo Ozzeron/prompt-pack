@@ -3,10 +3,18 @@
  * Lint every prompts/<category>/<name>/SKILL.md against the format contract.
  *
  * Checks:
- * - YAML frontmatter present with required fields (name, description, category, version)
- * - description ≤ 120 chars
+ * - YAML frontmatter present with required fields (name, description)
+ * - Only Agent Skills spec keys at the top level (name, description, license,
+ *   compatibility, metadata, allowed-tools); everything pack-specific lives under
+ *   metadata as pp-* string values
+ * - metadata carries pp-category (matching the directory), pp-version (semver),
+ *   pp-activation (native | inherit-only | legacy)
+ * - description length within 120–500 chars, contains an explicit "Use when" clause
+ *   and a negative trigger ("Not for" / "Don't use"), because the description is the
+ *   only activation surface on native hosts
  * - name matches directory name (kebab-case)
- * - File length within 80–310 lines
+ * - SKILL.md length within 80–240 lines (core budget); conditional material lives in
+ *   references/ and is linked with an explicit load condition
  * - For non-meta skills: required sections present in order
  *   (When to use → Scope → Inherits → Token discipline → Process → Output format → Anti-patterns)
  * - All internal markdown links to ../...SKILL.md resolve
@@ -31,7 +39,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 const PROMPTS_ROOT = join(REPO_ROOT, 'prompts');
 
-const REQUIRED_FRONTMATTER = ['name', 'description', 'category', 'version'];
+const REQUIRED_FRONTMATTER = ['name', 'description'];
+// The Agent Skills spec fixes the top-level frontmatter keys. Anything pack-specific
+// belongs under `metadata` (a map of string keys to string values), prefixed pp- so it
+// cannot collide with another publisher's metadata. A skill that invents top-level keys
+// still loads in Claude Code today, but fails `skills-ref validate` and is not portable.
+const ALLOWED_TOP_LEVEL = new Set([
+  'name',
+  'description',
+  'license',
+  'compatibility',
+  'metadata',
+  'allowed-tools',
+]);
+const REQUIRED_METADATA = ['pp-category', 'pp-version', 'pp-activation'];
+// native      - discovered by the host from `description` alone
+// inherit-only - loaded by reference from another skill's Inherits section, never self-activates
+// legacy      - kept for pre-Agent-Skills flows (orchestrator routing); excluded from native targets
+const ACTIVATION_VALUES = new Set(['native', 'inherit-only', 'legacy']);
 // Required sections that must appear in this exact relative order in non-meta skills.
 // Process is intentionally not required — some skills (handoff, postgres-supabase,
 // database-migrations) replace a single Process section with multiple topic-specific
@@ -46,15 +71,41 @@ const REQUIRED_SECTIONS_NON_META = [
 ];
 const REQUIRED_SECTIONS_META_MIN = ['## When to use', '## Anti-patterns'];
 
-const DESCRIPTION_MAX = 120;
+// The description is the whole activation surface on native hosts: it is the only part
+// of a skill loaded before the host decides to open it. The spec ceiling is 1024 chars;
+// 500 is the pack's own budget (23 skills x ~400 chars stays inside the ~2% context cap
+// hosts allocate to the skill index). The floor exists because a 100-char description
+// cannot carry what the skill does AND when to use it AND when not to.
+const DESCRIPTION_MAX = 500;
+const DESCRIPTION_MIN = 120;
+// Required description clauses. "Use when" is the trigger surface; a negative clause is
+// what stops sibling skills from stealing each other's activations (code-review vs the
+// *-audit skills, doc-writer vs ai-agent-docs).
+const DESCRIPTION_USE_WHEN = /\buse when\b/i;
+const DESCRIPTION_NEGATIVE = /\b(not for|don't use|do not use)\b/i;
+// ASCII-only: install.ps1 re-emits this exact line under Windows PowerShell 5.1, whose
+// default file APIs double-encode non-ASCII (the reason templates/cursor-bridge.mdc is
+// copied byte-for-byte instead of generated). Multilingual routing belongs in that
+// template and the AGENTS.md bridge, not in a field the installers rewrite.
+const NON_ASCII = /[^\x20-\x7E]/;
 const LENGTH_MIN = 80;
-const LENGTH_MAX = 310;
+// Core budget. The spec ceiling is 500 lines / 5000 tokens for the whole SKILL.md, but
+// everything in this file loads on every activation, so the pack keeps the always-loaded
+// core well under it and pushes conditional material (templates, per-branch checklists,
+// worked examples) into references/ behind an explicit load condition.
+const LENGTH_MAX = 240;
+// A reference file the agent must read in full to use is no better than inline text.
+const REFERENCE_MAX = 250;
+// The pointer line for a reference file has to say WHEN to load it — "see references/ for
+// details" defeats progressive disclosure because the agent cannot tell whether this run
+// needs it.
+const LOAD_CONDITION = /\b(when|if|before|unless)\b/i;
 
 // Description-collision threshold: max allowed Jaccard similarity between the tokenized
 // descriptions of any two skills. Descriptions are the primary activation surface for
 // native skill matchers (Cursor/Codex/Claude Code), so two near-identical descriptions
-// blur routing between them. Calibration: the current 23 skills peak at 0.20 pairwise
-// similarity (meta/engineering-principles <-> meta/reuse-before-create). 0.50 leaves
+// blur routing between them. Calibration: the current 23 skills peak at 0.23 pairwise
+// similarity (architecture/frontend-feature <-> interface/ui-designer). 0.50 leaves
 // >2x headroom over that while still catching genuine near-duplicates — two skills that
 // share half their meaningful description tokens is a real collision, not coincidence.
 const DESCRIPTION_SIMILARITY_MAX = 0.5;
@@ -222,12 +273,62 @@ function isInOrder(found, required) {
 
 function checkLinks(body, fromPath) {
   const failures = [];
-  const linkPattern = /\]\((\.\.[^)]*SKILL\.md)\)/g;
+  const linkPattern = /\]\((\.\.[^)]*SKILL\.md|references\/[^)]+\.md)\)/g;
   let m;
   while ((m = linkPattern.exec(body)) !== null) {
     const target = resolve(dirname(fromPath), m[1]);
     if (!existsSync(target)) {
       failures.push(`broken link to ${m[1]}`);
+    }
+  }
+  return failures;
+}
+
+/**
+ * Progressive disclosure contract for a skill directory:
+ *   - the only .md at the skill root is SKILL.md (everything else lives in references/)
+ *   - every file in references/ is linked from SKILL.md
+ *   - the linking line states a load condition, not just "see references/"
+ *   - no reference file is so long that loading it is as costly as inlining it
+ */
+function checkReferences(skill, body) {
+  const failures = [];
+  const skillDir = dirname(skill.path);
+
+  for (const entry of readdirSync(skillDir)) {
+    if (entry === 'SKILL.md' || entry === 'CHANGELOG.md') continue;
+    if (entry.endsWith('.md')) {
+      failures.push(`${entry} sits at the skill root — move it to references/${entry}`);
+    }
+  }
+
+  const refDir = join(skillDir, 'references');
+  if (!existsSync(refDir)) return failures;
+
+  const bodyLines = body.split(/\r?\n/);
+  for (const file of readdirSync(refDir)) {
+    if (!file.endsWith('.md')) continue;
+    const linkLines = bodyLines.filter((l) => l.includes(`references/${file})`));
+    if (linkLines.length === 0) {
+      failures.push(`references/${file} is never linked from SKILL.md (dead reference)`);
+      continue;
+    }
+    if (!linkLines.some((l) => LOAD_CONDITION.test(l))) {
+      failures.push(
+        `references/${file} is linked without a load condition (say when to read it, e.g. "read X when …")`,
+      );
+    }
+    const refPath = join(refDir, file);
+    const refContent = readFileSync(refPath, 'utf8');
+    const refLines = refContent.split(/\r?\n/).length;
+    if (refLines > REFERENCE_MAX) {
+      failures.push(`references/${file} is ${refLines} lines > ${REFERENCE_MAX} — split it by topic`);
+    }
+    // Links inside a reference file resolve from references/, one level deeper than
+    // SKILL.md. Moving a section out of a skill silently breaks every ../.. link it
+    // carried, which is exactly what happened to frontend-feature's layer rules.
+    for (const f of checkLinks(refContent, refPath)) {
+      failures.push(`references/${file}: ${f}`);
     }
   }
   return failures;
@@ -276,7 +377,9 @@ function checkInlineSkillReferences(body, skill, skillSet, categorySet) {
 
 function lintSkill(skill, skillSet, categorySet) {
   const content = readFileSync(skill.path, 'utf8');
-  const lineCount = content.split(/\r?\n/).length;
+  // Trailing newline excluded: a POSIX-correct file would otherwise count one line more
+  // than it has, which is how a 240-line budget silently became 239.
+  const lineCount = content.replace(/\r?\n$/, '').split(/\r?\n/).length;
   const failures = [];
 
   const result = parseFrontmatter(content);
@@ -295,33 +398,78 @@ function lintSkill(skill, skillSet, categorySet) {
   if (fm.name && fm.name !== skill.name) {
     failures.push(`frontmatter name "${fm.name}" != directory name "${skill.name}"`);
   }
-  if (fm.description && typeof fm.description === 'string' && fm.description.length > DESCRIPTION_MAX) {
-    failures.push(`description ${fm.description.length} > ${DESCRIPTION_MAX} chars`);
+
+  // Spec conformance: no invented top-level keys.
+  for (const key of Object.keys(fm)) {
+    if (!ALLOWED_TOP_LEVEL.has(key)) {
+      failures.push(`non-spec top-level frontmatter key "${key}" (move it under metadata as pp-${key})`);
+    }
   }
-  if (fm.category && fm.category !== skill.category) {
-    failures.push(`frontmatter category "${fm.category}" != directory category "${skill.category}"`);
-  }
-  // Type sanity for arrays (YAML can quietly produce strings if the source is malformed).
-  if (fm.triggers !== undefined && !Array.isArray(fm.triggers)) {
-    failures.push(`triggers must be a list, got ${typeof fm.triggers}`);
-  }
-  if (fm.applies_to !== undefined && !Array.isArray(fm.applies_to)) {
-    failures.push(`applies_to must be a list, got ${typeof fm.applies_to}`);
-  }
-  // inherit-only invariant: a skill marked inherit-only is loaded by reference from
-  // other skills (Inherits sections) and must not also self-activate via other triggers
-  // or via [always]. Mixing the two is what the v0.1.2 trigger discipline patch was
-  // explicitly designed to prevent.
-  if (Array.isArray(fm.triggers)) {
-    const hasInheritOnly = fm.triggers.includes('inherit-only');
-    const hasAlways = fm.triggers.includes('always');
-    if (hasInheritOnly && fm.triggers.length !== 1) {
+
+  if (typeof fm.description === 'string') {
+    const desc = fm.description;
+    if (desc.length > DESCRIPTION_MAX) {
+      failures.push(`description ${desc.length} > ${DESCRIPTION_MAX} chars`);
+    }
+    if (desc.length < DESCRIPTION_MIN) {
       failures.push(
-        `triggers: inherit-only must be the sole trigger; got ${JSON.stringify(fm.triggers)}`,
+        `description ${desc.length} < ${DESCRIPTION_MIN} chars — too thin to carry what + when + when-not`,
       );
     }
-    if (hasInheritOnly && hasAlways) {
-      failures.push('triggers: inherit-only cannot be combined with always');
+    if (!DESCRIPTION_USE_WHEN.test(desc)) {
+      failures.push('description has no "Use when …" clause (the trigger surface on native hosts)');
+    }
+    if (!DESCRIPTION_NEGATIVE.test(desc)) {
+      failures.push('description has no negative trigger ("Not for …" / "Don\'t use …")');
+    }
+    const nonAscii = desc.match(NON_ASCII);
+    if (nonAscii) {
+      failures.push(`description contains non-ASCII character ${JSON.stringify(nonAscii[0])} (install.ps1 rewrites this line under PS 5.1)`);
+    }
+  }
+
+  // metadata: pack-specific fields, string values only (spec: map of string -> string).
+  const meta = fm.metadata;
+  if (meta === undefined || meta === null) {
+    failures.push('missing frontmatter field: metadata (pp-category, pp-version, pp-activation)');
+  } else if (typeof meta !== 'object' || Array.isArray(meta)) {
+    failures.push(`metadata must be a mapping, got ${Array.isArray(meta) ? 'list' : typeof meta}`);
+  } else {
+    for (const key of REQUIRED_METADATA) {
+      if (meta[key] === undefined || meta[key] === null || meta[key] === '') {
+        failures.push(`missing metadata field: ${key}`);
+      }
+    }
+    for (const [key, value] of Object.entries(meta)) {
+      if (typeof value !== 'string') {
+        failures.push(`metadata.${key} must be a string, got ${Array.isArray(value) ? 'list' : typeof value}`);
+      }
+      if (!key.startsWith('pp-')) {
+        failures.push(`metadata key "${key}" must be pp-prefixed to avoid cross-publisher collisions`);
+      }
+    }
+    if (meta['pp-category'] && meta['pp-category'] !== skill.category) {
+      failures.push(
+        `metadata.pp-category "${meta['pp-category']}" != directory category "${skill.category}"`,
+      );
+    }
+    if (typeof meta['pp-version'] === 'string' && !/^\d+\.\d+\.\d+$/.test(meta['pp-version'])) {
+      failures.push(`metadata.pp-version "${meta['pp-version']}" is not semver`);
+    }
+    if (meta['pp-activation'] && !ACTIVATION_VALUES.has(meta['pp-activation'])) {
+      failures.push(
+        `metadata.pp-activation "${meta['pp-activation']}" not one of ${[...ACTIVATION_VALUES].join(' | ')}`,
+      );
+    }
+    // inherit-only invariant, restated for the description era: a skill that is only ever
+    // pulled in by another skill's Inherits section must say so in its description, or a
+    // native host will match it directly and load foundation rules as if they were a task.
+    if (meta['pp-activation'] === 'inherit-only' && typeof fm.description === 'string') {
+      if (!/inherit/i.test(fm.description)) {
+        failures.push(
+          'pp-activation: inherit-only but the description does not say it is inherited rather than invoked',
+        );
+      }
     }
   }
 
@@ -340,6 +488,7 @@ function lintSkill(skill, skillSet, categorySet) {
   }
 
   failures.push(...checkLinks(body, skill.path));
+  failures.push(...checkReferences(skill, body));
   failures.push(...checkInlineSkillReferences(body, skill, skillSet, categorySet));
 
   // Code-creating skills must inherit meta/reuse-before-create. The DRY decision flow
@@ -513,6 +662,38 @@ function checkReadmeProfileCounts() {
   return { failures };
 }
 
+/**
+ * The pack's security claim is that installing a skill profile installs Markdown and
+ * nothing else — no scripts to audit, no post-install step, nothing that executes. That
+ * claim is only worth making if it is enforced, so anything executable under prompts/ is a
+ * lint failure. (The opt-in enforcement hooks DO ship code; they live in hooks/, are
+ * documented in SECURITY.md, and are installed by a separate plugin.)
+ */
+const EXECUTABLE_EXT = new Set([
+  '.sh', '.bash', '.zsh', '.ps1', '.psm1', '.bat', '.cmd', '.py', '.rb', '.pl',
+  '.js', '.mjs', '.cjs', '.ts', '.exe', '.dll', '.so', '.dylib', '.jar', '.wasm',
+]);
+
+function checkNoExecutableCode() {
+  const failures = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      const dot = entry.name.lastIndexOf('.');
+      const ext = dot === -1 ? '' : entry.name.slice(dot).toLowerCase();
+      if (EXECUTABLE_EXT.has(ext)) {
+        failures.push(`executable file under prompts/: ${relative(REPO_ROOT, full)}`);
+      }
+    }
+  };
+  walk(PROMPTS_ROOT);
+  return failures;
+}
+
 function checkRouterReferences(skillIds) {
   const failures = [];
   const skillSet = new Set(skillIds);
@@ -648,6 +829,15 @@ function main() {
     console.log('  FAIL  task-router');
     for (const f of routerFailures) console.log(`        - ${f}`);
     totalFailures += routerFailures.length;
+  }
+
+  const executableFailures = checkNoExecutableCode();
+  if (executableFailures.length === 0) {
+    console.log('  PASS  no executable code under prompts/ (skills are Markdown only)');
+  } else {
+    console.log('  FAIL  executable code under prompts/');
+    for (const f of executableFailures) console.log(`        - ${f}`);
+    totalFailures += executableFailures.length;
   }
 
   const collisionFailures = checkDescriptionCollisions(skills);

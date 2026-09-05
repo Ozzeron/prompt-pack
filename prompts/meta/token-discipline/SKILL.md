@@ -1,10 +1,12 @@
 ---
 name: token-discipline
-description: Manage the agent's attention budget. Read what improves correctness; skip what adds noise.
-category: meta
-version: 0.2.0
-triggers: [inherit-only]
-applies_to: [openclaw, cursor, claude-code, generic]
+description: "Attention-budget rules for reading a codebase: what to open first, what never to open (dependency trees, build output, lockfiles, generated code), when to grep instead of read, and when widening the read is justified by correctness. Inherited by other skills rather than triggered on its own. Use when a skill Inherits section points here. Not for direct activation, and not a rule to minimise tokens."
+license: MIT
+metadata:
+  pp-category: meta
+  pp-version: "0.3.0"
+  pp-activation: inherit-only
+  pp-surfaces: "openclaw, cursor, claude-code, generic"
 ---
 
 # Token Discipline

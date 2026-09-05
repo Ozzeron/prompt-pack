@@ -216,6 +216,159 @@ fi
 echo
 
 # ---------------------------------------------------------------------------
+# TEST 6 — codex / supabase (the Codex-native target)
+#   Codex has no skill inheritance, so the installer carries the pack's
+#   discipline through three mechanisms that only a real install can prove:
+#   - agents/openai.yaml on the three foundation skills with implicit
+#     invocation OFF (Codex lists them, only `$name` invokes them); no other
+#     skill gets a policy file; task-router gets one with implicit ON.
+#   - a compact AGENTS.md router bridge: every installed skill listed as
+#     `$name`, every `$name` it mentions actually installed, composed flows
+#     emitted only when every step is installed, placeholders substituted,
+#     UTF-8 without BOM with the Cyrillic aliases intact.
+#   - cross-skill links rewritten from ../../<category>/<name>/SKILL.md to
+#     ../<name>/SKILL.md, and downgraded to a bare `$name` when the target is
+#     not part of the profile, so no installed file links to a missing path.
+#   Codex reads `name` to key the skill, so it must equal the directory name.
+# ---------------------------------------------------------------------------
+echo "TEST 6: codex / supabase"
+T6="$WORK/t6"; mkdir -p "$T6"
+if run_install --target codex --profile supabase --path "$T6" --force; then
+  SK="$T6/.agents/skills"
+  n="$(count_dirs "$SK")"
+  if [[ "$n" == "14" ]]; then pass "14 skill dirs installed"; else fail "expected 14 skill dirs, got $n"; fi
+
+  # name == directory name for every skill (Codex keys on `name`).
+  bad=""
+  while IFS= read -r skmd; do
+    dir="$(basename "$(dirname "$skmd")")"
+    nm="$(awk '/^---[ \t]*$/{fm++; next} fm==1 && /^name:/{sub(/^name:[ \t]*/, ""); gsub(/["'"'"']/, ""); print; exit}' "$skmd")"
+    [[ "$nm" == "$dir" ]] || bad="$bad $dir=[$nm]"
+  done < <(find "$SK" -mindepth 2 -maxdepth 2 -name SKILL.md | LC_ALL=C sort)
+  if [[ -z "$bad" ]]; then pass "frontmatter name matches directory for every skill"; else fail "name/dir mismatch:$bad"; fi
+
+  # Policy files: exactly the three foundation skills, implicit OFF.
+  yaml_dirs="$(find "$SK" -mindepth 3 -maxdepth 3 -path '*/agents/openai.yaml' | sed -e "s|$SK/||" -e 's|/agents/openai.yaml$||' | LC_ALL=C sort | tr '\n' ',')"
+  if [[ "$yaml_dirs" == "engineering-principles,reuse-before-create,token-discipline," ]]; then
+    pass "openai.yaml only on the three foundation skills"
+  else
+    fail "unexpected openai.yaml set: [$yaml_dirs]"
+  fi
+  bad=""
+  while IFS= read -r y; do
+    grep -qx '  allow_implicit_invocation: false' "$y" || bad="$bad ${y#"$SK/"}"
+    if [[ "$(head -c 3 "$y" | od -An -tx1 | tr -d ' \n')" == "efbbbf" ]]; then bad="$bad BOM:${y#"$SK/"}"; fi
+  done < <(find "$SK" -name openai.yaml)
+  if [[ -z "$bad" ]]; then pass "foundation policies disable implicit invocation, BOM-less"; else fail "policy problems:$bad"; fi
+
+  # AGENTS.md bridge.
+  AG="$T6/AGENTS.md"
+  if [[ -f "$AG" ]]; then
+    size="$(wc -c < "$AG" | tr -d ' ')"
+    if (( size > 0 && size < 8192 )); then pass "AGENTS.md is compact ($size bytes)"; else fail "AGENTS.md size out of range: $size"; fi
+    if [[ "$(head -c 3 "$AG" | od -An -tx1 | tr -d ' \n')" != "efbbbf" ]]; then pass "AGENTS.md has no BOM"; else fail "AGENTS.md starts with a UTF-8 BOM"; fi
+    if ! grep -q 'PROMPT_PACK_' "$AG"; then pass "every template placeholder substituted"; else fail "unsubstituted placeholder in AGENTS.md"; fi
+    if LC_ALL=C grep -qF 'проревьюй' "$AG"; then pass "Cyrillic aliases survived byte-exact"; else fail "Cyrillic alias missing or mangled in AGENTS.md"; fi
+
+    missing=""
+    while IFS= read -r d; do
+      grep -qx -- "- \`\$${d}\`" "$AG" || missing="$missing $d"
+    done < <(find "$SK" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | LC_ALL=C sort)
+    if [[ -z "$missing" ]]; then pass "every installed skill is listed as \$name"; else fail "installed but not listed in AGENTS.md:$missing"; fi
+
+    # supabase is used here because the template's static routing-discipline
+    # text names $debugger, $repo-audit and $code-review, and all three are in
+    # this profile, so every $name in the file must resolve to an installed dir.
+    phantom=""
+    while IFS= read -r ref; do
+      [[ -d "$SK/$ref" ]] || phantom="$phantom $ref"
+    done < <(grep -oE '\$[A-Za-z0-9._-]+' "$AG" | sed 's/^\$//' | LC_ALL=C sort -u)
+    if [[ -z "$phantom" ]]; then pass "AGENTS.md names only installed skills"; else fail "AGENTS.md routes to skills that are not installed:$phantom"; fi
+
+    if grep -q '^- Full PR review .*`\$code-review` then `\$security-review`' "$AG"; then pass "complete composed flow emitted"; else fail "Full PR review flow missing (both steps are installed)"; fi
+    if ! grep -q 'Refactor execution' "$AG"; then pass "incomplete composed flow suppressed"; else fail "Refactor execution flow emitted although refactor-planner is not in supabase"; fi
+  else
+    fail "AGENTS.md not written"
+  fi
+
+  # Cross-links.
+  if ! grep -rq '](\.\./\.\./' "$SK"; then pass "no ../../<category> links remain"; else fail "category-relative links survived the rewrite"; fi
+  if grep -rqF '[`$engineering-principles`](../engineering-principles/SKILL.md)' "$SK"; then pass "links rewritten to \$name form"; else fail "expected rewritten link form not found"; fi
+  dangling=""
+  while IFS= read -r tgt; do
+    [[ -d "$SK/$tgt" ]] || dangling="$dangling $tgt"
+  done < <(grep -rhoE '\]\(\.\./[A-Za-z0-9._-]+/SKILL\.md\)' "$SK" | sed -E 's|^\]\(\.\./([A-Za-z0-9._-]+)/SKILL\.md\)$|\1|' | LC_ALL=C sort -u)
+  if [[ -z "$dangling" ]]; then pass "every remaining link targets an installed skill"; else fail "dangling links to:$dangling"; fi
+  # duplication-audit is referenced by an installed skill but not in supabase:
+  # the link must have been downgraded to a bare token.
+  if grep -rqF '`$duplication-audit`' "$SK" && ! grep -rq '](\.\./duplication-audit/SKILL\.md)' "$SK"; then
+    pass "link to an uninstalled skill downgraded to a bare \$name"
+  else
+    fail "uninstalled-target link not downgraded (duplication-audit)"
+  fi
+else
+  fail "codex/supabase install failed"
+fi
+
+T6B="$WORK/t6b"; mkdir -p "$T6B"
+if run_install --target codex --skill meta/task-router --skill delivery/handoff --path "$T6B" --force; then
+  SK="$T6B/.agents/skills"
+  if [[ -f "$SK/task-router/agents/openai.yaml" ]] && grep -qx '  allow_implicit_invocation: true' "$SK/task-router/agents/openai.yaml"; then
+    pass "task-router policy allows implicit invocation"
+  else
+    fail "task-router should carry allow_implicit_invocation: true"
+  fi
+  if [[ ! -e "$SK/handoff/agents" ]]; then pass "non-foundation skill gets no policy file"; else fail "handoff should not have agents/openai.yaml"; fi
+else
+  fail "codex task-router install failed"
+fi
+echo
+
+# ---------------------------------------------------------------------------
+# TEST 7 — codex / minimal, --scope user
+#   User scope writes to $HOME/.agents/skills and must NOT write AGENTS.md:
+#   user-level guidance lives in ~/.codex/AGENTS.md, not in a project file.
+# ---------------------------------------------------------------------------
+echo "TEST 7: codex / minimal --scope user"
+T7="$WORK/t7"; mkdir -p "$T7/home" "$T7/proj"
+log="$(mktemp)"
+if HOME="$T7/home" bash "$INSTALL_SH" --target codex --profile minimal --scope user --path "$T7/proj" --force >"$log" 2>&1; then
+  n="$(count_dirs "$T7/home/.agents/skills")"
+  if [[ "$n" == "4" ]]; then pass "4 skill dirs under \$HOME/.agents/skills"; else fail "expected 4 user-scope dirs, got $n"; fi
+  if [[ ! -e "$T7/proj/AGENTS.md" && ! -e "$T7/home/AGENTS.md" ]]; then pass "no AGENTS.md written in user scope"; else fail "user scope wrote an AGENTS.md"; fi
+  if [[ ! -e "$T7/proj/.agents" ]]; then pass "nothing written into the project in user scope"; else fail "user scope wrote into the project path"; fi
+else
+  echo "  install.sh codex --scope user FAILED:" >&2; sed 's/^/    /' "$log" >&2
+  fail "codex user-scope install failed"
+fi
+rm -f "$log"
+echo
+
+# ---------------------------------------------------------------------------
+# TEST 8 — codex-agents-md / all (legacy single file)
+#   The concatenated AGENTS.md must respect Codex's 32 KiB project-doc cap,
+#   report what it skipped, and carry no relative SKILL.md links (every
+#   referenced skill is inlined or absent, so a path link can only be broken).
+# ---------------------------------------------------------------------------
+echo "TEST 8: codex-agents-md / all"
+T8="$WORK/t8"; mkdir -p "$T8"
+log="$(mktemp)"
+if bash "$INSTALL_SH" --target codex-agents-md --profile all --path "$T8" --force >"$log" 2>&1; then
+  AG="$T8/AGENTS.md"
+  size="$(wc -c < "$AG" | tr -d ' ')"
+  if (( size <= 32768 )); then pass "AGENTS.md within 32 KiB ($size bytes)"; else fail "AGENTS.md exceeds 32 KiB: $size"; fi
+  inc="$(grep -c '<!-- skill: ' "$AG" || true)"
+  if (( inc >= 1 )); then pass "$inc skill(s) inlined"; else fail "no skill sections inlined"; fi
+  if grep -q 'Skipped (would exceed Codex 32 KB limit)' "$log"; then pass "skipped skills reported"; else fail "23 skills cannot fit 32 KiB, yet nothing was reported skipped"; fi
+  if ! grep -q '](\.\./' "$AG"; then pass "no relative SKILL.md links in the merged file"; else fail "relative SKILL.md links survived in the merged AGENTS.md"; fi
+else
+  echo "  install.sh codex-agents-md FAILED:" >&2; sed 's/^/    /' "$log" >&2
+  fail "codex-agents-md/all install failed"
+fi
+rm -f "$log"
+echo
+
+# ---------------------------------------------------------------------------
 echo "-----------------------------------------------------------------------"
 if (( FAILURES == 0 )); then
   echo "ALL CONTENT ASSERTIONS PASSED"

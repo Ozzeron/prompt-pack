@@ -1,0 +1,10 @@
+{
+  "name": "fixture-shop",
+  "private": true,
+  "description": "Fixture repo with planted defects. Not a real app; nothing here runs.",
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "express": "^5.1.0",
+    "pg": "^8.13.1"
+  }
+}
