@@ -184,15 +184,21 @@ The repo is a valid [skills.sh](https://skills.sh) source. One command writes th
 `skills-lock.json`:
 
 ```bash
-npx skills add Ozzeron/prompt-pack
+npx skills add Ozzeron/prompt-pack --copy
 ```
 
-Pick skills in the prompt, or take everything with `--all`. Two differences from the
-installer's `agents` target: `npx skills` also ships `meta/task-router` (drop it with
-`npx skills remove task-router`; native hosts route by description), and it copies files
-verbatim, so the cross-skill links inside a `SKILL.md` keep their repo-relative paths and
-do not resolve in the flat layout. Treat them as names, not paths. Update with
-`npx skills update`.
+Pick skills in the prompt, or take everything with `--all`.
+
+**Keep `--copy`.** Without it the CLI writes real files only under `.agents/skills/` and
+links every other host's skill directory to that one. A host that does not resolve the link
+lists the skill names with nothing behind them, which reads as a broken install. `--copy`
+writes real files into each host directory instead.
+
+Two more differences from the installer's `agents` target: `npx skills` also ships
+`meta/task-router` (drop it with `npx skills remove task-router`; native hosts route by
+description), and it copies skills verbatim, so the cross-skill links inside a `SKILL.md`
+keep their repo-relative paths and do not resolve in the flat layout. Treat them as names,
+not paths. Update with `npx skills update`.
 
 #### Linux / macOS (bash)
 

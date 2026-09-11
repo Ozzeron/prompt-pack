@@ -232,14 +232,23 @@ The repo is a valid [skills.sh](https://skills.sh) source, so the same tree can 
 without cloning:
 
 ```bash
-npx skills add Ozzeron/prompt-pack          # pick skills in the prompt
-npx skills add Ozzeron/prompt-pack --all    # every skill, every detected agent
-npx skills update                           # later
+npx skills add Ozzeron/prompt-pack --copy          # pick skills in the prompt
+npx skills add Ozzeron/prompt-pack --all --copy    # every skill, every detected agent
+npx skills update                                  # later
 ```
 
 It finds all 23 skills, copies `references/` with them, and records source and content hash
-per skill in `skills-lock.json`. Two differences from `--target agents`, verified on the
-v0.5.0 tree:
+per skill in `skills-lock.json`. Three differences from `--target agents`, verified against
+CLI 1.5.25 on the v0.5.0 tree:
+
+- **Pass `--copy`, or the install exists only as links.** By default the CLI writes real
+  directories under `.agents/skills/` and links every other host's directory to that one:
+  `fs.symlink` with an absolute target and type `junction` on Windows, and a *relative*
+  target everywhere else. The relative form is computed against the resolved real path of
+  the link's parent, so it depends on the link resolving the same way the host walks the
+  tree. Where that does not hold, or where a host does not follow a symlinked skill
+  directory, the skill names appear with nothing behind them. `--copy` writes real files
+  into every host directory and removes the question. Reported on macOS, 2026-09-11.
 
 - **`meta/task-router` is included.** The installer filters it out of native targets because
   hosts route by description; `npx skills` has no such filter. Remove it with

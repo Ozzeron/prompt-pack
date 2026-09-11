@@ -6,6 +6,11 @@ is the condensed history.
 
 ## Unreleased
 
+- Docs: `npx skills add` is documented with `--copy`. Without it the CLI writes real files
+  only under `.agents/skills/` and links each other host's skill directory to that one
+  (absolute-target junction on Windows, relative symlink elsewhere); where the link is not
+  resolved, the skills list by name with nothing behind them. Reported from macOS on
+  2026-09-11 as "installed but empty".
 - Docs: the repo is a working [skills.sh](https://skills.sh) source. `npx skills add
   Ozzeron/prompt-pack` is documented as the no-clone path for Cursor / Codex / Copilot /
   OpenClaw, with the two verified differences from `--target agents` (task-router included,
