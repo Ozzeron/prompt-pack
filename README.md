@@ -184,15 +184,27 @@ The repo is a valid [skills.sh](https://skills.sh) source. One command writes th
 `skills-lock.json`:
 
 ```bash
-npx skills add Ozzeron/prompt-pack --copy
+npx skills add Ozzeron/prompt-pack --all --copy
 ```
 
-Pick skills in the prompt, or take everything with `--all`.
+Then check what landed, because the CLI can report success on an install that is only
+directories:
 
-**Keep `--copy`.** Without it the CLI writes real files only under `.agents/skills/` and
-links every other host's skill directory to that one. A host that does not resolve the link
-lists the skill names with nothing behind them, which reads as a broken install. `--copy`
-writes real files into each host directory instead.
+```bash
+wc -c .agents/skills/*/SKILL.md | tail -3
+```
+
+**Why `--all`.** Without it the CLI opens an interactive picker. This repo ships a
+`.claude-plugin/marketplace.json`, and the CLI groups picker rows by plugin when it finds
+one, and a grouped row prints the skill name alone: the description moves to a one-line
+footer shown only for the highlighted row, and the cursor starts on "Select All". The first
+screen is a bare column of names, which reads as a list of empty skills. Leaving that prompt
+installs nothing.
+
+**Why `--copy`.** It writes real files into each host's skill directory. By default only
+`.agents/skills/` gets real files and every other host directory is a link to it. That is a
+supported design and the CLI falls back to copying when a link cannot be created, but some
+hosts have open bugs about not discovering skills inside a linked directory.
 
 Two more differences from the installer's `agents` target: `npx skills` also ships
 `meta/task-router` (drop it with `npx skills remove task-router`; native hosts route by
