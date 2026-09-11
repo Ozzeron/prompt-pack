@@ -232,23 +232,42 @@ The repo is a valid [skills.sh](https://skills.sh) source, so the same tree can 
 without cloning:
 
 ```bash
-npx skills add Ozzeron/prompt-pack --copy          # pick skills in the prompt
 npx skills add Ozzeron/prompt-pack --all --copy    # every skill, every detected agent
+wc -c .agents/skills/*/SKILL.md | tail -3          # confirm content, not just directories
 npx skills update                                  # later
 ```
 
 It finds all 23 skills, copies `references/` with them, and records source and content hash
-per skill in `skills-lock.json`. Three differences from `--target agents`, verified against
-CLI 1.5.25 on the v0.5.0 tree:
+per skill in `skills-lock.json`. Four things to know, all traced in CLI 1.5.25 against the
+v0.5.0 tree:
 
-- **Pass `--copy`, or the install exists only as links.** By default the CLI writes real
-  directories under `.agents/skills/` and links every other host's directory to that one:
-  `fs.symlink` with an absolute target and type `junction` on Windows, and a *relative*
-  target everywhere else. The relative form is computed against the resolved real path of
-  the link's parent, so it depends on the link resolving the same way the host walks the
-  tree. Where that does not hold, or where a host does not follow a symlinked skill
-  directory, the skill names appear with nothing behind them. `--copy` writes real files
-  into every host directory and removes the question. Reported on macOS, 2026-09-11.
+- **Pass `--all` unless you mean to choose.** Without `--all`, `--yes` or `--skill`, the CLI
+  opens a multi-select picker. Picker rows carry the description in a `hint` field, but the
+  repo path sets `detail` instead, so a row prints the skill name alone and the description
+  appears as a one-line footer for the highlighted row only. This repo ships a
+  `.claude-plugin/marketplace.json`, so the CLI also groups the rows (`getPluginGroupings`
+  maps each skill to the last plugin that lists it, which is `all-skills` for 22 of the 23),
+  and grouping disables the search box. The first screen is a bare alphabetical column of 22
+  names. It reads as a list of empty skills, and leaving the prompt installs nothing. A
+  single-skill install (`--skill <name>`) skips the picker entirely and prints the
+  description, which is why one-skill installs from other repos look so different.
+
+- **Check the result, do not trust the tick.** `copyDirectory` runs
+  `mkdir(dest, { recursive: true })` before it reads the source directory, and
+  `installSkillForAgent` returns `success: true` regardless of how many entries came back.
+  A fetch that comes back short therefore leaves skill directories that exist and are empty,
+  reported as installed. This repo always takes the clone path: the CLI's in-memory fetch,
+  which refuses to install a skill unless every blob under it is present
+  (`hasCompleteNestedSnapshot`), is reserved for a hard-coded owner allowlist
+  (`BLOB_ALLOWED_OWNERS`: `vercel`, `vercel-labs`, `heygen-com`). One `wc -c` after the
+  install closes the gap.
+
+- **`--copy` writes files instead of links.** By default only `.agents/skills/` holds real
+  files and every other host directory is a link to it: `fs.symlink` with an absolute target
+  and type `junction` on Windows, a relative target elsewhere. There is exactly one platform
+  fork in the CLI, and a failed link falls back to copying with a printed warning, so links
+  are not a silent failure mode. `--copy` still avoids the open host-side bugs about
+  discovering skills inside a linked directory.
 
 - **`meta/task-router` is included.** The installer filters it out of native targets because
   hosts route by description; `npx skills` has no such filter. Remove it with
